@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from django.db.models import Q
@@ -41,7 +42,7 @@ from .permissions import (
 # ─── Public / Web Views ────────────────────────────────────────────
 
 def home(request):
-    return render(request, 'home.html')
+    return JsonResponse({'status': 'running'})
 
 
 # ─── Auth API Views ────────────────────────────────────────────────

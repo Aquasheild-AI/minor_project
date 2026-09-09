@@ -16,8 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from aquacare import views
 
 urlpatterns = [
+    path('', views.home, name='home'),
     path('admin/', admin.site.urls),
+    path('alert', views.alerts_list_create, name='root-alerts'),
+    path('alert/', views.alerts_list_create, name='root-alerts-slash'),
     path('api/', include('aquacare.urls')),
 ]

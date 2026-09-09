@@ -1,51 +1,49 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Activity, Mail, Lock, Eye, EyeOff, ShieldCheck, UserCog, HeartPulse, Users } from 'lucide-react';
-import { useAuth, type UserRole } from '@/hooks/useAuth';
-
-const roleLabels: Record<UserRole, string> = {
-  admin: 'Admin / Authority',
-  worker: 'Health Worker',
-  community: 'Community User',
-};
-
-const roleAccessText: Record<UserRole, string> = {
-  admin: 'Authorized Administrator Access',
-  worker: 'Authorized Health Worker Access',
-  community: 'Authorized Community Access',
-};
+import { useNavigate, Link } from 'react-router-dom';
+import { Activity, User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const { login, user, loading: authLoading } = useAuth();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('community');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // If already logged in, redirect
+  if (!authLoading && user) {
+    const dest =
+      user.role === 'admin'
+        ? '/dashboard'
+        : user.role === 'worker'
+          ? '/worker/dashboard'
+          : '/community/home';
+    navigate(dest, { replace: true });
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !password) {
-      setError('Please enter your email and password.');
+    if (!username || !password) {
+      setError('Please enter your username and password.');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      login(role);
+    try {
+      await login(username, password);
+      // useAuth sets the user, which triggers the redirect above on re-render.
+      // But we can also navigate explicitly here based on the user's role.
+      // The role isn't available yet in this scope, so we rely on re-render.
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
       setLoading(false);
-      navigate(role === 'admin' ? '/dashboard' : role === 'worker' ? '/worker/dashboard' : '/community/home');
-    }, 600);
+    }
   };
-
-  const roleButtons: { key: UserRole; icon: React.ElementType; label: string; desc: string }[] = [
-    { key: 'community', icon: Users, label: 'Community User', desc: 'View risk & report' },
-    { key: 'worker', icon: HeartPulse, label: 'Health Worker', desc: 'Field operations' },
-    { key: 'admin', icon: UserCog, label: 'Admin / Authority', desc: 'System management' },
-  ];
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -56,7 +54,7 @@ export function LoginPage() {
             <Activity className="h-6 w-6 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold">Surveillance & Early Warning</p>
+            <p className="text-lg font-bold">Surveillance &amp; Early Warning</p>
             <p className="text-sm text-primary-200">Water-Borne Disease Monitoring System</p>
           </div>
         </div>
@@ -93,54 +91,25 @@ export function LoginPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600">
                 <Activity className="h-5 w-5 text-white" />
               </div>
-              <p className="font-bold text-slate-900">Surveillance & Early Warning</p>
+              <p className="font-bold text-slate-900">Surveillance &amp; Early Warning</p>
             </div>
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900">Sign in to your account</h2>
           <p className="mt-1 text-sm text-slate-500">Access the disease surveillance system.</p>
 
-          {/* Role selector */}
-          <div className="mt-6">
-            <label className="label">Select Role</label>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-              {roleButtons.map((r) => {
-                const Icon = r.icon;
-                const active = role === r.key;
-                return (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => setRole(r.key)}
-                    className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors ${
-                      active
-                        ? 'border-primary-600 bg-primary-50 ring-2 ring-primary-500/20'
-                        : 'border-slate-300 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${active ? 'bg-primary-600' : 'bg-slate-100'}`}>
-                      <Icon className={active ? 'text-white' : 'text-slate-500'} style={{ width: 18, height: 18 }} />
-                    </div>
-                    <p className={`text-xs font-semibold ${active ? 'text-primary-700' : 'text-slate-700'}`}>{r.label}</p>
-                    <p className="text-[10px] text-slate-400">{r.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div>
-              <label className="label">Email Address</label>
+              <label className="label">Username</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@health.gov.in"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
                   className="input pl-10"
-                  autoComplete="email"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -177,23 +146,29 @@ export function LoginPage() {
                 />
                 Remember me
               </label>
-              <button type="button" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-                Forgot password?
-              </button>
             </div>
 
             {error && (
-              <div className="rounded-lg bg-risk-critical-bg px-3 py-2 text-sm text-risk-critical">{error}</div>
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 border border-red-200">
+                {error}
+              </div>
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Signing in...' : `Sign In as ${roleLabels[role]}`}
+              {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
 
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Don't have an account?{' '}
+            <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">
+              Create one
+            </Link>
+          </p>
+
           <p className="mt-8 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
             <Lock className="h-3 w-3" />
-            {roleAccessText[role]}
+            Secure Government Portal
           </p>
         </div>
       </div>

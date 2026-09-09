@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WorkerLayout } from '@/components/layout/WorkerLayout';
 import { CommunityLayout } from '@/components/layout/CommunityLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
+import { RegisterPage } from '@/features/auth/RegisterPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { HealthRecordsPage } from '@/features/health/HealthRecordsPage';
 import { AddHealthRecordPage } from '@/features/health/AddHealthRecordPage';
@@ -51,6 +52,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Admin / Authority routes */}
           <Route

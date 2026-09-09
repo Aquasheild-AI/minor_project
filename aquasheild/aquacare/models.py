@@ -353,7 +353,7 @@ class WaterQualityTest(models.Model):
         calc_wqi, calc_status = self.calculate_wqi_and_status()
         if self.wqi is None:
             self.wqi = calc_wqi
-        if not self.status:
+        if not self.status or self.status == 'GOOD' or not self.pk:
             self.status = calc_status
 
         super().save(*args, **kwargs)

@@ -62,6 +62,7 @@ class WaterQualityTestSerializer(serializers.ModelSerializer):
     water_source_name = serializers.CharField(source='water_source.name', read_only=True)
     village_name = serializers.CharField(source='village.name', read_only=True)
     tested_by_name = serializers.CharField(source='tested_by.get_full_name', read_only=True)
+    village = serializers.PrimaryKeyRelatedField(queryset=Village.objects.all(), required=False)
 
     class Meta:
         model = WaterQualityTest
@@ -72,7 +73,7 @@ class WaterQualityTestSerializer(serializers.ModelSerializer):
             'coliform_bacteria', 'e_coli_detected', 'chlorine_residual',
             'dissolved_oxygen', 'nitrate', 'wqi', 'status', 'notes', 'created_at'
         ]
-        read_only_fields = ['wqi', 'status', 'created_at']
+        read_only_fields = ['wqi', 'status', 'tested_by', 'created_at']
 
 
 # 5. Health Surveillance Case Record Serializer (Logged by Health Workers)
@@ -90,6 +91,7 @@ class HealthRecordSerializer(serializers.ModelSerializer):
             'status', 'date_of_onset', 'date_recorded',
             'suspected_water_source', 'treatment_administered', 'notes'
         ]
+        read_only_fields = ['recorded_by', 'date_recorded']
 
 
 # 6. Community Report Serializer (Citizen Issue Submissions)
@@ -106,7 +108,13 @@ class CommunityReportSerializer(serializers.ModelSerializer):
             'description', 'status', 'reviewed_by', 'review_notes',
             'reviewed_at', 'created_at'
         ]
-        read_only_fields = ['status', 'reviewed_by', 'review_notes', 'reviewed_at', 'created_at']
+        read_only_fields = ['citizen', 'status', 'reviewed_by', 'review_notes', 'reviewed_at', 'created_at']
+
+
+class CommunityReportReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommunityReport
+        fields = ['status', 'review_notes']
 
 
 # 7. AI/ML Risk Prediction Serializer
@@ -134,3 +142,33 @@ class AlertSerializer(serializers.ModelSerializer):
             'severity', 'alert_type', 'target_audience', 'action_required',
             'is_active', 'generated_by_ai', 'created_at', 'resolved_at'
         ]
+
+
+# 9. Detailed Village Serializer with nested relations
+class VillageDetailSerializer(serializers.ModelSerializer):
+    active_alerts_count = serializers.IntegerField(read_only=True)
+    recent_cases_count = serializers.IntegerField(read_only=True)
+    water_sources = WaterSourceSerializer(many=True, read_only=True)
+    active_alerts = serializers.SerializerMethodField()
+    latest_prediction = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Village
+        fields = [
+            'id', 'name', 'code', 'district', 'block', 'state', 'pincode',
+            'latitude', 'longitude', 'population', 'household_count',
+            'primary_water_source', 'risk_level', 'risk_score',
+            'active_alerts_count', 'recent_cases_count',
+            'water_sources', 'active_alerts', 'latest_prediction',
+            'created_at', 'updated_at'
+        ]
+
+    def get_active_alerts(self, obj):
+        alerts = obj.alerts.filter(is_active=True)
+        return AlertSerializer(alerts, many=True).data
+
+    def get_latest_prediction(self, obj):
+        pred = obj.risk_predictions.filter(is_latest=True).first()
+        if pred:
+            return RiskPredictionSerializer(pred).data
+        return None

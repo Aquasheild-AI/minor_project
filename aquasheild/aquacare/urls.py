@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import dataset_views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -24,6 +25,7 @@ urlpatterns = [
     # Water Sources & Water Quality endpoints
     path('water-sources/', views.water_sources_list_create, name='water-sources-list-create'),
     path('water-quality/', views.water_quality_list_create, name='water-quality-list-create'),
+    path('water-quality-dataset/', dataset_views.get_water_quality_dataset, name='water-quality-dataset'),
 
     # Health Surveillance Case Records (Strict RBAC: Health Workers & Authority only)
     path('health-records/', views.health_records_list_create, name='health-records-list-create'),

@@ -1,3 +1,4 @@
+import { authGet } from './authFetch';
 import {
   villages,
   healthRecords,
@@ -50,6 +51,14 @@ export const api = {
 
   // GET /api/water-quality
   getWaterQuality: (): Promise<WaterQualityRecord[]> => delay(waterQualityRecords),
+
+  getDatasetWaterQuality: async (params: Record<string, any>) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) searchParams.append(key, String(value));
+    });
+    return authGet(`/api/water-quality-dataset/?${searchParams.toString()}`);
+  },
   // POST /api/water-quality
   createWaterQuality: (record: Omit<WaterQualityRecord, 'id'>): Promise<WaterQualityRecord> =>
     delay({ ...record, id: `wq${Date.now()}` }),

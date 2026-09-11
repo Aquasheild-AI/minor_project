@@ -18,6 +18,7 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: any) => Promise<void>;
 }
 
 export interface RegisterData {
@@ -129,8 +130,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // ── Update Profile ────────────────────────────────────────────
+  const updateProfile = useCallback(async (updateData: any) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) throw new Error('Not authenticated');
+
+    const res = await fetch('/api/auth/me/', {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Token ${token}` 
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+
+    setUser(transformUser(data));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

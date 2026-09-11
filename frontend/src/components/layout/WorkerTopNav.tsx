@@ -14,13 +14,16 @@ interface WorkerTopNavProps {
 
 export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -98,16 +101,43 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
           )}
         </div>
 
-        <button onClick={() => { logout(); navigate('/'); }} className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-            {(user?.name || healthWorker.name).split(' ').map((n) => n[0]).join('').slice(0, 2)}
-          </div>
-          <div className="hidden text-left sm:block">
-            <p className="text-sm font-medium text-slate-900">{user?.name || healthWorker.name}</p>
-            <p className="text-xs text-slate-500">Health Worker</p>
-          </div>
-          <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
-        </button>
+        <div ref={profileRef} className="relative">
+          <button
+            onClick={() => setProfileOpen(!profileOpen)}
+            className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100"
+            aria-label="Open profile menu"
+            aria-expanded={profileOpen}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+              {(user?.name || user?.username || healthWorker.name).split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+            <div className="hidden text-left sm:block">
+              <p className="text-sm font-medium text-slate-900">{user?.name || user?.username || healthWorker.name}</p>
+              <p className="text-xs text-slate-500">Health Worker</p>
+            </div>
+            <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
+          </button>
+
+          {profileOpen && (
+            <div className="absolute right-0 top-12 w-48 card overflow-hidden py-1">
+              <button
+                onClick={() => { setProfileOpen(false); navigate('/worker/profile'); }}
+                className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+              >
+                My Profile
+              </button>
+              <button
+                onClick={async () => {
+                  await logout();
+                  navigate('/');
+                }}
+                className="block w-full border-t border-slate-100 px-4 py-2 text-left text-sm text-risk-critical hover:bg-risk-critical-bg"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

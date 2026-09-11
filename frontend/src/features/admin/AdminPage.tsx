@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
-import { authGet, authPost } from '@/services/authFetch';
+import { authGet, authPost, authPatch } from '@/services/authFetch';
 import type { User } from '@/types';
 
 interface DjangoUser {
@@ -58,7 +58,7 @@ export function AdminPage() {
         name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
         email: u.email || `${u.username}@system.local`,
         role: u.role === 'HEALTH_WORKER' ? 'Health Worker' : u.role === 'AUTHORITY' ? 'Authority' : 'Admin',
-        status: 'active',
+        status: u.is_active === false ? 'disabled' : 'active',
         lastLogin: new Date().toISOString(),
       }));
       setUsers(mappedUsers);
@@ -80,10 +80,15 @@ export function AdminPage() {
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: u.status === 'active' ? 'disabled' : 'active' } : u))
-    );
+  const toggleStatus = async (id: string) => {
+    try {
+      const updatedUser: DjangoUser = await authPatch(`/api/manage/users/${id}/toggle/`, {});
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, status: updatedUser.is_active === false ? 'disabled' : 'active' } : u))
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle user status');
+    }
   };
 
   const handleAdd = async () => {

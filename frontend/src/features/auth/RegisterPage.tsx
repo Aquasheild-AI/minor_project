@@ -129,23 +129,25 @@ export function RegisterPage() {
             {/* Name row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">First Name</label>
+                <label className="label">First Name *</label>
                 <input
                   type="text"
                   value={form.first_name}
                   onChange={set('first_name')}
                   placeholder="First name"
                   className="input"
+                  required
                 />
               </div>
               <div>
-                <label className="label">Last Name</label>
+                <label className="label">Last Name *</label>
                 <input
                   type="text"
                   value={form.last_name}
                   onChange={set('last_name')}
                   placeholder="Last name"
                   className="input"
+                  required
                 />
               </div>
             </div>
@@ -169,7 +171,7 @@ export function RegisterPage() {
 
             {/* Email */}
             <div>
-              <label className="label">Email</label>
+              <label className="label">Email *</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -179,13 +181,14 @@ export function RegisterPage() {
                   placeholder="name@example.com"
                   className="input pl-10"
                   autoComplete="email"
+                  required
                 />
               </div>
             </div>
 
             {/* Phone */}
             <div>
-              <label className="label">Phone</label>
+              <label className="label">Phone *</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -194,6 +197,7 @@ export function RegisterPage() {
                   onChange={set('phone')}
                   placeholder="+91 98765 43210"
                   className="input pl-10"
+                  required
                 />
               </div>
             </div>

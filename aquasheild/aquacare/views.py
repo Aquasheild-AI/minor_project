@@ -31,6 +31,7 @@ from .serializers import (
     CommunityReportReviewSerializer,
     RiskPredictionSerializer,
     AlertSerializer,
+    ProfileUpdateSerializer,
 )
 from .permissions import (
     IsAuthority,
@@ -98,9 +99,9 @@ def register_view(request):
     phone = data.get('phone', '').strip()
     village_id = data.get('village')
 
-    if not username or not password:
+    if not username or not password or not email or not first_name or not last_name or not phone:
         return Response(
-            {'error': 'Username and password are required.'},
+            {'error': 'All fields (username, email, password, first name, last name, phone) are required.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -156,15 +157,25 @@ def logout_view(request):
     return Response({'detail': 'Logged out successfully.'})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def me_view(request):
     """
     GET /api/auth/me/
-    Returns the currently authenticated user's profile.
+    PATCH /api/auth/me/
+    Returns or updates the currently authenticated user's profile.
     """
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    if request.method == 'GET':
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+    elif request.method == 'PATCH':
+        user = request.user
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer.save()
+        return Response(UserSerializer(user).data)
 
 
 # ─── User Management API Views ────────────────────────────────────
@@ -383,36 +394,17 @@ def manage_update_user(request, user_id):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    data = request.data
+    serializer = ProfileUpdateSerializer(target, data=request.data, partial=True, context={'request': request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    updated_target = serializer.save()
 
-    if 'first_name' in data:
-        target.first_name = data['first_name'].strip()
-    if 'last_name' in data:
-        target.last_name = data['last_name'].strip()
-    if 'email' in data:
-        new_email = data['email'].strip()
-        if new_email and new_email != target.email:
-            if User.objects.filter(email=new_email).exclude(id=target.id).exists():
-                return Response(
-                    {'error': 'A user with this email already exists.'},
-                    status=status.HTTP_409_CONFLICT,
-                )
-            target.email = new_email
-    if 'phone' in data:
-        target.phone = data['phone'].strip() or None
-    if 'organization' in data:
-        target.organization = data['organization'].strip() or None
+    if 'password' in request.data and request.data['password']:
+        updated_target.set_password(request.data['password'])
+        updated_target.save(update_fields=['password'])
 
-    if 'password' in data and data['password']:
-        target.set_password(data['password'])
-
-    if 'assigned_villages' in data and target.role == 'HEALTH_WORKER':
-        villages = Village.objects.filter(id__in=data['assigned_villages'])
-        target.assigned_villages.set(villages)
-
-    target.save()
-    serializer = UserSerializer(target)
-    return Response(serializer.data)
+    return Response(UserSerializer(updated_target).data)
 
 
 # ─── Villages & GIS Endpoints ─────────────────────────────────────

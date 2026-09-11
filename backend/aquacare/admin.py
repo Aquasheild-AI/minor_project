@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+# pyrefly: ignore [missing-import]
 from .models import (
     User,
     Village,

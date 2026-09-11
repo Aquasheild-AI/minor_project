@@ -54,7 +54,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'aquasheild.urls'
+ROOT_URLCONF = 'config.urls'
 import os
 TEMPLATES = [
     {
@@ -71,7 +71,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'aquasheild.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database

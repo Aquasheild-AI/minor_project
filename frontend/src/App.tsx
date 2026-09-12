@@ -45,6 +45,7 @@ import { CommunityAlerts } from '@/features/community/CommunityAlerts';
 import { CommunityAlertDetails } from '@/features/community/CommunityAlertDetails';
 import { CommunityVillageDetails } from '@/features/community/CommunityVillageDetails';
 import { CommunityProfile } from '@/features/community/CommunityProfile';
+import { CommunityChatbot } from '@/features/community/CommunityChatbot';
 
 export default function App() {
   return (
@@ -115,6 +116,7 @@ export default function App() {
             <Route path="/community/water-quality" element={<CommunityWaterQuality />} />
             <Route path="/community/report" element={<CommunityReportIssue />} />
             <Route path="/community/reports" element={<CommunityReports />} />
+            <Route path="/community/chat" element={<CommunityChatbot />} />
             <Route path="/community/risk-map" element={<CommunityRiskMap />} />
             <Route path="/community/villages/:id" element={<CommunityVillageDetails />} />
             <Route path="/community/trends" element={<CommunityTrends />} />

@@ -12,6 +12,7 @@ import {
   Activity,
   X,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { communityUser } from '@/data/communityData';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/community/water-quality', label: 'Water Quality', icon: Droplets },
   { to: '/community/report', label: 'Report Issue', icon: HeartPulse },
   { to: '/community/reports', label: 'My Reports', icon: FileText },
+  { to: '/community/chat', label: 'AI Health Assistant', icon: MessageSquare },
   { to: '/community/risk-map', label: 'Risk Map', icon: MapPin },
   { to: '/community/trends', label: 'Trends', icon: TrendingUp },
   { to: '/community/alerts', label: 'Alerts', icon: Bell },

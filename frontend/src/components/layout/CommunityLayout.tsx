@@ -10,6 +10,7 @@ const pageTitles: Record<string, string> = {
   '/community/water-quality': 'Water Quality',
   '/community/report': 'Report a Health Issue',
   '/community/reports': 'My Reports',
+  '/community/chat': 'AI Health Assistant',
   '/community/risk-map': 'Community Risk Map',
   '/community/trends': 'Community Health Trends',
   '/community/alerts': 'Community Alerts',

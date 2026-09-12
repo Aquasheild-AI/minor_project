@@ -1,0 +1,5 @@
+Django==5.2.11
+djangorestframework==3.16.1
+django-cors-headers==4.9.0
+google-genai==2.23.0
+python-dotenv==1.2.3

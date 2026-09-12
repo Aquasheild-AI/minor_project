@@ -1,0 +1,295 @@
+{
+  "metadata": {
+    "title": "AquaShield AI - Community Health Knowledge Base",
+    "version": "1.0.0",
+    "purpose": "Educational and symptom-guidance content for the community chatbot. This is not a diagnostic tool.",
+    "disclaimer": "Symptoms can have many causes. The chatbot must not diagnose a disease or replace a healthcare professional. For severe, rapidly worsening, or emergency symptoms, seek medical care immediately.",
+    "sources": [
+      {
+        "organization": "World Health Organization",
+        "topic": "Cholera",
+        "url": "https://www.who.int/en/news-room/fact-sheets/detail/cholera"
+      },
+      {
+        "organization": "World Health Organization",
+        "topic": "Hepatitis A",
+        "url": "https://www.who.int/news-room/fact-sheets/detail/hepatitis-a"
+      },
+      {
+        "organization": "World Health Organization",
+        "topic": "Hepatitis E",
+        "url": "https://www.who.int/en/news-room/fact-sheets/detail/hepatitis-e"
+      },
+      {
+        "organization": "CDC",
+        "topic": "Typhoid Fever",
+        "url": "https://www.cdc.gov/typhoid-fever/about/index.html"
+      },
+      {
+        "organization": "CDC",
+        "topic": "Giardia",
+        "url": "https://www.cdc.gov/giardia/about/"
+      }
+    ]
+  },
+  "conditions": [
+    {
+      "id": "cholera",
+      "name": "Cholera",
+      "category": "bacterial_waterborne",
+      "description": "An acute diarrhoeal infection caused by consuming food or water contaminated with Vibrio cholerae.",
+      "common_symptoms": [
+        "acute watery diarrhoea",
+        "vomiting",
+        "dehydration"
+      ],
+      "water_connection": "Strongly associated with contaminated food or drinking water and inadequate water, sanitation and hygiene.",
+      "transmission": [
+        "contaminated drinking water",
+        "contaminated food",
+        "faecal contamination"
+      ],
+      "prevention": [
+        "Use safe drinking water.",
+        "Maintain good sanitation and hygiene.",
+        "Wash hands with soap and water.",
+        "Follow local public-health guidance during outbreaks."
+      ],
+      "urgent_warning_signs": [
+        "severe dehydration",
+        "rapidly worsening watery diarrhoea",
+        "inability to drink or keep fluids down",
+        "fainting or marked weakness"
+      ],
+      "chatbot_guidance": "Do not tell the user they have cholera from symptoms alone. Explain that acute watery diarrhoea and dehydration can have several causes and recommend prompt medical evaluation when symptoms are severe or worsening."
+    },
+    {
+      "id": "typhoid_fever",
+      "name": "Typhoid fever",
+      "category": "bacterial_water_foodborne",
+      "description": "A serious infection caused by Salmonella Typhi. It can spread when food or water is contaminated with faeces from an infected person or carrier.",
+      "common_symptoms": [
+        "fever",
+        "weakness",
+        "stomach pain",
+        "diarrhoea",
+        "constipation",
+        "headache"
+      ],
+      "water_connection": "Can spread through drinking water or food contaminated with faeces, especially where sanitation is inadequate.",
+      "transmission": [
+        "contaminated drinking water",
+        "contaminated food",
+        "food handled by someone who did not wash their hands"
+      ],
+      "prevention": [
+        "Practice safe food and drinking-water habits.",
+        "Wash hands with soap and water.",
+        "Use appropriately treated drinking water.",
+        "Follow vaccination advice from qualified healthcare professionals."
+      ],
+      "urgent_warning_signs": [
+        "persistent or high fever with significant illness",
+        "severe weakness",
+        "worsening symptoms"
+      ],
+      "chatbot_guidance": "Fever and gastrointestinal symptoms can occur in many illnesses. The chatbot should describe typhoid as one possible association rather than diagnosing it."
+    },
+    {
+      "id": "hepatitis_a",
+      "name": "Hepatitis A",
+      "category": "viral_water_foodborne",
+      "description": "An inflammation of the liver caused by hepatitis A virus.",
+      "common_symptoms": [
+        "fever",
+        "reduced appetite",
+        "nausea",
+        "vomiting",
+        "abdominal discomfort",
+        "dark urine",
+        "pale stools",
+        "jaundice"
+      ],
+      "water_connection": "The virus can spread through ingestion of contaminated food or water. Risk is associated with unsafe water, poor sanitation and poor hygiene.",
+      "transmission": [
+        "contaminated food",
+        "contaminated drinking water",
+        "faecal-oral transmission",
+        "direct contact with an infectious person"
+      ],
+      "prevention": [
+        "Use safe drinking water.",
+        "Maintain sanitation and hygiene.",
+        "Wash hands carefully after using the toilet and before preparing food.",
+        "Vaccination can prevent hepatitis A."
+      ],
+      "urgent_warning_signs": [
+        "yellowing of skin or eyes",
+        "marked worsening illness",
+        "symptoms suggesting severe liver illness"
+      ],
+      "chatbot_guidance": "Jaundice and digestive symptoms require proper medical assessment. Do not infer hepatitis A solely from symptoms."
+    },
+    {
+      "id": "hepatitis_e",
+      "name": "Hepatitis E",
+      "category": "viral_waterborne",
+      "description": "An inflammation of the liver caused by hepatitis E virus.",
+      "common_symptoms": [
+        "mild fever",
+        "reduced appetite",
+        "nausea",
+        "vomiting",
+        "abdominal pain",
+        "itching",
+        "skin rash",
+        "jaundice",
+        "dark urine",
+        "pale stools"
+      ],
+      "water_connection": "Primarily transmitted through the faecal-oral route, principally through contaminated drinking water.",
+      "transmission": [
+        "contaminated drinking water",
+        "faecal-oral transmission"
+      ],
+      "prevention": [
+        "Use safe drinking water.",
+        "Maintain sanitation and hygiene.",
+        "Avoid drinking water that may be contaminated.",
+        "Follow public-health guidance during outbreaks."
+      ],
+      "urgent_warning_signs": [
+        "jaundice with significant illness",
+        "severe or rapidly worsening symptoms",
+        "pregnancy with suspected hepatitis E symptoms"
+      ],
+      "chatbot_guidance": "Symptoms can overlap with other liver and infectious diseases. The chatbot must not diagnose hepatitis E. Suspected cases need professional assessment, with particular caution during pregnancy."
+    },
+    {
+      "id": "acute_diarrhoeal_disease",
+      "name": "Acute diarrhoeal disease",
+      "category": "syndrome",
+      "description": "Diarrhoea can result from many bacterial, viral and parasitic infections and from other causes. It is a symptom or syndrome rather than one specific disease.",
+      "common_symptoms": [
+        "loose or watery stools",
+        "abdominal cramps",
+        "nausea",
+        "vomiting",
+        "fever",
+        "weakness"
+      ],
+      "water_connection": "Unsafe drinking water, inadequate sanitation and poor hygiene can contribute to infectious diarrhoeal disease.",
+      "transmission": [
+        "contaminated food",
+        "contaminated drinking water",
+        "faecal-oral transmission"
+      ],
+      "prevention": [
+        "Use safe drinking water.",
+        "Wash hands with soap and water.",
+        "Practice food hygiene.",
+        "Use sanitation facilities properly."
+      ],
+      "urgent_warning_signs": [
+        "signs of dehydration",
+        "blood in stool",
+        "persistent vomiting",
+        "severe or worsening illness",
+        "inability to drink enough fluids"
+      ],
+      "chatbot_guidance": "Do not map diarrhoea directly to one disease. Ask about duration, severity, fever, blood in stool, vomiting, hydration and possible contaminated-water exposure."
+    },
+    {
+      "id": "giardiasis",
+      "name": "Giardiasis",
+      "category": "parasitic_water_foodborne",
+      "description": "An intestinal infection caused by Giardia. It can spread through contaminated water, food, surfaces or objects.",
+      "common_symptoms": [
+        "diarrhoea",
+        "abdominal discomfort",
+        "nausea",
+        "weakness"
+      ],
+      "water_connection": "Exposure can occur after swallowing contaminated water, including untreated water from lakes, rivers, springs or shallow wells.",
+      "transmission": [
+        "contaminated drinking water",
+        "contaminated food",
+        "person-to-person spread",
+        "contaminated surfaces or objects"
+      ],
+      "prevention": [
+        "Wash hands with soap and water.",
+        "Avoid drinking untreated water.",
+        "Boil or appropriately treat potentially contaminated water.",
+        "Avoid swallowing recreational water."
+      ],
+      "urgent_warning_signs": [
+        "significant dehydration",
+        "persistent diarrhoea",
+        "worsening illness"
+      ],
+      "chatbot_guidance": "Diarrhoea has many possible causes. Giardia should be presented only as one possible cause when exposure history is compatible. A healthcare provider may use stool testing for diagnosis."
+    }
+  ],
+  "symptom_matching_rules": {
+    "purpose": "Educational association only; never diagnostic.",
+    "rules": [
+      {
+        "symptoms": [
+          "watery diarrhoea",
+          "vomiting",
+          "dehydration"
+        ],
+        "possible_conditions": [
+          "cholera",
+          "acute_diarrhoeal_disease"
+        ],
+        "note": "Symptoms alone cannot confirm the cause."
+      },
+      {
+        "symptoms": [
+          "fever",
+          "diarrhoea",
+          "stomach pain"
+        ],
+        "possible_conditions": [
+          "typhoid_fever",
+          "acute_diarrhoeal_disease"
+        ],
+        "note": "Several infections can cause this combination."
+      },
+      {
+        "symptoms": [
+          "jaundice",
+          "dark urine",
+          "nausea"
+        ],
+        "possible_conditions": [
+          "hepatitis_a",
+          "hepatitis_e"
+        ],
+        "note": "Jaundice requires appropriate medical assessment."
+      },
+      {
+        "symptoms": [
+          "diarrhoea",
+          "untreated_water_exposure"
+        ],
+        "possible_conditions": [
+          "giardiasis",
+          "acute_diarrhoeal_disease"
+        ],
+        "note": "Exposure history can help guide questions but cannot establish a diagnosis."
+      }
+    ]
+  },
+  "global_safety_rules": [
+    "Never state or imply that symptoms confirm a disease.",
+    "Use wording such as 'may be associated with' or 'can occur with'.",
+    "Ask about duration, severity, hydration, blood in stool, fever and relevant water/food exposure when appropriate.",
+    "Recommend professional medical evaluation when symptoms are severe, persistent, worsening, or concerning.",
+    "For emergency symptoms, advise immediate emergency medical care.",
+    "Do not recommend prescription medicines or antibiotics without a qualified clinician.",
+    "Keep medical education separate from the project's outbreak-risk score."
+  ]
+}

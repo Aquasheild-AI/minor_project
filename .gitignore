@@ -17,7 +17,7 @@ staticfiles/
 venv/
 env/
 .venv/
-aquasheild/data/*.csv
+backend/data/*.csv
 
 # Node / React (Frontend)
 frontend/node_modules/

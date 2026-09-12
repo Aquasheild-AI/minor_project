@@ -24,4 +24,5 @@ urlpatterns = [
     path('alert', views.alerts_list_create, name='root-alerts'),
     path('alert/', views.alerts_list_create, name='root-alerts-slash'),
     path('api/', include('aquacare.urls')),
+    path('api/chatbot/', include('chatbot.urls')),
 ]

@@ -6,7 +6,8 @@ from .models import (
     WaterQualityTest,
     HealthRecord,
     CommunityReport,
-    RiskPrediction,
+    WaterRiskPrediction,
+    DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement
 )
@@ -54,6 +55,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 class VillageSerializer(serializers.ModelSerializer):
     active_alerts_count = serializers.IntegerField(read_only=True)
     recent_cases_count = serializers.IntegerField(read_only=True)
+    risk_level = serializers.SerializerMethodField()
+    risk_score = serializers.SerializerMethodField()
 
     class Meta:
         model = Village
@@ -63,6 +66,24 @@ class VillageSerializer(serializers.ModelSerializer):
             'primary_water_source', 'risk_level', 'risk_score',
             'active_alerts_count', 'recent_cases_count', 'created_at', 'updated_at'
         ]
+
+    def _get_latest_prediction(self, obj):
+        if not hasattr(obj, '_cached_latest_prediction'):
+            if hasattr(obj, '_prefetched_objects_cache') and 'water_risk_predictions' in getattr(obj, '_prefetched_objects_cache', {}):
+                preds = obj.water_risk_predictions.all()
+                latest = [p for p in preds if p.is_latest]
+                obj._cached_latest_prediction = latest[0] if latest else None
+            else:
+                obj._cached_latest_prediction = obj.water_risk_predictions.filter(is_latest=True).first()
+        return obj._cached_latest_prediction
+
+    def get_risk_level(self, obj):
+        pred = self._get_latest_prediction(obj)
+        return pred.risk_level if pred else 'LOW'
+
+    def get_risk_score(self, obj):
+        pred = self._get_latest_prediction(obj)
+        return pred.risk_score if pred else 0.0
 
 
 # 3. Water Source Serializer (Wells, Handpumps, Taps)
@@ -141,14 +162,25 @@ class CommunityReportReviewSerializer(serializers.ModelSerializer):
         fields = ['status', 'review_notes']
 
 
-# 7. AI/ML Risk Prediction Serializer
-class RiskPredictionSerializer(serializers.ModelSerializer):
+# 7. AI/ML Risk Prediction Serializers
+class WaterRiskPredictionSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
 
     class Meta:
-        model = RiskPrediction
+        model = WaterRiskPrediction
         fields = [
             'id', 'village', 'village_name', 'prediction_date',
+            'risk_score', 'risk_level', 'contributing_factors',
+            'plain_language_explanation', 'recommended_actions',
+            'model_name', 'is_latest', 'created_at'
+        ]
+
+
+class DiseaseRiskPredictionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiseaseRiskPrediction
+        fields = [
+            'id', 'district', 'prediction_date',
             'risk_score', 'risk_level', 'outbreak_probability', 'predicted_disease',
             'contributing_factors', 'plain_language_explanation',
             'recommended_actions', 'model_name', 'is_latest', 'created_at'
@@ -175,6 +207,8 @@ class VillageDetailSerializer(serializers.ModelSerializer):
     water_sources = WaterSourceSerializer(many=True, read_only=True)
     active_alerts = serializers.SerializerMethodField()
     latest_prediction = serializers.SerializerMethodField()
+    risk_level = serializers.SerializerMethodField()
+    risk_score = serializers.SerializerMethodField()
 
     class Meta:
         model = Village
@@ -187,12 +221,30 @@ class VillageDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
 
+    def _get_latest_prediction(self, obj):
+        if not hasattr(obj, '_cached_latest_prediction'):
+            if hasattr(obj, '_prefetched_objects_cache') and 'water_risk_predictions' in getattr(obj, '_prefetched_objects_cache', {}):
+                preds = obj.water_risk_predictions.all()
+                latest = [p for p in preds if p.is_latest]
+                obj._cached_latest_prediction = latest[0] if latest else None
+            else:
+                obj._cached_latest_prediction = obj.water_risk_predictions.filter(is_latest=True).first()
+        return obj._cached_latest_prediction
+
     def get_active_alerts(self, obj):
         alerts = obj.alerts.filter(is_active=True)
         return AlertSerializer(alerts, many=True).data
 
     def get_latest_prediction(self, obj):
-        pred = obj.risk_predictions.filter(is_latest=True).first()
+        pred = self._get_latest_prediction(obj)
         if pred:
-            return RiskPredictionSerializer(pred).data
+            return WaterRiskPredictionSerializer(pred).data
         return None
+
+    def get_risk_level(self, obj):
+        pred = self._get_latest_prediction(obj)
+        return pred.risk_level if pred else 'LOW'
+
+    def get_risk_score(self, obj):
+        pred = self._get_latest_prediction(obj)
+        return pred.risk_score if pred else 0.0

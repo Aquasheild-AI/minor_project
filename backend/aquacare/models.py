@@ -109,18 +109,6 @@ class Village(models.Model):
         help_text="Primary drinking water source (e.g. Borewell, River, Municipal Tap, Handpump)"
     )
 
-    # AI Early Warning Risk Status
-    risk_level = models.CharField(
-        max_length=20,
-        choices=RISK_LEVEL_CHOICES,
-        default='LOW',
-        help_text="Current aggregated disease outbreak risk level"
-    )
-    risk_score = models.FloatField(
-        default=0.0,
-        help_text="Current ML calculated risk score from 0.0 (safest) to 100.0 (highest risk)"
-    )
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -130,11 +118,10 @@ class Village(models.Model):
         ordering = ['name']
         indexes = [
             models.Index(fields=['district', 'name']),
-            models.Index(fields=['risk_level']),
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.district}) - Risk: {self.risk_level}"
+        return f"{self.name} ({self.district})"
 
     @property
     def active_alerts_count(self):
@@ -585,10 +572,10 @@ class CommunityReport(models.Model):
         return f"Report #{self.id} - {self.village.name} ({self.people_affected} affected) - {self.status}"
 
 
-class RiskPrediction(models.Model):
+class WaterRiskPrediction(models.Model):
     """
-    Machine Learning early warning model output for villages.
-    Stores forecasted risk score, outbreak probability, contributing factors, and plain-language recommendations.
+    Module A - Water-quality-associated risk (village-level).
+    Stores forecasted water contamination risk score, contributing factors, and plain-language recommendations.
     """
     RISK_LEVEL_CHOICES = (
         ('LOW', 'Low Risk (0-30)'),
@@ -600,7 +587,7 @@ class RiskPrediction(models.Model):
     village = models.ForeignKey(
         Village,
         on_delete=models.CASCADE,
-        related_name='risk_predictions'
+        related_name='water_risk_predictions'
     )
     prediction_date = models.DateTimeField(default=timezone.now)
 
@@ -612,16 +599,7 @@ class RiskPrediction(models.Model):
         choices=RISK_LEVEL_CHOICES,
         default='LOW'
     )
-    outbreak_probability = models.FloatField(
-        default=0.0,
-        help_text="Predicted statistical probability of an outbreak within next 14 days (0.0 to 1.0)"
-    )
-    predicted_disease = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Most probable water-borne pathogen (e.g. Diarrhea, Cholera, Typhoid)"
-    )
+
 
     contributing_factors = models.JSONField(
         default=dict,
@@ -651,8 +629,8 @@ class RiskPrediction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Risk Prediction / Early Warning'
-        verbose_name_plural = 'Risk Predictions & Early Warnings'
+        verbose_name = 'Water Risk Prediction / Early Warning'
+        verbose_name_plural = 'Water Risk Predictions & Early Warnings'
         ordering = ['-prediction_date']
         indexes = [
             models.Index(fields=['village', 'is_latest']),
@@ -664,11 +642,64 @@ class RiskPrediction(models.Model):
 
     def save(self, *args, **kwargs):
         if self.is_latest and self.village_id:
-            RiskPrediction.objects.filter(village=self.village, is_latest=True).exclude(pk=self.pk).update(is_latest=False)
-            self.village.risk_score = self.risk_score
-            self.village.risk_level = self.risk_level
-            self.village.save(update_fields=['risk_score', 'risk_level', 'updated_at'])
+            WaterRiskPrediction.objects.filter(village=self.village, is_latest=True).exclude(pk=self.pk).update(is_latest=False)
+        super().save(*args, **kwargs)
 
+
+class DiseaseRiskPrediction(models.Model):
+    """
+    Module B - Regional disease activity/outbreak risk (district-level).
+    """
+    RISK_LEVEL_CHOICES = (
+        ('LOW', 'Low Risk (0-30)'),
+        ('MEDIUM', 'Medium Risk (31-60)'),
+        ('HIGH', 'High Risk (61-80)'),
+        ('CRITICAL', 'Critical Outbreak Risk (81-100)'),
+    )
+
+    district = models.CharField(max_length=100, db_index=True)
+    prediction_date = models.DateTimeField(default=timezone.now)
+
+    risk_score = models.FloatField(
+        help_text="Calculated continuous risk score (0.0 to 100.0)"
+    )
+    risk_level = models.CharField(
+        max_length=20,
+        choices=RISK_LEVEL_CHOICES,
+        default='LOW'
+    )
+    outbreak_probability = models.FloatField(
+        default=0.0,
+        help_text="Predicted statistical probability of an outbreak within next 14 days (0.0 to 1.0)"
+    )
+    predicted_disease = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Most probable water-borne pathogen (e.g. Diarrhea, Cholera, Typhoid)"
+    )
+    contributing_factors = models.JSONField(default=dict)
+    plain_language_explanation = models.TextField(blank=True, null=True)
+    recommended_actions = models.JSONField(default=list)
+    model_name = models.CharField(max_length=100, default='Disease-Ensemble-v1')
+    is_latest = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Disease Risk Prediction'
+        verbose_name_plural = 'Disease Risk Predictions'
+        ordering = ['-prediction_date']
+        indexes = [
+            models.Index(fields=['district', 'is_latest']),
+            models.Index(fields=['risk_level']),
+        ]
+
+    def __str__(self):
+        return f"{self.district}: {self.risk_score:.1f} ({self.risk_level}) on {self.prediction_date.strftime('%Y-%m-%d')}"
+
+    def save(self, *args, **kwargs):
+        if self.is_latest and self.district:
+            DiseaseRiskPrediction.objects.filter(district=self.district, is_latest=True).exclude(pk=self.pk).update(is_latest=False)
         super().save(*args, **kwargs)
 
 
@@ -736,8 +767,15 @@ class Alert(models.Model):
         default=False,
         help_text="True if automatically generated by ML Risk Prediction threshold breach"
     )
-    related_prediction = models.ForeignKey(
-        RiskPrediction,
+    related_water_prediction = models.ForeignKey(
+        WaterRiskPrediction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_alerts'
+    )
+    related_disease_prediction = models.ForeignKey(
+        DiseaseRiskPrediction,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

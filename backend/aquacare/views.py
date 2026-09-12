@@ -16,7 +16,8 @@ from .models import (
     WaterQualityTest,
     HealthRecord,
     CommunityReport,
-    RiskPrediction,
+    WaterRiskPrediction,
+    DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement,
 )
@@ -29,7 +30,8 @@ from .serializers import (
     HealthRecordSerializer,
     CommunityReportSerializer,
     CommunityReportReviewSerializer,
-    RiskPredictionSerializer,
+    WaterRiskPredictionSerializer,
+    DiseaseRiskPredictionSerializer,
     AlertSerializer,
     ProfileUpdateSerializer,
 )
@@ -817,9 +819,9 @@ def dashboard_stats(request):
 
     data = {
         'total_villages': villages_qs.count(),
-        'high_risk_villages': villages_qs.filter(risk_level__in=['HIGH', 'CRITICAL']).count(),
-        'medium_risk_villages': villages_qs.filter(risk_level='MEDIUM').count(),
-        'low_risk_villages': villages_qs.filter(risk_level='LOW').count(),
+        'high_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level__in=['HIGH', 'CRITICAL']).count(),
+        'medium_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level='MEDIUM').count(),
+        'low_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level='LOW').count(),
         'total_water_sources': water_sources_qs.count(),
         'safe_water_sources': water_sources_qs.filter(status='SAFE').count(),
         'contaminated_water_sources': water_sources_qs.filter(status='CONTAMINATED').count(),

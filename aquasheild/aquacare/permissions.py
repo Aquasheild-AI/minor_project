@@ -41,9 +41,12 @@ class IsCommunity(BasePermission):
 def has_village_access(user, village):
     """
     Determines if a user has jurisdiction / editing permission for a specific village:
-    - AUTHORITY: Full jurisdiction across all villages.
+    - AUTHORITY:
+        - If authority is designated to specific district(s) or supervised villages:
+          checks if village is in those supervised units.
+        - If unassigned / overarching admin: full jurisdiction across all villages.
     - HEALTH_WORKER:
-        - If assigned to specific villages: must be in assigned_villages.
+        - If assigned to specific villages: must be the assigned worker (village.assigned_worker_id == user.id).
         - If no assigned villages yet: general field jurisdiction.
     - COMMUNITY: Read access for their own village only; no clinical edit access.
     """
@@ -51,11 +54,20 @@ def has_village_access(user, village):
         return False
 
     if user.role == 'AUTHORITY':
+        has_supervised = user.supervised_villages.exists()
+        has_districts = hasattr(user, 'supervised_districts') and user.supervised_districts.exists()
+        if has_supervised or has_districts:
+            return (
+                village.authority_id == user.id or
+                (village.district and village.district.authority_id == user.id) or
+                user.supervised_villages.filter(id=village.id).exists()
+            )
         return True
 
     if user.role == 'HEALTH_WORKER':
         if not user.assigned_villages.exists():
             return True
-        return user.assigned_villages.filter(id=village.id).exists()
+        return village.assigned_worker_id == user.id
 
     return False
+

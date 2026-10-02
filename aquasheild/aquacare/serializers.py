@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (
     User,
+    District,
     Village,
     WaterSource,
     WaterQualityTest,
@@ -15,28 +16,91 @@ from .models import (
 # 1. User & Auth Serializer
 class UserSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
+    assigned_villages = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    supervised_villages = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'phone', 'organization', 'village', 'village_name',
-            'assigned_villages', 'preferred_language', 'notification_alerts'
+            'assigned_villages', 'supervised_villages', 'preferred_language',
+            'notification_alerts', 'is_active'
         ]
         read_only_fields = ['id']
 
 
-# 2. Village Serializer (used by Dashboard & GIS Leaflet Map)
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    assigned_villages = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Village.objects.all(),
+        required=False
+    )
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'phone', 'organization', 'password', 'assigned_villages']
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False},
+            'email': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'phone': {'required': False},
+            'organization': {'required': False},
+        }
+
+    def validate_email(self, value):
+        if not value:
+            return value
+        # Ensure email is unique, excluding the current instance being updated
+        user_id = getattr(self.instance, 'id', None)
+        if User.objects.filter(email=value).exclude(id=user_id).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+    def update(self, instance, validated_data):
+        villages = validated_data.pop('assigned_villages', None)
+        user = super().update(instance, validated_data)
+        if villages is not None:
+            user.assigned_villages.set(villages)
+        return user
+
+
+# 2. District Serializer (5-10 monitored administrative units)
+class DistrictSerializer(serializers.ModelSerializer):
+    authority_name = serializers.CharField(source='authority.get_full_name', read_only=True)
+    villages_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = District
+        fields = [
+            'id', 'name', 'code', 'state', 'authority', 'authority_name',
+            'villages_count', 'created_at', 'updated_at'
+        ]
+
+
+# 3. Village Serializer (used by Dashboard & GIS Leaflet Map)
 class VillageSerializer(serializers.ModelSerializer):
+    district = serializers.CharField(source='district.name', read_only=True)
+    district_id = serializers.PrimaryKeyRelatedField(
+        source='district',
+        queryset=District.objects.all(),
+        required=False,
+        write_only=True
+    )
+    assigned_worker_name = serializers.CharField(source='assigned_worker.get_full_name', read_only=True)
+    authority_name = serializers.CharField(source='authority.get_full_name', read_only=True)
     active_alerts_count = serializers.IntegerField(read_only=True)
     recent_cases_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Village
         fields = [
-            'id', 'name', 'code', 'district', 'block', 'state', 'pincode',
+            'id', 'name', 'code', 'district', 'district_id', 'block', 'state', 'pincode',
             'latitude', 'longitude', 'population', 'household_count',
             'primary_water_source', 'risk_level', 'risk_score',
+            'authority', 'authority_name',
+            'assigned_worker', 'assigned_worker_name',
             'active_alerts_count', 'recent_cases_count', 'created_at', 'updated_at'
         ]
 
@@ -146,6 +210,15 @@ class AlertSerializer(serializers.ModelSerializer):
 
 # 9. Detailed Village Serializer with nested relations
 class VillageDetailSerializer(serializers.ModelSerializer):
+    district = serializers.CharField(source='district.name', read_only=True)
+    district_id = serializers.PrimaryKeyRelatedField(
+        source='district',
+        queryset=District.objects.all(),
+        required=False,
+        write_only=True
+    )
+    assigned_worker_name = serializers.CharField(source='assigned_worker.get_full_name', read_only=True)
+    authority_name = serializers.CharField(source='authority.get_full_name', read_only=True)
     active_alerts_count = serializers.IntegerField(read_only=True)
     recent_cases_count = serializers.IntegerField(read_only=True)
     water_sources = WaterSourceSerializer(many=True, read_only=True)
@@ -155,9 +228,11 @@ class VillageDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Village
         fields = [
-            'id', 'name', 'code', 'district', 'block', 'state', 'pincode',
+            'id', 'name', 'code', 'district', 'district_id', 'block', 'state', 'pincode',
             'latitude', 'longitude', 'population', 'household_count',
             'primary_water_source', 'risk_level', 'risk_score',
+            'assigned_worker', 'assigned_worker_name',
+            'authority', 'authority_name',
             'active_alerts_count', 'recent_cases_count',
             'water_sources', 'active_alerts', 'latest_prediction',
             'created_at', 'updated_at'

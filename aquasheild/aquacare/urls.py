@@ -17,6 +17,10 @@ urlpatterns = [
     path('manage/users/<int:user_id>/toggle/', views.manage_toggle_user, name='manage-toggle-user'),
     path('manage/users/<int:user_id>/', views.manage_update_user, name='manage-update-user'),
 
+    # Districts & Administrative Units
+    path('districts/', views.get_districts, name='districts-list'),
+    path('districts/<int:district_id>/', views.district_detail, name='district-detail'),
+
     # Village & GIS endpoints
     path('villages/', views.get_villages_for_gis_map, name='villages'),
     path('villages/<int:village_id>/', views.village_detail, name='village-detail'),

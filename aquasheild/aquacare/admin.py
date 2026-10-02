@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User,
+    District,
     Village,
     WaterSource,
     WaterQualityTest,
@@ -18,14 +19,14 @@ class UserAdmin(BaseUserAdmin):
     list_display = ('username', 'email', 'get_full_name', 'role', 'village', 'is_staff')
     list_filter = ('role', 'is_staff', 'is_superuser', 'is_active', 'preferred_language')
     search_fields = ('username', 'first_name', 'last_name', 'email', 'phone', 'organization')
-    filter_horizontal = ('assigned_villages', 'groups', 'user_permissions')
+    filter_horizontal = ('groups', 'user_permissions')
 
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Role & Organization', {
             'fields': ('role', 'phone', 'organization', 'address')
         }),
         ('Geographic Assignment', {
-            'fields': ('village', 'assigned_villages')
+            'fields': ('village',)
         }),
         ('Preferences', {
             'fields': ('preferred_language', 'notification_alerts')
@@ -39,12 +40,20 @@ class UserAdmin(BaseUserAdmin):
     )
 
 
+@admin.register(District)
+class DistrictAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'state', 'authority', 'villages_count', 'created_at')
+    list_filter = ('state',)
+    search_fields = ('name', 'code', 'authority__username', 'authority__first_name', 'authority__last_name')
+    ordering = ('name',)
+
+
 @admin.register(Village)
 class VillageAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'district', 'state', 'population', 'risk_level', 'risk_score', 'active_alerts_count')
+    list_display = ('name', 'code', 'district', 'authority', 'assigned_worker', 'state', 'population', 'risk_level', 'risk_score', 'active_alerts_count')
     list_filter = ('risk_level', 'district', 'state')
-    search_fields = ('name', 'code', 'district', 'block', 'pincode')
-    ordering = ('name',)
+    search_fields = ('name', 'code', 'district__name', 'assigned_worker__username', 'authority__username')
+    ordering = ('district', 'name')
     readonly_fields = ('created_at', 'updated_at')
 
 

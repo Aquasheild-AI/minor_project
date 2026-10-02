@@ -40,12 +40,6 @@ class User(AbstractUser):
         related_name='residents',
         help_text="Primary residential village for Community Users"
     )
-    assigned_villages = models.ManyToManyField(
-        'Village',
-        blank=True,
-        related_name='health_workers',
-        help_text="Villages assigned to this Health Worker for field surveillance"
-    )
 
     # Preferences
     preferred_language = models.CharField(
@@ -69,9 +63,44 @@ class User(AbstractUser):
         return f"{display} ({self.get_role_display()})"
 
 
+class District(models.Model):
+    """
+    Administrative District unit (5-10 monitored districts).
+    Each district contains 10-15 monitored villages and is overseen by a Health Authority.
+    """
+    name = models.CharField(max_length=100, unique=True, help_text="District name (e.g. Varanasi, Prayagraj)")
+    code = models.CharField(max_length=50, unique=True, help_text="Administrative district code (e.g. DIST-VAR)")
+    state = models.CharField(max_length=100, default='Uttar Pradesh')
+    authority = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_districts',
+        limit_choices_to={'role': 'AUTHORITY'},
+        help_text="Chief Health Authority assigned to oversee this district"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'District'
+        verbose_name_plural = 'Districts'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.state})"
+
+    @property
+    def villages_count(self):
+        return self.villages.count()
+
+
 class Village(models.Model):
     """
     Administrative and geographical unit monitored in GIS map and predictive surveillance.
+    Belongs to a District (5-10 total), overseen by an Authority (10-15 villages each),
+    and assigned to exactly one Field Health Worker (who may cover multiple villages).
     """
     RISK_LEVEL_CHOICES = (
         ('LOW', 'Low Risk'),
@@ -82,7 +111,30 @@ class Village(models.Model):
 
     name = models.CharField(max_length=150, help_text="Village or locality name")
     code = models.CharField(max_length=50, unique=True, help_text="Census / administrative village code")
-    district = models.CharField(max_length=100)
+    district = models.ForeignKey(
+        District,
+        on_delete=models.CASCADE,
+        related_name='villages',
+        help_text="District to which this village belongs (5-10 districts total)"
+    )
+    authority = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supervised_villages',
+        limit_choices_to={'role': 'AUTHORITY'},
+        help_text="Health Authority overseeing this village (10-15 villages per authority)"
+    )
+    assigned_worker = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_villages',
+        limit_choices_to={'role': 'HEALTH_WORKER'},
+        help_text="Field Health Worker assigned to this village (each village has exactly one worker; a worker can cover multiple villages)"
+    )
     block = models.CharField(max_length=100, blank=True, null=True, help_text="Sub-district / Block / Tehsil")
     state = models.CharField(max_length=100, default='State')
     pincode = models.CharField(max_length=10, blank=True, null=True)
@@ -134,7 +186,13 @@ class Village(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.district}) - Risk: {self.risk_level}"
+        district_name = self.district.name if self.district else 'No District'
+        return f"{self.name} ({district_name}) - Risk: {self.risk_level}"
+
+    def save(self, *args, **kwargs):
+        if not self.authority_id and self.district_id and getattr(self.district, 'authority_id', None):
+            self.authority = self.district.authority
+        super().save(*args, **kwargs)
 
     @property
     def active_alerts_count(self):

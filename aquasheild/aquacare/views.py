@@ -10,6 +10,7 @@ from rest_framework.authtoken.models import Token
 
 from .models import (
     User,
+    District,
     Village,
     WaterSource,
     WaterQualityTest,
@@ -21,6 +22,7 @@ from .models import (
 )
 from .serializers import (
     UserSerializer,
+    DistrictSerializer,
     VillageSerializer,
     VillageDetailSerializer,
     WaterSourceSerializer,
@@ -414,16 +416,49 @@ def manage_update_user(request, user_id):
     return Response(serializer.data)
 
 
+# ─── Districts & Administrative Units ─────────────────────────────
+
+@api_view(['GET'])
+def get_districts(request):
+    """
+    GET /api/districts/
+    Returns list of all monitored districts (5-10 administrative units) with authority and village counts.
+    """
+    districts = District.objects.select_related('authority').prefetch_related('villages').all()
+    serializer = DistrictSerializer(districts, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def district_detail(request, district_id):
+    """
+    GET /api/districts/<district_id>/
+    Returns district details along with its monitored villages.
+    """
+    district = get_object_or_404(District.objects.select_related('authority'), id=district_id)
+    villages = district.villages.select_related('assigned_worker', 'authority').all()
+    district_data = DistrictSerializer(district).data
+    district_data['villages'] = VillageSerializer(villages, many=True).data
+    return Response(district_data)
+
+
 # ─── Villages & GIS Endpoints ─────────────────────────────────────
 
 @api_view(['GET'])
 def get_villages_for_gis_map(request):
     """
-    GET /api/villages/
-    Returns list of all monitored villages.
+    GET /api/villages/?district_id=...&district=...
+    Returns list of monitored villages with optional district filtering.
     """
-    villages = Village.objects.all()
-    serializer = VillageSerializer(villages, many=True)
+    qs = Village.objects.select_related('district', 'assigned_worker', 'authority').all()
+    district_id = request.query_params.get('district_id')
+    district_name = request.query_params.get('district')
+    if district_id:
+        qs = qs.filter(district_id=district_id)
+    elif district_name:
+        qs = qs.filter(district__name__iexact=district_name)
+
+    serializer = VillageSerializer(qs, many=True)
     return Response(serializer.data)
 
 
@@ -433,7 +468,10 @@ def village_detail(request, village_id):
     GET /api/villages/<village_id>/
     Returns comprehensive village details including water sources and active alerts.
     """
-    village = get_object_or_404(Village, id=village_id)
+    village = get_object_or_404(
+        Village.objects.select_related('district', 'assigned_worker', 'authority'),
+        id=village_id
+    )
     serializer = VillageDetailSerializer(village)
     return Response(serializer.data)
 
@@ -809,8 +847,20 @@ def dashboard_stats(request):
     community_reports_qs = CommunityReport.objects.all()
     alerts_qs = Alert.objects.filter(is_active=True)
 
-    # Scoping for Health Worker with assigned villages
-    if user.role == 'HEALTH_WORKER' and user.assigned_villages.exists():
+    # Scoping by Role & Jurisdiction
+    if user.role == 'AUTHORITY':
+        has_supervised = user.supervised_villages.exists()
+        has_districts = hasattr(user, 'supervised_districts') and user.supervised_districts.exists()
+        if has_supervised or has_districts:
+            supervised = Village.objects.filter(
+                Q(authority=user) | Q(district__authority=user)
+            ).distinct()
+            villages_qs = villages_qs.filter(id__in=supervised)
+            water_sources_qs = water_sources_qs.filter(village__in=supervised)
+            health_records_qs = health_records_qs.filter(village__in=supervised)
+            community_reports_qs = community_reports_qs.filter(village__in=supervised)
+            alerts_qs = alerts_qs.filter(village__in=supervised)
+    elif user.role == 'HEALTH_WORKER' and user.assigned_villages.exists():
         assigned = user.assigned_villages.all()
         villages_qs = villages_qs.filter(id__in=assigned)
         water_sources_qs = water_sources_qs.filter(village__in=assigned)

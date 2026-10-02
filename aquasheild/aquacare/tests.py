@@ -6,6 +6,7 @@ from rest_framework.authtoken.models import Token
 
 from .models import (
     User,
+    District,
     Village,
     WaterSource,
     WaterQualityTest,
@@ -20,22 +21,11 @@ class AquaCareRBACTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        # Create sample villages
-        self.village_a = Village.objects.create(
-            name="Rampur",
-            code="RAM001",
-            district="Varanasi",
-            latitude=25.3176,
-            longitude=82.9739,
-            population=1500,
-        )
-        self.village_b = Village.objects.create(
-            name="Shivpur",
-            code="SHV002",
-            district="Varanasi",
-            latitude=25.3500,
-            longitude=82.9500,
-            population=2200,
+        # Create sample district
+        self.district = District.objects.create(
+            name="Varanasi",
+            code="VAR001",
+            state="Uttar Pradesh",
         )
 
         # Create users with different roles
@@ -47,6 +37,8 @@ class AquaCareRBACTestCase(TestCase):
             first_name="Dr. S.K.",
             last_name="Gupta",
         )
+        self.district.authority = self.authority
+        self.district.save()
         self.token_authority = Token.objects.create(user=self.authority).key
 
         self.worker = User.objects.create_user(
@@ -57,9 +49,28 @@ class AquaCareRBACTestCase(TestCase):
             first_name="Anita",
             last_name="Devi",
         )
-        # Assign worker to Village A only
-        self.worker.assigned_villages.add(self.village_a)
         self.token_worker = Token.objects.create(user=self.worker).key
+
+        # Create sample villages (Village A assigned to worker; Village B unassigned)
+        self.village_a = Village.objects.create(
+            name="Rampur",
+            code="RAM001",
+            district=self.district,
+            authority=self.authority,
+            assigned_worker=self.worker,
+            latitude=25.3176,
+            longitude=82.9739,
+            population=1500,
+        )
+        self.village_b = Village.objects.create(
+            name="Shivpur",
+            code="SHV002",
+            district=self.district,
+            authority=self.authority,
+            latitude=25.3500,
+            longitude=82.9500,
+            population=2200,
+        )
 
         self.citizen = User.objects.create_user(
             username="citizen_ramesh",
@@ -305,3 +316,67 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(data['total_water_sources'], 2)
         self.assertEqual(data['active_alerts'], 1)
         self.assertEqual(data['recent_cases_30d'], 1)
+
+    # ─── 6. Administrative Hierarchy & District Surveillance ──────────
+
+    def test_district_list_and_detail_endpoints(self):
+        """Districts API returns monitored districts with village counts and details."""
+        res_list = self.client.get('/api/districts/')
+        self.assertEqual(res_list.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_list.data), 1)
+        self.assertEqual(res_list.data[0]['name'], 'Varanasi')
+        self.assertEqual(res_list.data[0]['villages_count'], 2)
+        self.assertEqual(res_list.data[0]['authority_name'], 'Dr. S.K. Gupta')
+
+        res_detail = self.client.get(f'/api/districts/{self.district.id}/')
+        self.assertEqual(res_detail.status_code, status.HTTP_200_OK)
+        self.assertIn('villages', res_detail.data)
+        self.assertEqual(len(res_detail.data['villages']), 2)
+
+    def test_administrative_hierarchy_constraints(self):
+        """
+        Enforces:
+        - Exactly one health worker per village (FK on Village).
+        - One health worker can cover multiple villages.
+        """
+        # Initially Village A has Anita, Village B has None
+        self.assertEqual(self.village_a.assigned_worker, self.worker)
+        self.assertIsNone(self.village_b.assigned_worker)
+        self.assertEqual(self.worker.assigned_villages.count(), 1)
+
+        # Assign Village B to Anita as well (worker covering multiple villages)
+        self.village_b.assigned_worker = self.worker
+        self.village_b.save()
+        self.assertEqual(self.worker.assigned_villages.count(), 2)
+
+        # Create worker Rajesh and assign him to Village A (replaces Anita on Village A)
+        worker2 = User.objects.create_user(
+            username="worker_rajesh",
+            email="rajesh@phc.gov.in",
+            password="pass1234Secure",
+            role="HEALTH_WORKER",
+            first_name="Rajesh",
+            last_name="Verma",
+        )
+        self.village_a.assigned_worker = worker2
+        self.village_a.save()
+
+        self.village_a.refresh_from_db()
+        self.assertEqual(self.village_a.assigned_worker, worker2)
+        # Anita now only has Village B
+        self.assertEqual(self.worker.assigned_villages.count(), 1)
+        self.assertEqual(self.worker.assigned_villages.first(), self.village_b)
+
+    def test_village_district_serialization(self):
+        """VillageSerializer exposes district as a string name for frontend Leaflet map compatibility."""
+        res = self.client.get('/api/villages/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(res.data) >= 2)
+        # Verify district is serialized as string name, not an object or ID
+        self.assertEqual(res.data[0]['district'], 'Varanasi')
+
+        # Test filtering by district query param
+        res_filter = self.client.get('/api/villages/?district=Varanasi')
+        self.assertEqual(res_filter.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_filter.data), 2)
+

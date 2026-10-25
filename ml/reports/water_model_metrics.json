@@ -1,0 +1,197 @@
+{
+  "model": "WaterContamination-HGB-v1",
+  "trained_at": "2026-10-25T14:15:07+00:00",
+  "sklearn_version": "1.9.0",
+  "data": {
+    "source": "CPCB National Water Quality Monitoring Programme (NWMP) 2016-2024, cpcb.nic.in",
+    "station_years": 18198,
+    "stations": 3901,
+    "class_counts": {
+      "LOW": 6012,
+      "MEDIUM": 4117,
+      "HIGH": 3510,
+      "CRITICAL": 4559
+    },
+    "by_water_body": {
+      "RIVER": 9134,
+      "GROUNDWATER": 5550,
+      "LAKE_POND": 3514
+    }
+  },
+  "label": "WHO faecal-indicator risk band of annual max faecal coliform (MPN/100mL): LOW <=10, MEDIUM 11-100, HIGH 101-1000, CRITICAL >1000",
+  "model_design": "Ordinal boosting (P(band > k) per threshold) with monotonic constraints: risk non-increasing in dissolved oxygen, non-decreasing in nitrate.",
+  "ablation_notes": {
+    "ablation_unconstrained": "Scores higher in CV but learns inverted DO/nitrate effects from lab-reporting differences (sewage-like ponds rated low risk).",
+    "ablation_with_state": "Scores highest in CV but predictions are dominated by the reporting state (identical clean pond: 1.7 in Telangana, 98.7 in Uttar Pradesh)."
+  },
+  "validation": "GroupKFold(5) by monitoring station; forward-in-time holdout on a held-out 20% of stations",
+  "cross_validation": {
+    "gbm": {
+      "macro_f1": 0.5753,
+      "balanced_accuracy": 0.5772,
+      "log_loss": 1.0631,
+      "auc_ovr_macro": 0.8193,
+      "auc_fc_over_100": 0.8653,
+      "within_one_band": 0.8501
+    },
+    "ablation_unconstrained": {
+      "macro_f1": 0.6283,
+      "balanced_accuracy": 0.6289,
+      "log_loss": 0.8507,
+      "auc_ovr_macro": 0.8592,
+      "auc_fc_over_100": 0.8994,
+      "within_one_band": 0.8791
+    },
+    "ablation_with_state": {
+      "macro_f1": 0.7327,
+      "balanced_accuracy": 0.7305,
+      "log_loss": 0.6947,
+      "auc_ovr_macro": 0.9214,
+      "auc_fc_over_100": 0.9541,
+      "within_one_band": 0.9531
+    },
+    "logreg": {
+      "macro_f1": 0.4032,
+      "balanced_accuracy": 0.4553,
+      "log_loss": 1.107,
+      "auc_ovr_macro": 0.7229,
+      "auc_fc_over_100": 0.7759,
+      "within_one_band": 0.7539
+    },
+    "body_prior": {
+      "macro_f1": 0.3228,
+      "balanced_accuracy": 0.4309,
+      "log_loss": 1.1234,
+      "auc_ovr_macro": 0.6823,
+      "auc_fc_over_100": 0.7271,
+      "within_one_band": 0.705
+    }
+  },
+  "per_water_body_cv": {
+    "GROUNDWATER": {
+      "n": 5550,
+      "macro_f1": 0.2765
+    },
+    "LAKE_POND": {
+      "n": 3514,
+      "macro_f1": 0.5248
+    },
+    "RIVER": {
+      "n": 9134,
+      "macro_f1": 0.4742
+    }
+  },
+  "confusion_matrix_cv": {
+    "labels": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL"
+    ],
+    "matrix": [
+      [
+        4889,
+        423,
+        245,
+        455
+      ],
+      [
+        905,
+        1895,
+        555,
+        762
+      ],
+      [
+        402,
+        741,
+        1331,
+        1036
+      ],
+      [
+        245,
+        618,
+        704,
+        2992
+      ]
+    ]
+  },
+  "temporal_holdout": {
+    "train_2016_2022_test_2023_2024": {
+      "macro_f1": 0.5039,
+      "balanced_accuracy": 0.5021,
+      "log_loss": 1.3622,
+      "auc_ovr_macro": 0.7542,
+      "auc_fc_over_100": 0.7833,
+      "within_one_band": 0.8285,
+      "n_train": 10028,
+      "n_test": 1143
+    },
+    "rolling_one_year_ahead": {
+      "2020": {
+        "macro_f1": 0.5161,
+        "balanced_accuracy": 0.5283,
+        "log_loss": 1.5836,
+        "auc_ovr_macro": 0.7566,
+        "auc_fc_over_100": 0.7871,
+        "within_one_band": 0.8216,
+        "n_train": 3228,
+        "n_test": 482
+      },
+      "2021": {
+        "macro_f1": 0.5042,
+        "balanced_accuracy": 0.5203,
+        "log_loss": 1.2843,
+        "auc_ovr_macro": 0.7733,
+        "auc_fc_over_100": 0.8068,
+        "within_one_band": 0.8187,
+        "n_train": 5226,
+        "n_test": 568
+      },
+      "2022": {
+        "macro_f1": 0.5224,
+        "balanced_accuracy": 0.5413,
+        "log_loss": 1.364,
+        "auc_ovr_macro": 0.7775,
+        "auc_fc_over_100": 0.8028,
+        "within_one_band": 0.825,
+        "n_train": 7547,
+        "n_test": 623
+      },
+      "2023": {
+        "macro_f1": 0.398,
+        "balanced_accuracy": 0.399,
+        "log_loss": 1.2487,
+        "auc_ovr_macro": 0.724,
+        "auc_fc_over_100": 0.7289,
+        "within_one_band": 0.7983,
+        "n_train": 10028,
+        "n_test": 476
+      },
+      "2024": {
+        "macro_f1": 0.5223,
+        "balanced_accuracy": 0.5251,
+        "log_loss": 1.2253,
+        "auc_ovr_macro": 0.7712,
+        "auc_fc_over_100": 0.8271,
+        "within_one_band": 0.8516,
+        "n_train": 11898,
+        "n_test": 667
+      }
+    }
+  },
+  "permutation_importance": {
+    "water_body": 0.8922,
+    "ec_us_cm": 0.3717,
+    "do_mg_l": 0.3395,
+    "temp_c": 0.2732,
+    "ph": 0.1948,
+    "nitrate_n_mg_l": 0.0951
+  },
+  "tds_to_ec_ratio": 0.63,
+  "limitations": [
+    "Trained on annual min/max envelopes per station; a single field reading is treated as the station's typical value.",
+    "Turbidity is not reported by NWMP, so it is not used.",
+    "Surface water dominates (river, lake); groundwater is 30% of rows.",
+    "Screening estimate only: a lab coliform / E. coli result always overrides it."
+  ]
+}

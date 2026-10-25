@@ -35,6 +35,7 @@ from .serializers import (
     AlertSerializer,
     ProfileUpdateSerializer,
 )
+from . import ml_service
 from .permissions import (
     IsAuthority,
     IsHealthWorkerOrAuthority,
@@ -527,7 +528,16 @@ def water_quality_list_create(request):
             tested_by=request.user,
             village=target_village,
         )
-        return Response(WaterQualityTestSerializer(test).data, status=status.HTTP_201_CREATED)
+        data = dict(WaterQualityTestSerializer(test).data)
+        # Re-score the village's water contamination risk. A model failure must
+        # not lose the recorded test, so it is reported instead of raised.
+        try:
+            prediction = ml_service.refresh_village_water_risk(test.village)
+            data['risk_prediction'] = WaterRiskPredictionSerializer(prediction).data if prediction else None
+        except ml_service.PredictionUnavailable as exc:
+            data['risk_prediction'] = None
+            data['risk_prediction_error'] = str(exc)
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 # ─── Health Surveillance Records (Clinical Cases) ──────────────────

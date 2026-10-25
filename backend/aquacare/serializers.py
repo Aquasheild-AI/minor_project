@@ -165,11 +165,12 @@ class CommunityReportReviewSerializer(serializers.ModelSerializer):
 # 7. AI/ML Risk Prediction Serializers
 class WaterRiskPredictionSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
+    village_district = serializers.CharField(source='village.district', read_only=True)
 
     class Meta:
         model = WaterRiskPrediction
         fields = [
-            'id', 'village', 'village_name', 'prediction_date',
+            'id', 'village', 'village_name', 'village_district', 'prediction_date',
             'risk_score', 'risk_level', 'contributing_factors',
             'plain_language_explanation', 'recommended_actions',
             'model_name', 'is_latest', 'created_at'

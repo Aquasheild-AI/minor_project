@@ -122,3 +122,92 @@ export interface TrendPoint {
   tds: number;
   temperature: number;
 }
+
+// ─── ML risk predictions (backend /api/risk/*) ─────────────────────
+// Field names mirror the Django serializers (snake_case).
+
+export type ApiRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface WaterRiskFactor {
+  feature: string;
+  label: string;
+  value: number | null;
+  unit: string;
+  /** Change in risk score (points) versus a typical reading; positive raises risk. */
+  impact: number;
+  description: string;
+}
+
+export interface WaterRiskPrediction {
+  id: number;
+  village: number;
+  village_name: string;
+  village_district: string;
+  prediction_date: string;
+  risk_score: number;
+  risk_level: ApiRiskLevel;
+  contributing_factors: {
+    water_test_id: number;
+    water_source: string;
+    water_source_type: string;
+    sample_date: string;
+    probabilities: Record<ApiRiskLevel, number>;
+    probability_fc_over_100: number;
+    lab_confirmed_e_coli: boolean;
+    source_type_approximated: boolean;
+    factors: WaterRiskFactor[];
+    sources_scored: { water_source: string; risk_score: number; risk_level: ApiRiskLevel }[];
+  };
+  plain_language_explanation: string;
+  recommended_actions: string[];
+  model_name: string;
+  is_latest: boolean;
+  created_at: string;
+}
+
+export interface DiseaseRiskPrediction {
+  id: number;
+  district: string;
+  prediction_date: string;
+  risk_score: number;
+  risk_level: ApiRiskLevel;
+  outbreak_probability: number;
+  predicted_disease: string;
+  contributing_factors: {
+    base_rate: number;
+    climate_week_ending: string;
+    matched_location: { district: string; state: string; lat: number; lon: number; distance_km: number };
+    features: Record<string, number | null>;
+    /** Change in risk percentile if recent weather had been normal for the season. */
+    factors: Partial<Record<'recent_rainfall' | 'recent_temperature', number>>;
+  };
+  plain_language_explanation: string;
+  recommended_actions: string[];
+  model_name: string;
+  is_latest: boolean;
+  created_at: string;
+}
+
+export interface ModelInfoEntry {
+  status: 'OK' | 'MODEL_UNAVAILABLE';
+  model_name?: string;
+  trained_at?: string;
+  metrics?: Record<string, Record<string, number> | unknown>;
+}
+
+export interface ModelInfo {
+  water: ModelInfoEntry;
+  outbreak: ModelInfoEntry;
+}
+
+export interface ApiVillage {
+  id: number;
+  name: string;
+  code: string;
+  district: string;
+  state: string;
+  latitude: string;
+  longitude: string;
+  risk_level: ApiRiskLevel;
+  risk_score: number;
+}

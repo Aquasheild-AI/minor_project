@@ -10,6 +10,11 @@ interface AuthUser {
   role: UserRole;
   phone?: string;
   organization?: string;
+  /** Home village (community users). */
+  villageId?: number;
+  villageName?: string;
+  /** Villages a health worker is assigned to. */
+  assignedVillageIds?: number[];
 }
 
 interface AuthContextValue {
@@ -57,6 +62,9 @@ const transformUser = (raw: any): AuthUser => ({
   role: mapRole(raw.role),
   phone: raw.phone ?? undefined,
   organization: raw.organization ?? undefined,
+  villageId: raw.village ?? undefined,
+  villageName: raw.village_name ?? undefined,
+  assignedVillageIds: raw.assigned_villages ?? undefined,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {

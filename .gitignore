@@ -32,3 +32,6 @@ frontend/coverage/
 # ML caches (regenerable; see ml/README.md)
 ml/data/raw/climate/location_cache/
 ml/data/processed/outbreak_training_frame.csv.gz
+
+#Claude
+CLAUDE.md

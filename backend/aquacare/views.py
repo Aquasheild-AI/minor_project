@@ -16,7 +16,8 @@ from .models import (
     WaterQualityTest,
     HealthRecord,
     CommunityReport,
-    RiskPrediction,
+    WaterRiskPrediction,
+    DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement,
 )
@@ -29,10 +30,12 @@ from .serializers import (
     HealthRecordSerializer,
     CommunityReportSerializer,
     CommunityReportReviewSerializer,
-    RiskPredictionSerializer,
+    WaterRiskPredictionSerializer,
+    DiseaseRiskPredictionSerializer,
     AlertSerializer,
     ProfileUpdateSerializer,
 )
+from . import ml_service
 from .permissions import (
     IsAuthority,
     IsHealthWorkerOrAuthority,
@@ -525,7 +528,16 @@ def water_quality_list_create(request):
             tested_by=request.user,
             village=target_village,
         )
-        return Response(WaterQualityTestSerializer(test).data, status=status.HTTP_201_CREATED)
+        data = dict(WaterQualityTestSerializer(test).data)
+        # Re-score the village's water contamination risk. A model failure must
+        # not lose the recorded test, so it is reported instead of raised.
+        try:
+            prediction = ml_service.refresh_village_water_risk(test.village)
+            data['risk_prediction'] = WaterRiskPredictionSerializer(prediction).data if prediction else None
+        except ml_service.PredictionUnavailable as exc:
+            data['risk_prediction'] = None
+            data['risk_prediction_error'] = str(exc)
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 # ─── Health Surveillance Records (Clinical Cases) ──────────────────
@@ -817,9 +829,9 @@ def dashboard_stats(request):
 
     data = {
         'total_villages': villages_qs.count(),
-        'high_risk_villages': villages_qs.filter(risk_level__in=['HIGH', 'CRITICAL']).count(),
-        'medium_risk_villages': villages_qs.filter(risk_level='MEDIUM').count(),
-        'low_risk_villages': villages_qs.filter(risk_level='LOW').count(),
+        'high_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level__in=['HIGH', 'CRITICAL']).count(),
+        'medium_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level='MEDIUM').count(),
+        'low_risk_villages': WaterRiskPrediction.objects.filter(village__in=villages_qs, is_latest=True, risk_level='LOW').count(),
         'total_water_sources': water_sources_qs.count(),
         'safe_water_sources': water_sources_qs.filter(status='SAFE').count(),
         'contaminated_water_sources': water_sources_qs.filter(status='CONTAMINATED').count(),

@@ -8,7 +8,8 @@ from .models import (
     WaterQualityTest,
     HealthRecord,
     CommunityReport,
-    RiskPrediction,
+    WaterRiskPrediction,
+    DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement
 )
@@ -42,8 +43,8 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Village)
 class VillageAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'district', 'state', 'population', 'risk_level', 'risk_score', 'active_alerts_count')
-    list_filter = ('risk_level', 'district', 'state')
+    list_display = ('name', 'code', 'district', 'state', 'population', 'active_alerts_count')
+    list_filter = ('district', 'state')
     search_fields = ('name', 'code', 'district', 'block', 'pincode')
     ordering = ('name',)
     readonly_fields = ('created_at', 'updated_at')
@@ -85,11 +86,20 @@ class CommunityReportAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
 
 
-@admin.register(RiskPrediction)
-class RiskPredictionAdmin(admin.ModelAdmin):
-    list_display = ('village', 'risk_score', 'risk_level', 'outbreak_probability', 'predicted_disease', 'is_latest', 'prediction_date')
+@admin.register(WaterRiskPrediction)
+class WaterRiskPredictionAdmin(admin.ModelAdmin):
+    list_display = ('village', 'risk_score', 'risk_level', 'is_latest', 'prediction_date')
     list_filter = ('risk_level', 'is_latest', 'prediction_date', 'village__district')
-    search_fields = ('village__name', 'predicted_disease', 'model_name')
+    search_fields = ('village__name', 'model_name')
+    date_hierarchy = 'prediction_date'
+    readonly_fields = ('created_at',)
+
+
+@admin.register(DiseaseRiskPrediction)
+class DiseaseRiskPredictionAdmin(admin.ModelAdmin):
+    list_display = ('district', 'risk_score', 'risk_level', 'outbreak_probability', 'predicted_disease', 'is_latest', 'prediction_date')
+    list_filter = ('risk_level', 'is_latest', 'prediction_date', 'district')
+    search_fields = ('district', 'predicted_disease', 'model_name')
     date_hierarchy = 'prediction_date'
     readonly_fields = ('created_at',)
 

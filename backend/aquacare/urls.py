@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import dataset_views
+from . import risk_views
 
 urlpatterns = [
 
@@ -39,6 +40,15 @@ urlpatterns = [
     path('alerts/', views.alerts_list_create, name='alerts-list-create'),
     path('alerts/<int:pk>/resolve/', views.alert_resolve, name='alert-resolve'),
     path('alerts/<int:pk>/acknowledge/', views.alert_acknowledge, name='alert-acknowledge'),
+
+    # ML Risk Predictions (Module A: village water contamination, Module B: district outbreak)
+    path('risk/water/', risk_views.water_risk_list, name='risk-water-list'),
+    path('risk/water/<int:village_id>/history/', risk_views.water_risk_history, name='risk-water-history'),
+    path('risk/water/<int:village_id>/refresh/', risk_views.water_risk_refresh_village, name='risk-water-refresh'),
+    path('risk/disease/', risk_views.disease_risk_list, name='risk-disease-list'),
+    path('risk/disease/history/', risk_views.disease_risk_history, name='risk-disease-history'),
+    path('risk/refresh/', risk_views.risk_refresh_all, name='risk-refresh-all'),
+    path('risk/models/', risk_views.risk_model_info, name='risk-model-info'),
 
     # Dashboard Summary Statistics
     path('dashboard/stats/', views.dashboard_stats, name='dashboard-stats'),

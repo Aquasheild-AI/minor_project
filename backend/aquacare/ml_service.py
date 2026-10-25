@@ -319,7 +319,8 @@ def refresh_all(water=True, disease=True):
             except PredictionUnavailable as exc:
                 summary['water']['errors'].append(f'{village.name}: {exc}')
     if disease:
-        for district in Village.objects.values_list('district', flat=True).distinct():
+        # order_by() clears Village's default ordering by name, which would otherwise make distinct() per village.
+        for district in Village.objects.order_by().values_list('district', flat=True).distinct():
             try:
                 refresh_district_risk(district)
                 summary['disease']['updated'] += 1

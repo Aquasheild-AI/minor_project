@@ -160,6 +160,7 @@ class RiskPredictionTestCase(TestCase):
             res = self.client.post('/api/risk/refresh/', {'water': False, 'disease': True}, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data['disease']['updated'], 0)
+        self.assertEqual(len(res.data['disease']['errors']), 1)  # two villages, one district
         self.assertIn('NASA POWER', res.data['disease']['errors'][0])
         self.assertFalse(DiseaseRiskPrediction.objects.exists())
 

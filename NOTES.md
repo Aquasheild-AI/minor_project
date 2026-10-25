@@ -68,10 +68,15 @@ for n,la,lo in [('Kolkata',22.57,88.36),('Guwahati',26.14,91.74),('Jaisalmer',26
 
   Note: the calibrated retrain finished after the last live run, so re-check that `outbreak_probability` values look plausible. Expect roughly 0.2–1% in late October.
 
+## Done since the first notes (2026-10-25 evening)
+
+- ML dependencies added to `backend/requirements.txt` (scikit-learn==1.9.0, pandas, numpy, joblib, duckdb).
+- Live NASA test re-run on the calibrated model: Kolkata 0.65%, Guwahati 0.62%, Jaisalmer 0.31%, Chennai 0.81% (all LOW, `corrected=True`).
+- Local DB migrated (backup: `backend/db.sqlite3.bak-before-ml`, not committed). `run_risk_predictions` gave Varanasi LOW, 0.9%; there are no water tests in the local DB, so water risk was skipped.
+- Fixed `ml_service.refresh_all` refreshing a district once per village (Village default ordering broke `distinct()`).
+
 ## Next steps, in order
 
-1. Add `scikit-learn==1.9.0`, `pandas`, `numpy`, `joblib` and `duckdb` to `backend/requirements.txt`.
-2. Run the live NASA test above against the calibrated model.
-3. Run `cd backend && python manage.py migrate && python manage.py run_risk_predictions` against a database with villages and water tests, and check the stored predictions and alerts.
-4. Build `frontend/src/components/risk/` (water risk card, district outbreak card, model info card). Rewire `RiskPredictionPage`, `WorkerRiskAnalysis` and `CommunityRiskStatus` to `riskApi`, then run `npm run lint` and `npm run typecheck`.
-5. Commit, push `feature/ml-risk-models` and open a PR into `feature/risk-model-architecture` or `main`. The commit includes about 160 MB of raw data and PDFs, as requested.
+1. Build `frontend/src/components/risk/` (water risk card, district outbreak card, model info card). Rewire `RiskPredictionPage`, `WorkerRiskAnalysis` and `CommunityRiskStatus` to `riskApi`, then run `npm run lint` and `npm run typecheck`.
+2. Add a few water tests through the UI or API and check the village water risk and alerts end to end.
+3. Open a PR from `feature/ml-risk-models` into `feature/risk-model-architecture` (or `main`).

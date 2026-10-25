@@ -1,6 +1,6 @@
 # ML work: status notes
 
-Branch: `feature/ml-risk-models`, created from `origin/feature/risk-model-architecture`. It is committed locally (`1fad666`) but **not pushed** and there is no PR yet.
+Branch: `feature/ml-risk-models`, created from `origin/feature/risk-model-architecture`. It is pushed to origin, but there is no PR yet. Open one at https://github.com/Aquasheild-AI/minor_project/pull/new/feature/ml-risk-models
 
 ## Done and verified
 

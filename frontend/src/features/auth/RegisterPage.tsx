@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Activity,
   User,
@@ -11,8 +12,10 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth, type RegisterData } from '@/hooks/useAuth';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 export function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { register } = useAuth();
 
@@ -38,15 +41,15 @@ export function RegisterPage() {
     setError('');
 
     if (!form.username || !form.password) {
-      setError('Username and password are required.');
+      setError(t('auth.errors.required', { defaultValue: 'Username and password are required.' }));
       return;
     }
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('auth.errors.passwordMinLength', { defaultValue: 'Password must be at least 8 characters.' }));
       return;
     }
     if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.errors.passwordMismatch', { defaultValue: 'Passwords do not match.' }));
       return;
     }
 
@@ -109,20 +112,24 @@ export function RegisterPage() {
       </div>
 
       {/* Right panel - register form */}
-      <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
+      <div className="relative flex w-full items-center justify-center p-6 lg:w-1/2">
+        <div className="absolute top-6 right-6">
+          <LanguageSwitcher />
+        </div>
+
         <div className="w-full max-w-md">
           <div className="mb-6 lg:hidden">
             <div className="flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600">
                 <Activity className="h-5 w-5 text-white" />
               </div>
-              <p className="font-bold text-slate-900">Surveillance &amp; Early Warning</p>
+              <p className="font-bold text-slate-900">{t('common.appName')}</p>
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900">Create your account</h2>
+          <h2 className="text-2xl font-bold text-slate-900">{t('auth.createAccountTitle')}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Register as a Community User to access the surveillance system.
+            {t('auth.createAccountSubtitle')}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">

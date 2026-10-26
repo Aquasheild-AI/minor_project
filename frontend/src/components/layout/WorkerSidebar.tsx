@@ -16,17 +16,18 @@ import {
   User,
 } from 'lucide-react';
 import { healthWorker } from '@/data/workerData';
+import { useTranslation } from 'react-i18next';
 
-const navItems = [
-  { to: '/worker/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/worker/villages', label: 'My Villages', icon: MapPin },
-  { to: '/worker/health', label: 'Health Records', icon: HeartPulse },
-  { to: '/worker/water-quality', label: 'Water Quality', icon: Droplets },
-  { to: '/worker/risk-analysis', label: 'Risk Analysis', icon: Brain },
-  { to: '/worker/risk-map', label: 'Risk Map', icon: Map },
-  { to: '/worker/trends', label: 'Trends', icon: TrendingUp },
-  { to: '/worker/alerts', label: 'Alerts', icon: Bell },
-];
+const navKeyMap = [
+  { to: '/worker/dashboard', key: 'dashboard', icon: LayoutDashboard },
+  { to: '/worker/villages', key: 'myVillages', icon: MapPin },
+  { to: '/worker/health', key: 'healthRecords', icon: HeartPulse },
+  { to: '/worker/water-quality', key: 'waterQuality', icon: Droplets },
+  { to: '/worker/risk-analysis', key: 'riskAnalysis', icon: Brain },
+  { to: '/worker/risk-map', key: 'riskMap', icon: Map },
+  { to: '/worker/trends', key: 'trends', icon: TrendingUp },
+  { to: '/worker/alerts', key: 'alerts', icon: Bell },
+] as const;
 
 interface WorkerSidebarProps {
   open: boolean;
@@ -36,6 +37,7 @@ interface WorkerSidebarProps {
 export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
@@ -55,8 +57,8 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-900">Disease Surveillance</p>
-            <p className="truncate text-xs text-slate-500">Health Worker Portal</p>
+            <p className="truncate text-sm font-bold text-slate-900">{t('common.appName')}</p>
+            <p className="truncate text-xs text-slate-500">{t('nav.portalTitles.workerDashboard')}</p>
           </div>
           <button onClick={onClose} className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 lg:hidden">
             <X className="h-5 w-5" />
@@ -64,7 +66,7 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {navItems.map((item) => {
+          {navKeyMap.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -80,7 +82,7 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
                 }
               >
                 <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                {item.label}
+                {t(`nav.${item.key}`)}
               </NavLink>
             );
           })}
@@ -93,7 +95,7 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
           >
             <User className="h-4 w-4" />
-            Profile
+            {t('nav.profile')}
           </NavLink>
           <NavLink
             to="/worker/help"
@@ -101,7 +103,7 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
           >
             <HelpCircle className="h-4 w-4" />
-            Help & Support
+            {t('common.appName')} Help
           </NavLink>
           <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
@@ -109,12 +111,12 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-900">{user?.name || healthWorker.name}</p>
-              <p className="truncate text-xs text-slate-500">Health Worker</p>
+              <p className="truncate text-xs text-slate-500">{t('auth.roles.HEALTH_WORKER')}</p>
             </div>
             <button
               onClick={handleLogout}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              title="Logout"
+              title={t('common.buttons.logout')}
             >
               <LogOut className="h-4 w-4" />
             </button>

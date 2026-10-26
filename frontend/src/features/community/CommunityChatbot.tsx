@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { authPost } from '@/services/authFetch';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from 'react-i18next';
 
 interface FollowUp {
   type: 'topic' | 'choice';
@@ -21,11 +22,12 @@ interface Message {
 }
 
 export function CommunityChatbot() {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Hello! I am the AquaShield AI Health Assistant. I can provide general health information and answer questions about water-borne diseases, symptoms, and prevention. How can I help you today?',
+      content: t('community.chatbot.welcomeMsg'),
     }
   ]);
   const [input, setInput] = useState('');
@@ -100,20 +102,21 @@ export function CommunityChatbot() {
   };
   
   const handleReportSymptoms = () => {
-    // Navigate to the existing report page
-    // In a fully integrated version, we could pass state { symptoms: '...' }
     navigate('/community/report');
   };
 
   const suggestedQuestions: FollowUp[] = [
-    { type: 'topic', label: 'What is cholera?', value: 'What is cholera?' },
-    { type: 'topic', label: 'What are the symptoms of typhoid?', value: 'What are the symptoms of typhoid?' },
-    { type: 'topic', label: 'How can I prevent water-borne diseases?', value: 'How can I prevent water-borne diseases?' },
-    { type: 'topic', label: 'I have diarrhea and vomiting', value: 'I have diarrhea and vomiting' }
+    { type: 'topic', label: t('community.chatbot.questions.cholera'), value: t('community.chatbot.questions.cholera') },
+    { type: 'topic', label: t('community.chatbot.questions.typhoid'), value: t('community.chatbot.questions.typhoid') },
+    { type: 'topic', label: t('community.chatbot.questions.prevent'), value: t('community.chatbot.questions.prevent') },
+    { type: 'topic', label: t('community.chatbot.questions.symptoms'), value: t('community.chatbot.questions.symptoms') }
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div
+      className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+      data-tour="chatbot-interface"
+    >
       {/* Header */}
       <div className="bg-primary-600 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 text-white">
@@ -121,8 +124,8 @@ export function CommunityChatbot() {
             <Bot className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="font-semibold text-lg">AI Health Assistant</h2>
-            <p className="text-primary-100 text-sm">Your community health companion</p>
+            <h2 className="font-semibold text-lg">{t('community.chatbot.title')}</h2>
+            <p className="text-primary-100 text-sm">{t('community.chatbot.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -131,7 +134,7 @@ export function CommunityChatbot() {
       <div className="bg-amber-50 border-b border-amber-100 px-4 py-3 flex items-start gap-3 shrink-0">
         <Info className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-sm text-amber-800">
-          <strong>Disclaimer:</strong> AI Health Assistant provides general health information and symptom guidance. It does not diagnose diseases or replace professional medical advice. For emergencies, seek medical care immediately.
+          {t('community.chatbot.disclaimer')}
         </p>
       </div>
 
@@ -139,7 +142,7 @@ export function CommunityChatbot() {
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.length === 1 && (
           <div className="mb-8">
-            <p className="text-sm text-slate-500 mb-3 font-medium">Suggested questions:</p>
+            <p className="text-sm text-slate-500 mb-3 font-medium">{t('community.chatbot.suggested')}:</p>
             <div className="flex flex-wrap gap-2">
               {suggestedQuestions.map((q, idx) => (
                 <button
@@ -226,7 +229,7 @@ export function CommunityChatbot() {
                       className="flex items-center gap-1.5 text-xs bg-rose-100 border border-rose-200 text-rose-700 hover:bg-rose-200 px-3 py-1.5 rounded-full transition-colors font-medium"
                     >
                       <HeartPulse className="h-3.5 w-3.5" />
-                      Report These Symptoms
+                      {t('community.chatbot.reportAction')}
                     </button>
                   )}
                 </div>
@@ -258,13 +261,14 @@ export function CommunityChatbot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
+            placeholder={t('community.chatbot.inputPlaceholder')}
             className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 py-3 pl-4 pr-12 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 max-h-32 min-h-[52px]"
             rows={1}
           />
           <button
             onClick={() => handleSend(input)}
             disabled={!input.trim() || isLoading}
+            aria-label={t('community.chatbot.send')}
             className="absolute right-2 bottom-2 p-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
           >
             <Send className="h-4 w-4" />

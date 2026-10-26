@@ -6,21 +6,25 @@ import { LoadingState, EmptyState } from '@/components/ui/States';
 import { communityApi } from '@/services/communityApi';
 import { formatDate } from '@/utils/risk';
 import type { CommunityReport } from '@/data/communityData';
+import { useTranslation } from 'react-i18next';
 
 const statusVariant: Record<string, 'low' | 'medium' | 'info'> = {
   submitted: 'info',
   under_review: 'medium',
   reviewed: 'low',
 };
-const statusLabel: Record<string, string> = {
-  submitted: 'Submitted',
-  under_review: 'Under Review',
-  reviewed: 'Reviewed',
-};
 
 export function CommunityReports() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t, i18n } = useTranslation();
+  const isHi = i18n.language?.startsWith('hi');
+
+  const statusLabel: Record<string, string> = {
+    submitted: isHi ? 'प्रस्तुत' : 'Submitted',
+    under_review: isHi ? 'समीक्षाधीन' : 'Under Review',
+    reviewed: isHi ? 'समीक्षित' : 'Reviewed',
+  };
 
   useEffect(() => {
     communityApi.getReports().then((r) => {
@@ -33,23 +37,23 @@ export function CommunityReports() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Reports</h1>
-          <p className="mt-1 text-sm text-slate-500">Track your submitted health reports.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('community.myReports.title')}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t('community.myReports.subtitle')}</p>
         </div>
         <Link to="/community/report" className="btn-primary">
-          <Plus className="h-4 w-4" /> New Report
+          <Plus className="h-4 w-4" /> {isHi ? 'नई रिपोर्ट दर्ज करें' : 'New Report'}
         </Link>
       </div>
 
       {loading ? (
-        <LoadingState />
+        <LoadingState message={t('common.states.loading')} />
       ) : reports.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={FileText}
-            title="No Health Reports"
-            message="You have not submitted any health reports yet."
-            action={<Link to="/community/report" className="btn-primary"><Plus className="h-4 w-4" /> Report a Health Issue</Link>}
+            title={t('community.myReports.title')}
+            message={t('community.myReports.noReports')}
+            action={<Link to="/community/report" className="btn-primary"><Plus className="h-4 w-4" /> {t('community.reportIssue.title')}</Link>}
           />
         </div>
       ) : (
@@ -64,13 +68,13 @@ export function CommunityReports() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-slate-900">{r.villageName}</p>
-                      <Badge variant={statusVariant[r.status]}>{statusLabel[r.status]}</Badge>
+                      <Badge variant={statusVariant[r.status]}>{statusLabel[r.status] || r.status}</Badge>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Symptoms: {r.symptoms.join(', ')}
+                      {isHi ? 'लक्षण' : 'Symptoms'}: {r.symptoms.join(', ')}
                     </p>
                     <p className="text-xs text-slate-500">
-                      People affected: {r.peopleAffected}{r.ageGroup ? ` · Age: ${r.ageGroup}` : ''}
+                      {isHi ? 'प्रभावित लोग' : 'People affected'}: {r.peopleAffected}{r.ageGroup ? ` · ${isHi ? 'आयु' : 'Age'}: ${r.ageGroup}` : ''}
                     </p>
                     {r.notes && <p className="mt-1 text-xs text-slate-400">{r.notes}</p>}
                   </div>

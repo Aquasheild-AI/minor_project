@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { CommunitySidebar } from './CommunitySidebar';
 import { CommunityTopNav } from './CommunityTopNav';
+import { CommunityTourProvider, CommunityTour } from '@/features/community/tour';
 
 const pageTitles: Record<string, string> = {
   '/community/home': 'Community Health Monitor',
@@ -23,14 +24,18 @@ export function CommunityLayout() {
   const title = pageTitles[location.pathname] || 'Community Portal';
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <CommunitySidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:pl-64">
-        <CommunityTopNav title={title} onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-4 lg:p-6">
-          <Outlet />
-        </main>
+    <CommunityTourProvider>
+      <div className="min-h-screen bg-slate-50">
+        <CommunitySidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="lg:pl-64">
+          <CommunityTopNav title={title} onMenuClick={() => setSidebarOpen(true)} />
+          <main className="p-4 lg:p-6">
+            <Outlet />
+          </main>
+        </div>
+        <CommunityTour />
       </div>
-    </div>
+    </CommunityTourProvider>
   );
 }
+

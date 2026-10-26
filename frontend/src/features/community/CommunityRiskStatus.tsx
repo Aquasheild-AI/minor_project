@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Droplets,
   AlertTriangle,
   ShieldCheck,
   ShieldAlert,
   ArrowRight,
-  Info,
   CheckCircle2,
   MapPin,
   Activity,
@@ -16,11 +14,12 @@ import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
 import { useAuth } from '@/hooks/useAuth';
 import { riskApi, toRiskLevel } from '@/services/riskApi';
-import { riskConfig } from '@/utils/risk';
 import type { ApiVillage, WaterRiskPrediction, DiseaseRiskPrediction } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 export function CommunityRiskStatus() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [villages, setVillages] = useState<ApiVillage[]>([]);
   const [selectedVillageId, setSelectedVillageId] = useState<number | null>(user?.villageId || null);
 
@@ -74,14 +73,12 @@ export function CommunityRiskStatus() {
       });
   }, [selectedVillageId, villages]);
 
-  const targetVillage = villages.find((v) => v.id === selectedVillageId);
   const waterLevel = waterPrediction ? toRiskLevel(waterPrediction.risk_level) : 'low';
-  const cfg = riskConfig[waterLevel];
   const isCriticalOrHigh = waterLevel === 'high' || waterLevel === 'critical';
   const labEColi = waterPrediction?.contributing_factors?.lab_confirmed_e_coli;
 
   if (loading && !waterPrediction && villages.length === 0) {
-    return <LoadingState message="Loading community water & health status..." />;
+    return <LoadingState message={t('common.states.loading')} />;
   }
 
   return (
@@ -89,9 +86,9 @@ export function CommunityRiskStatus() {
       {/* Header and village selection */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Community Water &amp; Health Advisory</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('community.riskStatus.title')}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Real-time drinking water contamination estimates and regional health alerts for your locality.
+            {t('community.riskStatus.subtitle')}
           </p>
         </div>
 
@@ -114,7 +111,10 @@ export function CommunityRiskStatus() {
       </div>
 
       {/* Main Status Hero Card */}
-      <div className={`card overflow-hidden border-2 ${isCriticalOrHigh ? 'border-red-300' : 'border-slate-200'}`}>
+      <div
+        className={`card overflow-hidden border-2 ${isCriticalOrHigh ? 'border-red-300' : 'border-slate-200'}`}
+        data-tour="risk-advisory-section"
+      >
         <div className="p-6 text-center">
           {/* Status Icon */}
           <div className="mt-2 flex justify-center">
@@ -138,19 +138,19 @@ export function CommunityRiskStatus() {
           </div>
 
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-4">
-            Current Village Drinking Water Safety
+            {t('community.riskStatus.waterSafetyHeader')}
           </p>
 
           <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
             {labEColi
-              ? 'BOIL-WATER ADVISORY IN EFFECT'
+              ? t('community.riskStatus.boilAdvisory')
               : waterLevel === 'critical'
-              ? 'Critical Contamination Risk'
+              ? t('community.riskStatus.criticalRisk')
               : waterLevel === 'high'
-              ? 'High Contamination Risk'
+              ? t('community.riskStatus.highRisk')
               : waterLevel === 'medium'
-              ? 'Moderate Risk — Precaution Recommended'
-              : 'Water Evaluated Safe for General Use'}
+              ? t('community.riskStatus.moderateRisk')
+              : t('community.riskStatus.safeRisk')}
           </h2>
 
           <div className="mt-3 flex justify-center">
@@ -160,7 +160,7 @@ export function CommunityRiskStatus() {
           <p className="mt-3 text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
             {waterPrediction
               ? waterPrediction.plain_language_explanation
-              : 'No water quality field tests recorded yet for this village. Health workers will monitor shortly.'}
+              : t('community.riskStatus.noTests')}
           </p>
 
           {/* Boil Water Action Banner for Citizens */}
@@ -168,9 +168,9 @@ export function CommunityRiskStatus() {
             <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4 max-w-lg mx-auto flex items-center gap-3 text-left">
               <Flame className="h-6 w-6 text-amber-600 flex-shrink-0" />
               <div>
-                <p className="text-xs font-bold text-amber-900">Precautionary Drinking Advice</p>
+                <p className="text-xs font-bold text-amber-900">{t('community.riskStatus.boilBannerTitle')}</p>
                 <p className="text-xs text-amber-800 mt-0.5">
-                  Boil all drinking water vigorously for at least 1 minute or treat with chlorine tablets before drinking.
+                  {t('community.riskStatus.boilBannerDesc')}
                 </p>
               </div>
             </div>
@@ -186,10 +186,10 @@ export function CommunityRiskStatus() {
             <div className={`flex-1 ${waterLevel === 'critical' ? 'bg-risk-critical' : 'bg-slate-200'}`} />
           </div>
           <div className="mt-1.5 flex justify-between text-2xs font-semibold text-slate-500">
-            <span className={waterLevel === 'low' ? 'text-risk-low' : ''}>Low Risk</span>
-            <span className={waterLevel === 'medium' ? 'text-risk-medium' : ''}>Medium Risk</span>
-            <span className={waterLevel === 'high' ? 'text-risk-high' : ''}>High Risk</span>
-            <span className={waterLevel === 'critical' ? 'text-risk-critical' : ''}>Critical Risk</span>
+            <span className={waterLevel === 'low' ? 'text-risk-low' : ''}>{t('common.riskLevels.low')}</span>
+            <span className={waterLevel === 'medium' ? 'text-risk-medium' : ''}>{t('common.riskLevels.medium')}</span>
+            <span className={waterLevel === 'high' ? 'text-risk-high' : ''}>{t('common.riskLevels.high')}</span>
+            <span className={waterLevel === 'critical' ? 'text-risk-critical' : ''}>{t('common.riskLevels.critical')}</span>
           </div>
         </div>
       </div>
@@ -199,7 +199,7 @@ export function CommunityRiskStatus() {
         <div className="card p-6">
           <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            What Should You Do?
+            {t('community.alertsPage.guidanceTitle')}
           </h3>
           <ul className="space-y-2.5">
             {waterPrediction.recommended_actions.map((act, i) => (
@@ -220,7 +220,7 @@ export function CommunityRiskStatus() {
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-xs font-bold text-purple-900 uppercase tracking-wide">
-                  District Health Surveillance ({diseasePrediction.district})
+                  {t('community.riskStatus.diseasePredictionsTitle')} ({diseasePrediction.district})
                 </p>
                 <RiskBadge level={toRiskLevel(diseasePrediction.risk_level)} />
               </div>
@@ -235,10 +235,10 @@ export function CommunityRiskStatus() {
       {/* Navigation shortcuts */}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link to="/community/report" className="btn-primary flex-1 justify-center py-2.5">
-          Report Water Issue or Symptoms <ArrowRight className="h-4 w-4" />
+          {t('community.quickActionsItems.report')} <ArrowRight className="h-4 w-4" />
         </Link>
         <Link to="/community/alerts" className="btn-secondary flex-1 justify-center py-2.5">
-          View Official Advisories
+          {t('community.quickActionsItems.alerts')}
         </Link>
       </div>
     </div>

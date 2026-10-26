@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Bell, ChevronDown, Activity } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Menu, Bell, ChevronDown, Activity, Compass, Sparkles } from 'lucide-react';
 import { communityNotifications } from '@/data/communityData';
 import { timeAgo } from '@/utils/risk';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { communityUser } from '@/data/communityData';
 import { useAuth } from '@/hooks/useAuth';
+import { useCommunityTour } from '@/features/community/tour';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 interface CommunityTopNavProps {
   title: string;
@@ -13,12 +16,14 @@ interface CommunityTopNavProps {
 }
 
 export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
+  const { t } = useTranslation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { startTour } = useCommunityTour();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -33,7 +38,12 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md lg:px-6">
-      <button onClick={onMenuClick} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden">
+      <button
+        onClick={onMenuClick}
+        className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        data-tour="mobile-menu-btn"
+        aria-label="Open navigation menu"
+      >
         <Menu className="h-5 w-5" />
       </button>
 
@@ -45,10 +55,26 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <div ref={notifRef} className="relative">
+        {/* Global Language Switcher */}
+        <LanguageSwitcher />
+
+        {/* Interactive Tour Guide Button */}
+        <button
+          onClick={startTour}
+          className="flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-100 hover:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
+          data-tour="tour-help-button"
+          title={t('common.buttons.tourGuide', { defaultValue: 'Tour Guide' })}
+          aria-label={t('common.buttons.tourGuide', { defaultValue: 'Tour Guide' })}
+        >
+          <Compass className="h-4 w-4 text-primary-600" />
+          <span className="hidden sm:inline">{t('common.buttons.tourGuide', { defaultValue: 'Tour Guide' })}</span>
+        </button>
+
+        <div ref={notifRef} className="relative" data-tour="notifications-bell">
           <button
             onClick={() => setNotifOpen(!notifOpen)}
             className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+            aria-label="View notifications and alerts"
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
@@ -97,7 +123,7 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
           )}
         </div>
 
-        <div ref={profileRef} className="relative">
+        <div ref={profileRef} className="relative" data-tour="profile-menu">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-white/10"
@@ -115,12 +141,19 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-12 w-48 card overflow-hidden py-1">
+            <div className="absolute right-0 top-12 w-52 card overflow-hidden py-1 shadow-lg">
               <button
                 onClick={() => { setProfileOpen(false); navigate('/community/profile'); }}
                 className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
               >
                 My Profile
+              </button>
+              <button
+                onClick={() => { setProfileOpen(false); startTour(); }}
+                className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-primary-700 font-medium hover:bg-primary-50"
+              >
+                <Compass className="h-4 w-4 text-primary-600" />
+                Take Guided Tour
               </button>
               <button
                 onClick={async () => {

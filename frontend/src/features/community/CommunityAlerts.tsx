@@ -6,18 +6,13 @@ import { LoadingState, EmptyState } from '@/components/ui/States';
 import { communityApi } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { CommunityAlert } from '@/data/communityData';
-
-const alertTypeConfig: Record<string, { label: string; variant: 'critical' | 'high' | 'medium' | 'info' }> = {
-  critical: { label: 'Critical Alert', variant: 'critical' },
-  high: { label: 'High Alert', variant: 'high' },
-  medium: { label: 'Medium Alert', variant: 'medium' },
-  information: { label: 'Information', variant: 'info' },
-};
+import { useTranslation } from 'react-i18next';
 
 export function CommunityAlerts() {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     communityApi.getAlerts().then((a) => {
@@ -26,32 +21,31 @@ export function CommunityAlerts() {
     });
   }, []);
 
-  if (loading) return <LoadingState />;
+  if (loading) return <LoadingState message={t('common.states.loading')} />;
 
   const active = alerts.filter((a) => a.status === 'active');
   const resolved = alerts.filter((a) => a.status !== 'active');
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Community Alerts</h1>
-      <p className="mb-6 text-sm text-slate-500">Stay informed about warnings and health advisories for your area.</p>
+      <h1 className="mb-1 text-2xl font-bold text-slate-900">{t('community.alertsPage.title')}</h1>
+      <p className="mb-6 text-sm text-slate-500">{t('community.alertsPage.subtitle')}</p>
 
       {/* Active Alerts */}
       <div className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">Active Alerts</h3>
+        <h3 className="mb-3 text-sm font-semibold text-slate-900">{t('community.alertsPage.activeAlerts')}</h3>
         {active.length === 0 ? (
           <div className="card">
             <EmptyState
               icon={CheckCircle2}
-              title="No Active Alerts"
-              message="No active warnings have been issued for your village."
+              title={t('common.states.noActiveAlertsTitle')}
+              message={t('common.states.noActiveAlerts')}
             />
           </div>
         ) : (
           <div className="space-y-3">
             {active.map((alert) => {
               const cfg = riskConfig[alert.severity];
-              const typeCfg = alertTypeConfig[alert.type];
               return (
                 <div
                   key={alert.id}
@@ -77,14 +71,14 @@ export function CommunityAlerts() {
                             <span className="text-xs text-slate-400">{timeAgo(alert.detectedAt)}</span>
                           </div>
                           <p className="mt-1.5 text-sm font-semibold text-slate-900">{alert.message}</p>
-                          <p className="text-xs text-slate-500">{alert.villageName} · Risk Score: {alert.riskScore}%</p>
+                          <p className="text-xs text-slate-500">{alert.villageName} · {t('common.riskScore')}: {alert.riskScore}%</p>
                         </div>
                       </div>
                       <button
                         onClick={() => navigate(`/community/alerts/${alert.id}`)}
                         className="btn-secondary text-xs whitespace-nowrap"
                       >
-                        View Details <ArrowRight className="h-3.5 w-3.5" />
+                        {t('common.viewDetails')} <ArrowRight className="h-3.5 w-3.5 ml-1 inline" />
                       </button>
                     </div>
                   </div>
@@ -98,10 +92,9 @@ export function CommunityAlerts() {
       {/* Resolved / Past Alerts */}
       {resolved.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-slate-900">Past Alerts</h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">{t('community.alertsPage.resolvedAlerts')}</h3>
           <div className="space-y-3">
             {resolved.map((alert) => {
-              const cfg = riskConfig[alert.severity];
               return (
                 <div key={alert.id} className="card p-4 opacity-75">
                   <div className="flex items-center gap-3">
@@ -119,7 +112,7 @@ export function CommunityAlerts() {
                       onClick={() => navigate(`/community/alerts/${alert.id}`)}
                       className="text-xs font-medium text-primary-600 hover:underline"
                     >
-                      View
+                      {t('common.viewDetails')}
                     </button>
                   </div>
                 </div>

@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-export function LoadingState({ message = 'Loading...' }: { message?: string }) {
+export function LoadingState({ message }: { message?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16">
       <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-      <p className="text-sm text-slate-500">{message}</p>
+      <p className="text-sm text-slate-500">{message || t('common.states.loading')}</p>
     </div>
   );
 }
@@ -36,18 +38,19 @@ export function EmptyState({
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-risk-critical-bg">
         <Loader2 className="h-7 w-7 text-risk-critical" />
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">Something went wrong</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{t('common.states.somethingWentWrong')}</h3>
         <p className="mt-1 max-w-sm text-sm text-slate-500">{message}</p>
       </div>
       {onRetry && (
         <button onClick={onRetry} className="btn-secondary mt-2">
-          Try Again
+          {t('common.tryAgain')}
         </button>
       )}
     </div>

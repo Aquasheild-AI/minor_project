@@ -305,3 +305,26 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(data['total_water_sources'], 2)
         self.assertEqual(data['active_alerts'], 1)
         self.assertEqual(data['recent_cases_30d'], 1)
+
+    def test_evaluate_water_reading(self):
+        """Test on-demand evaluation of a water sample with Module A ML model."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        payload = {
+            'ph': 7.4,
+            'temperature': 27.5,
+            'tds': 350.0,
+            'dissolved_oxygen': 6.2,
+            'nitrate': 8.5,
+            'source_type': 'TUBEWELL',
+            'source_name': 'Sample Tube Well',
+        }
+        res = self.client.post('/api/risk/evaluate/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn('risk_score', res.data)
+        self.assertIn('risk_level', res.data)
+        self.assertIn('probability_fc_over_100', res.data)
+        self.assertIn('factors', res.data)
+        self.assertIn('plain_language_explanation', res.data)
+        self.assertIn('recommended_actions', res.data)
+        self.assertIsInstance(res.data['recommended_actions'], list)
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Eye, Droplets } from 'lucide-react';
+import { Plus, Search, Eye, Droplets, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Table, Pagination } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
@@ -8,6 +8,7 @@ import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Drawer } from '@/components/ui/Drawer';
 import { api } from '@/services/api';
 import type { DatasetRecord } from '@/features/water-quality/WaterQualityPage';
+import { WaterReadingRiskCard } from '@/components/risk/WaterReadingRiskCard';
 
 const statusVariant: Record<string, 'low' | 'medium' | 'critical'> = {
   safe: 'low',
@@ -33,6 +34,7 @@ export function WorkerWaterQualityPage() {
 
   // Selected for View
   const [selectedRecord, setSelectedRecord] = useState<DatasetRecord | null>(null);
+  const [customModalOpen, setCustomModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -64,9 +66,24 @@ export function WorkerWaterQualityPage() {
     <div>
       <PageHeader
         title="Water Quality Monitoring"
-        subtitle="Record and monitor water-quality conditions (Waterborne Disease Dataset)."
+        subtitle="Record, monitor, and analyze field water-quality conditions with WHO ML contamination scoring."
         breadcrumb={['Home', 'Water Quality']}
-        actions={<Link to="/worker/water-quality/add" className="btn-primary"><Plus className="h-4 w-4" /> Add Water Quality Record</Link>}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCustomModalOpen(true)}
+              className="btn-secondary inline-flex items-center gap-1.5 shadow-xs"
+            >
+              <Sparkles className="h-4 w-4 text-blue-600" />
+              <span>AI Sample Analyzer</span>
+            </button>
+            <Link to="/worker/water-quality/add" className="btn-primary inline-flex items-center gap-1.5 shadow-xs">
+              <Plus className="h-4 w-4" />
+              <span>Add Record</span>
+            </Link>
+          </div>
+        }
       />
 
       <div className="card mt-6 p-4">
@@ -121,7 +138,29 @@ export function WorkerWaterQualityPage() {
                 { key: 'temperature', header: 'TEMP (°C)', render: (r: DatasetRecord) => <span>{r.temperature?.toFixed(1)}</span> },
                 { key: 'tds', header: 'TDS (PPM)', render: (r: DatasetRecord) => <span className={r.tds > 500 ? 'font-medium text-risk-medium' : ''}>{r.tds?.toFixed(0)}</span> },
                 { key: 'status', header: 'STATUS', render: (r: DatasetRecord) => <Badge variant={statusVariant[r.status] || 'low'}>{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</Badge> },
-                { key: 'actions', header: 'ACTIONS', render: (r: DatasetRecord) => <button onClick={() => setSelectedRecord(r)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-primary-600"><Eye className="h-4 w-4" /></button> },
+                {
+                  key: 'actions',
+                  header: 'ACTIONS',
+                  render: (r: DatasetRecord) => (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSelectedRecord(r)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors shadow-2xs"
+                        title="Evaluate contamination risk with AI model"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>AI Analyze</span>
+                      </button>
+                      <button
+                        onClick={() => setSelectedRecord(r)}
+                        className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-primary-600"
+                        title="View Full Parameters"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ),
+                },
               ]}
               data={records}
               rowKey={(r) => r.id}
@@ -134,10 +173,13 @@ export function WorkerWaterQualityPage() {
       <Drawer
         open={!!selectedRecord}
         onClose={() => setSelectedRecord(null)}
-        title="Water Quality Details"
+        title="Water Sample Analysis & Details"
       >
         {selectedRecord && (
-          <div className="space-y-4">
+          <div className="space-y-5">
+             {/* AI Contamination Risk Assessment Card */}
+             <WaterReadingRiskCard record={selectedRecord} />
+
              <div>
                 <h4 className="text-sm font-semibold text-slate-500 mb-2">Location Information</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -186,6 +228,30 @@ export function WorkerWaterQualityPage() {
              </div>
           </div>
         )}
+      </Drawer>
+
+      <Drawer
+        open={customModalOpen}
+        onClose={() => setCustomModalOpen(false)}
+        title="AI Water Risk Analyzer & Simulator"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">
+            Simulate and evaluate any field water sample in real time using the trained WHO Faecal Indicator Model (Module A). Adjust parameters to observe risk score and faecal coliform exceedance probability.
+          </p>
+          <WaterReadingRiskCard
+            allowSimulate={true}
+            initialParams={{
+              ph: 7.2,
+              temperature: 26.0,
+              tds: 320,
+              dissolved_oxygen: 6.0,
+              nitrate: 10.0,
+              source_type: 'HANDPUMP',
+              source_name: 'Interactive Field Simulation',
+            }}
+          />
+        </div>
       </Drawer>
     </div>
   );

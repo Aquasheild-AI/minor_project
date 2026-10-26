@@ -116,3 +116,61 @@ def risk_model_info(request):
     Model names, training dates and validation metrics, for transparency in the UI.
     """
     return Response(ml_service.model_info())
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def risk_evaluate_reading(request):
+    """
+    POST /api/risk/evaluate/
+    Evaluate an individual water sample reading (from dataset or custom input)
+    using the Module A machine learning model.
+    """
+    data = request.data or {}
+    try:
+        ph = float(data.get('ph'))
+    except (TypeError, ValueError):
+        return Response({'error': 'Valid pH value is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _to_float(key, default=None):
+        val = data.get(key)
+        if val is None or val == '':
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
+    temperature = _to_float('temperature', 25.0)
+    tds = _to_float('tds', 300.0)
+    dissolved_oxygen = _to_float('dissolved_oxygen', None)
+    if dissolved_oxygen is None:
+        dissolved_oxygen = _to_float('dissolvedOxygen', 6.0)
+
+    nitrate = _to_float('nitrate', 10.0)
+    fecal_coliform = _to_float('fecal_coliform', None)
+    if fecal_coliform is None:
+        fecal_coliform = _to_float('fecalColiform', None)
+
+    e_coli_detected = bool(data.get('e_coli_detected', False))
+    source_type = data.get('source_type') or data.get('waterSource') or 'HANDPUMP'
+    source_name = data.get('source_name') or data.get('district') or 'Water Sample'
+
+    try:
+        evaluation = ml_service.evaluate_water_reading(
+            ph=ph,
+            temperature=temperature,
+            tds=tds,
+            dissolved_oxygen=dissolved_oxygen,
+            nitrate=nitrate,
+            source_type=source_type,
+            e_coli_detected=e_coli_detected,
+            fecal_coliform=fecal_coliform,
+            source_name=source_name,
+        )
+        return Response(evaluation, status=status.HTTP_200_OK)
+    except ml_service.PredictionUnavailable as exc:
+        return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    except Exception as exc:
+        return Response({'error': f'Failed to evaluate reading: {str(exc)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

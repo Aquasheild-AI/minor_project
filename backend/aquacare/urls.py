@@ -49,6 +49,7 @@ urlpatterns = [
     path('risk/disease/history/', risk_views.disease_risk_history, name='risk-disease-history'),
     path('risk/refresh/', risk_views.risk_refresh_all, name='risk-refresh-all'),
     path('risk/models/', risk_views.risk_model_info, name='risk-model-info'),
+    path('risk/evaluate/', risk_views.risk_evaluate_reading, name='risk-evaluate'),
 
     # Dashboard Summary Statistics
     path('dashboard/stats/', views.dashboard_stats, name='dashboard-stats'),

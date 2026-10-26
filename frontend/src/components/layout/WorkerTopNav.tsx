@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Menu, Search, Bell, ChevronDown } from 'lucide-react';
 import { workerNotifications } from '@/data/workerData';
 import { timeAgo } from '@/utils/risk';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { healthWorker } from '@/data/workerData';
 import { useAuth } from '@/hooks/useAuth';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 interface WorkerTopNavProps {
   title: string;
@@ -13,6 +15,7 @@ interface WorkerTopNavProps {
 }
 
 export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
+  const { t } = useTranslation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -44,10 +47,13 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search villages, records..."
+            placeholder={t('common.search', { defaultValue: 'Search...' })}
             className="w-64 rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
         </div>
+
+        {/* Global Language Switcher */}
+        <LanguageSwitcher />
 
         <div ref={notifRef} className="relative">
           <button

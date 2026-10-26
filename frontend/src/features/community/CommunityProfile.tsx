@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, MapPin, Globe, Bell, LogOut, Shield, Check } from 'lucide-react';
+import { User, Mail, MapPin, Globe, Bell, LogOut, Shield, Check, Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { communityUser } from '@/data/communityData';
 import { Toast } from '@/components/ui/Toast';
+import { useCommunityTour } from '@/features/community/tour';
+import { useTranslation } from 'react-i18next';
 
 export function CommunityProfile() {
   const navigate = useNavigate();
   const { user, logout, updateProfile } = useAuth();
-  const [language, setLanguage] = useState<'English' | 'Hindi'>(communityUser.language);
+  const { startTour } = useCommunityTour();
+  const { t, i18n } = useTranslation();
+  
+  const currentLangCode = i18n.language?.startsWith('hi') ? 'hi' : 'en';
   const [notifPrefs, setNotifPrefs] = useState({ alerts: true, water: true, health: true, community: false });
   const [toastMsg, setToastMsg] = useState('');
   const [toastShow, setToastShow] = useState(false);
@@ -36,12 +41,17 @@ export function CommunityProfile() {
       
       await updateProfile({ first_name, last_name, email });
       setEditing(false);
-      showToast('Profile updated successfully');
+      showToast(t('common.save') + '!');
     } catch (err: any) {
       showToast(err.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLanguageChange = (langCode: 'en' | 'hi') => {
+    i18n.changeLanguage(langCode);
+    showToast(langCode === 'hi' ? 'भाषा बदलकर हिंदी कर दी गई है' : 'Language changed to English');
   };
 
   const showToast = (msg: string) => {
@@ -51,7 +61,7 @@ export function CommunityProfile() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">My Profile</h1>
+      <h1 className="mb-6 text-2xl font-bold text-slate-900">{t('community.profile.title')}</h1>
 
       <Toast message={toastMsg} show={toastShow} onClose={() => setToastShow(false)} />
 
@@ -68,22 +78,24 @@ export function CommunityProfile() {
         </div>
 
         <div className="space-y-4">
-          <ProfileField icon={User} label="Name" value={name} editable={editing} onChange={setName} />
-          <ProfileField icon={Mail} label="Email" value={email} editable={editing} onChange={setEmail} />
-          <ProfileField icon={MapPin} label="Village" value={communityUser.villageName} editable={false} />
-          <ProfileField icon={MapPin} label="District" value={communityUser.district} editable={false} />
+          <ProfileField icon={User} label={t('community.profile.name')} value={name} editable={editing} onChange={setName} />
+          <ProfileField icon={Mail} label={t('community.profile.email')} value={email} editable={editing} onChange={setEmail} />
+          <ProfileField icon={MapPin} label={t('community.profile.village')} value={communityUser.villageName} editable={false} />
+          <ProfileField icon={MapPin} label={t('community.profile.district')} value={communityUser.district} editable={false} />
           <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
             <Shield className="h-4 w-4 text-slate-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">Account Type</p>
-              <p className="text-xs text-slate-500">Community User</p>
+              <p className="text-sm font-medium text-slate-900">{t('community.profile.accountType')}</p>
+              <p className="text-xs text-slate-500">{t('auth.roles.COMMUNITY')}</p>
             </div>
           </div>
         </div>
 
         <div className="mt-4 flex gap-3">
           {!editing ? (
-            <button onClick={() => setEditing(true)} className="btn-secondary text-sm">Edit Profile</button>
+            <button onClick={() => setEditing(true)} className="btn-secondary text-sm">
+              {t('community.profile.editProfile')}
+            </button>
           ) : (
             <>
               <button
@@ -91,10 +103,10 @@ export function CommunityProfile() {
                 disabled={saving}
                 className="btn-primary text-sm"
               >
-                <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
+                <Check className="h-4 w-4" /> {saving ? t('common.saving') : t('community.profile.saveChanges')}
               </button>
               <button onClick={() => { setEditing(false); setName(initialName); setEmail(initialEmail); }} disabled={saving} className="btn-secondary text-sm">
-                Cancel
+                {t('common.cancel')}
               </button>
             </>
           )}
@@ -105,14 +117,14 @@ export function CommunityProfile() {
       <div className="card mb-6 p-5">
         <div className="mb-4 flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary-600" />
-          <h3 className="text-sm font-semibold text-slate-900">Notification Preferences</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{t('community.profile.notifications')}</h3>
         </div>
         <div className="space-y-3">
           {([
-            { key: 'alerts', label: 'Critical Risk Alerts', desc: 'Get notified when your village risk level changes' },
-            { key: 'water', label: 'Water Quality Updates', desc: 'Receive updates when new water data is available' },
-            { key: 'health', label: 'Health Report Updates', desc: 'Get notified when your report status changes' },
-            { key: 'community', label: 'Community Updates', desc: 'General community health information' },
+            { key: 'alerts', label: t('community.profile.alertsNotif'), desc: t('community.profile.alertsNotifDesc') },
+            { key: 'water', label: t('community.profile.waterNotif'), desc: t('community.profile.waterNotifDesc') },
+            { key: 'health', label: t('community.profile.healthNotif'), desc: t('community.profile.healthNotifDesc') },
+            { key: 'community', label: t('community.profile.communityNotif'), desc: t('community.profile.communityNotifDesc') },
           ] as const).map((item) => (
             <label key={item.key} className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-100 p-3">
               <div>
@@ -124,7 +136,7 @@ export function CommunityProfile() {
                 checked={notifPrefs[item.key]}
                 onChange={(e) => {
                   setNotifPrefs({ ...notifPrefs, [item.key]: e.target.checked });
-                  showToast('Notification preferences updated');
+                  showToast(t('common.updated'));
                 }}
                 className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
               />
@@ -137,28 +149,56 @@ export function CommunityProfile() {
       <div className="card mb-6 p-5">
         <div className="mb-4 flex items-center gap-2">
           <Globe className="h-4 w-4 text-primary-600" />
-          <h3 className="text-sm font-semibold text-slate-900">Language</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{t('community.profile.languageSection')}</h3>
         </div>
         <div className="flex gap-3">
-          {(['English', 'Hindi'] as const).map((lang) => (
-            <button
-              key={lang}
-              onClick={() => { setLanguage(lang); showToast(`Language changed to ${lang}`); }}
-              className={`flex-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
-                language === lang
-                  ? 'border-primary-600 bg-primary-50 text-primary-700'
-                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {lang}
-            </button>
-          ))}
+          <button
+            onClick={() => handleLanguageChange('en')}
+            className={`flex-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
+              currentLangCode === 'en'
+                ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            English
+          </button>
+          <button
+            onClick={() => handleLanguageChange('hi')}
+            className={`flex-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
+              currentLangCode === 'hi'
+                ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            हिंदी (Hindi)
+          </button>
         </div>
+      </div>
+
+      {/* Interactive Guided Tour Card */}
+      <div className="card mb-6 p-5" data-tour="profile-tour-card">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Compass className="h-4 w-4 text-primary-600" />
+            <h3 className="text-sm font-semibold text-slate-900">{t('community.profile.tourSectionTitle')}</h3>
+          </div>
+          <span className="badge bg-primary-50 text-primary-700 text-[11px] font-semibold">{t('tour.welcomeModal.badge')}</span>
+        </div>
+        <p className="mb-4 text-xs text-slate-500 leading-relaxed">
+          {t('community.profile.tourSectionDesc')}
+        </p>
+        <button
+          onClick={startTour}
+          className="btn-secondary text-xs flex items-center gap-2 border-primary-200 text-primary-700 hover:bg-primary-50 font-semibold py-2"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-primary-600" />
+          {t('community.profile.replayButton')}
+        </button>
       </div>
 
       {/* Logout */}
       <button onClick={handleLogout} className="btn-secondary w-full text-risk-critical hover:bg-risk-critical-bg">
-        <LogOut className="h-4 w-4" /> Logout
+        <LogOut className="h-4 w-4" /> {t('common.buttons.logout')}
       </button>
     </div>
   );

@@ -1,125 +1,245 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, Droplets, Info, ArrowRight } from 'lucide-react';
+import {
+  AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  ArrowRight,
+  CheckCircle2,
+  MapPin,
+  Activity,
+  Flame,
+} from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
-import { communityApi } from '@/services/communityApi';
-import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { riskApi, toRiskLevel } from '@/services/riskApi';
+import type { ApiVillage, WaterRiskPrediction, DiseaseRiskPrediction } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 export function CommunityRiskStatus() {
-  const [village, setVillage] = useState<Village | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const [villages, setVillages] = useState<ApiVillage[]>([]);
+  const [selectedVillageId, setSelectedVillageId] = useState<number | null>(user?.villageId || null);
 
+  const [waterPrediction, setWaterPrediction] = useState<WaterRiskPrediction | null>(null);
+  const [diseasePrediction, setDiseasePrediction] = useState<DiseaseRiskPrediction | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Initialize village list
   useEffect(() => {
-    communityApi.getUserVillage().then((v) => {
-      setVillage(v);
+    let active = true;
+    riskApi
+      .getVillages()
+      .then((vList) => {
+        if (!active) return;
+        setVillages(vList);
+        if (!selectedVillageId && vList.length > 0) {
+          setSelectedVillageId(user?.villageId || vList[0].id);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load villages:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Fetch prediction when selected village changes
+  useEffect(() => {
+    if (!selectedVillageId) {
       setLoading(false);
-    });
-  }, []);
+      return;
+    }
 
-  if (loading) return <LoadingState />;
-  if (!village) return null;
+    setLoading(true);
+    const targetVillage = villages.find((v) => v.id === selectedVillageId);
 
-  const cfg = riskConfig[village.riskLevel];
+    Promise.all([
+      riskApi.getWaterRisks({ village_id: selectedVillageId }).catch(() => [] as WaterRiskPrediction[]),
+      targetVillage?.district
+        ? riskApi.getDiseaseRisks(targetVillage.district).catch(() => [] as DiseaseRiskPrediction[])
+        : Promise.resolve([] as DiseaseRiskPrediction[]),
+    ])
+      .then(([wList, dList]) => {
+        setWaterPrediction(wList.length > 0 ? wList[0] : null);
+        setDiseasePrediction(dList.length > 0 ? dList[0] : null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [selectedVillageId, villages]);
+
+  const waterLevel = waterPrediction ? toRiskLevel(waterPrediction.risk_level) : 'low';
+  const isCriticalOrHigh = waterLevel === 'high' || waterLevel === 'critical';
+  const labEColi = waterPrediction?.contributing_factors?.lab_confirmed_e_coli;
+
+  if (loading && !waterPrediction && villages.length === 0) {
+    return <LoadingState message={t('common.states.loading')} />;
+  }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Risk Status</h1>
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Header and village selection */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">{t('community.riskStatus.title')}</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            {t('community.riskStatus.subtitle')}
+          </p>
+        </div>
 
-      {/* Large Risk Card */}
-      <div className="card mb-6 overflow-hidden">
+        {villages.length > 1 && (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-slate-400" />
+            <select
+              value={selectedVillageId || ''}
+              onChange={(e) => setSelectedVillageId(Number(e.target.value))}
+              className="input text-xs py-1.5 font-medium"
+            >
+              {villages.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name} ({v.district})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Main Status Hero Card */}
+      <div
+        className={`card overflow-hidden border-2 ${isCriticalOrHigh ? 'border-red-300' : 'border-slate-200'}`}
+        data-tour="risk-advisory-section"
+      >
         <div className="p-6 text-center">
-          <p className="text-sm font-medium text-slate-500">Current Village Risk</p>
-          <div className="mt-4 flex justify-center">
-            <div className="relative h-36 w-36">
-              <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#f1f5f9" strokeWidth="12" />
-                <circle
-                  cx="60" cy="60" r="50" fill="none"
-                  stroke={cfg.hex}
-                  strokeWidth="12"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(village.riskScore / 100) * 314} 314`}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-slate-900">{village.riskScore}%</span>
-                <span className="text-xs text-slate-500">Risk Score</span>
-              </div>
+          {/* Status Icon */}
+          <div className="mt-2 flex justify-center">
+            <div
+              className={`h-20 w-20 rounded-full flex items-center justify-center ${
+                labEColi
+                  ? 'bg-red-100 text-red-700 animate-pulse'
+                  : isCriticalOrHigh
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-emerald-100 text-emerald-700'
+              }`}
+            >
+              {labEColi ? (
+                <ShieldAlert className="h-10 w-10 text-red-600" />
+              ) : isCriticalOrHigh ? (
+                <AlertTriangle className="h-10 w-10 text-amber-600" />
+              ) : (
+                <ShieldCheck className="h-10 w-10 text-emerald-600" />
+              )}
             </div>
           </div>
-          <div className="mt-4 flex justify-center">
-            <RiskBadge level={village.riskLevel} />
-          </div>
-          <p className="mt-3 text-sm text-slate-600 max-w-md mx-auto">
-            {village.riskLevel === 'low' && 'Current monitoring data indicates a low estimated disease risk.'}
-            {village.riskLevel === 'medium' && 'Monitoring indicates increased risk compared with normal conditions.'}
-            {village.riskLevel === 'high' && 'Your village is currently being monitored at a high risk level.'}
-            {village.riskLevel === 'critical' && 'Your village is currently classified as Critical Risk based on available surveillance data.'}
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-4">
+            {t('community.riskStatus.waterSafetyHeader')}
           </p>
-          <p className="mt-2 text-xs text-slate-400">Updated {timeAgo(village.lastUpdated)}</p>
-        </div>
 
-        {/* Risk level bar */}
-        <div className="border-t border-slate-100 px-6 py-4">
-          <div className="flex h-3 overflow-hidden rounded-full">
-            <div className={`flex-1 ${village.riskLevel === 'low' ? 'bg-risk-low' : 'bg-slate-100'}`} />
-            <div className={`flex-1 ${village.riskLevel === 'medium' ? 'bg-risk-medium' : 'bg-slate-100'}`} />
-            <div className={`flex-1 ${village.riskLevel === 'high' ? 'bg-risk-high' : 'bg-slate-100'}`} />
-            <div className={`flex-1 ${village.riskLevel === 'critical' ? 'bg-risk-critical' : 'bg-slate-100'}`} />
+          <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
+            {labEColi
+              ? t('community.riskStatus.boilAdvisory')
+              : waterLevel === 'critical'
+              ? t('community.riskStatus.criticalRisk')
+              : waterLevel === 'high'
+              ? t('community.riskStatus.highRisk')
+              : waterLevel === 'medium'
+              ? t('community.riskStatus.moderateRisk')
+              : t('community.riskStatus.safeRisk')}
+          </h2>
+
+          <div className="mt-3 flex justify-center">
+            <RiskBadge level={waterLevel} />
           </div>
-          <div className="mt-1.5 flex justify-between text-xs font-medium text-slate-500">
-            <span className={village.riskLevel === 'low' ? 'text-risk-low' : ''}>Low</span>
-            <span className={village.riskLevel === 'medium' ? 'text-risk-medium' : ''}>Medium</span>
-            <span className={village.riskLevel === 'high' ? 'text-risk-high' : ''}>High</span>
-            <span className={village.riskLevel === 'critical' ? 'text-risk-critical' : ''}>Critical</span>
+
+          <p className="mt-3 text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+            {waterPrediction
+              ? waterPrediction.plain_language_explanation
+              : t('community.riskStatus.noTests')}
+          </p>
+
+          {/* Boil Water Action Banner for Citizens */}
+          {(isCriticalOrHigh || labEColi) && (
+            <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4 max-w-lg mx-auto flex items-center gap-3 text-left">
+              <Flame className="h-6 w-6 text-amber-600 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-amber-900">{t('community.riskStatus.boilBannerTitle')}</p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  {t('community.riskStatus.boilBannerDesc')}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Level Indicator Bar */}
+        <div className="border-t border-slate-100 px-6 py-4 bg-slate-50">
+          <div className="flex h-2.5 overflow-hidden rounded-full">
+            <div className={`flex-1 ${waterLevel === 'low' ? 'bg-risk-low' : 'bg-slate-200'}`} />
+            <div className={`flex-1 ${waterLevel === 'medium' ? 'bg-risk-medium' : 'bg-slate-200'}`} />
+            <div className={`flex-1 ${waterLevel === 'high' ? 'bg-risk-high' : 'bg-slate-200'}`} />
+            <div className={`flex-1 ${waterLevel === 'critical' ? 'bg-risk-critical' : 'bg-slate-200'}`} />
+          </div>
+          <div className="mt-1.5 flex justify-between text-2xs font-semibold text-slate-500">
+            <span className={waterLevel === 'low' ? 'text-risk-low' : ''}>{t('common.riskLevels.low')}</span>
+            <span className={waterLevel === 'medium' ? 'text-risk-medium' : ''}>{t('common.riskLevels.medium')}</span>
+            <span className={waterLevel === 'high' ? 'text-risk-high' : ''}>{t('common.riskLevels.high')}</span>
+            <span className={waterLevel === 'critical' ? 'text-risk-critical' : ''}>{t('common.riskLevels.critical')}</span>
           </div>
         </div>
       </div>
 
-      {/* Why is the risk high? */}
-      <div className="card mb-6 p-5">
-        <h3 className="mb-1 text-sm font-semibold text-slate-900">Why is the risk {cfg.label.toLowerCase()}?</h3>
-        <p className="mb-4 text-xs text-slate-500">These are the main factors contributing to the current risk level, explained in simple terms.</p>
-        <div className="space-y-3">
-          <FactorCard icon={TrendingUp} label="Increasing Health Reports" detail="More suspected cases have recently been reported in your village." />
-          <FactorCard icon={Droplets} label="Elevated Turbidity" detail="Recent water-quality observations show the water is cloudier than normal." />
-          <FactorCard icon={Droplets} label="High TDS" detail="Recent readings show elevated levels of dissolved substances in the water." />
+      {/* Household Safety Guidelines */}
+      {waterPrediction && waterPrediction.recommended_actions?.length > 0 && (
+        <div className="card p-6">
+          <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            {t('community.alertsPage.guidanceTitle')}
+          </h3>
+          <ul className="space-y-2.5">
+            {waterPrediction.recommended_actions.map((act, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg">
+                <span className="h-2 w-2 rounded-full bg-primary-600 mt-1 flex-shrink-0" />
+                <span>{act}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      )}
 
-      {/* Info */}
-      <div className="card p-5">
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-500" />
-          <div>
-            <p className="text-sm font-medium text-slate-900">About Risk Levels</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Risk levels are estimated based on recent health reports, water-quality observations, and other available data.
-              This is not a medical diagnosis. Always follow official local health advisories.
-            </p>
+      {/* District Outbreak Notice */}
+      {diseasePrediction && (
+        <div className="card p-5 border border-purple-100 bg-purple-50/30">
+          <div className="flex items-start gap-3">
+            <Activity className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-bold text-purple-900 uppercase tracking-wide">
+                  {t('community.riskStatus.diseasePredictionsTitle')} ({diseasePrediction.district})
+                </p>
+                <RiskBadge level={toRiskLevel(diseasePrediction.risk_level)} />
+              </div>
+              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                {diseasePrediction.plain_language_explanation}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="mt-6 flex gap-3">
-        <Link to="/community/water-quality" className="btn-secondary flex-1">View Water Quality</Link>
-        <Link to="/community/alerts" className="btn-primary flex-1">View Alerts <ArrowRight className="h-4 w-4" /></Link>
-      </div>
-    </div>
-  );
-}
-
-function FactorCard({ icon: Icon, label, detail }: { icon: React.ElementType; label: string; detail: string }) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border border-slate-100 p-4">
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-        <Icon className="h-5 w-5 text-slate-500" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{label}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{detail}</p>
+      {/* Navigation shortcuts */}
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        <Link to="/community/report" className="btn-primary flex-1 justify-center py-2.5">
+          {t('community.quickActionsItems.report')} <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link to="/community/alerts" className="btn-secondary flex-1 justify-center py-2.5">
+          {t('community.quickActionsItems.alerts')}
+        </Link>
       </div>
     </div>
   );

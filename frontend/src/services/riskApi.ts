@@ -5,6 +5,8 @@ import type {
   DiseaseRiskPrediction,
   ModelInfo,
   RiskLevel,
+  WaterEvaluationInput,
+  WaterRiskEvaluation,
   WaterRiskPrediction,
 } from '@/types';
 
@@ -46,4 +48,8 @@ export const riskApi = {
   refreshAll: () => authPost<RefreshSummary>('/api/risk/refresh/', { water: true, disease: true }),
 
   getModelInfo: () => authGet<ModelInfo>('/api/risk/models/'),
+
+  // On-demand evaluation for individual samples / dataset records
+  evaluateWaterReading: (payload: WaterEvaluationInput) =>
+    authPost<WaterRiskEvaluation>('/api/risk/evaluate/', payload),
 };

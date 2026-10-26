@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Activity, User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { login, user, loading: authLoading } = useAuth();
   const [username, setUsername] = useState('');
@@ -29,17 +32,14 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     if (!username || !password) {
-      setError('Please enter your username and password.');
+      setError(t('auth.errors.required', { defaultValue: 'Please enter your username and password.' }));
       return;
     }
     setLoading(true);
     try {
       await login(username, password);
-      // useAuth sets the user, which triggers the redirect above on re-render.
-      // But we can also navigate explicitly here based on the user's role.
-      // The role isn't available yet in this scope, so we rely on re-render.
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || t('auth.errors.loginFailed', { defaultValue: 'Login failed. Please check your credentials.' }));
     } finally {
       setLoading(false);
     }
@@ -54,27 +54,26 @@ export function LoginPage() {
             <Activity className="h-6 w-6 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold">Surveillance &amp; Early Warning</p>
-            <p className="text-sm text-primary-200">Water-Borne Disease Monitoring System</p>
+            <p className="text-lg font-bold">{t('common.appName')}</p>
+            <p className="text-sm text-primary-200">{t('common.appTagline')}</p>
           </div>
         </div>
 
         <div className="max-w-md">
           <h1 className="text-4xl font-bold leading-tight tracking-tight">
-            Smart AI-Driven Water-Borne Disease Surveillance
+            {t('auth.welcomeTitle')}
           </h1>
           <p className="mt-4 text-primary-200">
-            A comprehensive monitoring platform for rural community health, water quality analysis,
-            and ML-driven disease risk prediction.
+            {t('auth.welcomeSubtitle')}
           </p>
           <p className="mt-8 text-lg font-medium text-white">
-            Early detection. Better decisions. Safer communities.
+            {t('auth.motto')}
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-primary-300">
           <ShieldCheck className="h-4 w-4" />
-          Government of India — Public Health Initiative
+          {t('common.portal')}
         </div>
 
         <div className="pointer-events-none absolute inset-0 opacity-10">
@@ -84,30 +83,35 @@ export function LoginPage() {
       </div>
 
       {/* Right panel - login form */}
-      <div className="flex w-full items-center justify-center p-6 lg:w-1/2">
+      <div className="relative flex w-full items-center justify-center p-6 lg:w-1/2">
+        {/* Language selector in top right */}
+        <div className="absolute top-6 right-6">
+          <LanguageSwitcher />
+        </div>
+
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
             <div className="flex items-center gap-2.5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600">
                 <Activity className="h-5 w-5 text-white" />
               </div>
-              <p className="font-bold text-slate-900">Surveillance &amp; Early Warning</p>
+              <p className="font-bold text-slate-900">{t('common.appName')}</p>
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900">Sign in to your account</h2>
-          <p className="mt-1 text-sm text-slate-500">Access the disease surveillance system.</p>
+          <h2 className="text-2xl font-bold text-slate-900">{t('auth.signInTitle')}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t('auth.signInSubtitle')}</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div>
-              <label className="label">Username</label>
+              <label className="label">{t('auth.username')}</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
+                  placeholder={t('auth.usernamePlaceholder')}
                   className="input pl-10"
                   autoComplete="username"
                 />
@@ -115,14 +119,14 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="label">Password</label>
+              <label className="label">{t('auth.password')}</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.passwordPlaceholder')}
                   className="input px-10"
                   autoComplete="current-password"
                 />
@@ -144,7 +148,7 @@ export function LoginPage() {
                   onChange={(e) => setRemember(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                 />
-                Remember me
+                {t('auth.rememberMe')}
               </label>
             </div>
 
@@ -155,23 +159,24 @@ export function LoginPage() {
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? t('common.buttons.signingIn') : t('common.buttons.signIn')}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">
-              Create one
+              {t('auth.createOne')}
             </Link>
           </p>
 
           <p className="mt-8 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
             <Lock className="h-3 w-3" />
-            Secure Government Portal
+            {t('common.securePortal')}
           </p>
         </div>
       </div>
     </div>
   );
 }
+

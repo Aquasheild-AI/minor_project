@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { Search, Filter, MapPin } from 'lucide-react';
-import { RiskBadge } from '@/components/ui/RiskBadge';
+import { Search, Filter } from 'lucide-react';
 import { LoadingState } from '@/components/ui/States';
 import { communityApi } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { Village, RiskLevel } from '@/types';
 import 'leaflet/dist/leaflet.css';
+import { useTranslation } from 'react-i18next';
 
 const riskColors: Record<RiskLevel, string> = {
   low: '#16a34a',
@@ -20,6 +20,8 @@ export function CommunityRiskMap() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState<RiskLevel | 'all'>('all');
+  const { t, i18n } = useTranslation();
+  const isHi = i18n.language?.startsWith('hi');
 
   useEffect(() => {
     communityApi.getVillages().then((v) => {
@@ -28,7 +30,7 @@ export function CommunityRiskMap() {
     });
   }, []);
 
-  if (loading) return <LoadingState />;
+  if (loading) return <LoadingState message={t('common.states.loading')} />;
 
   const filtered = villages.filter((v) => {
     const matchSearch = v.name.toLowerCase().includes(search.toLowerCase());
@@ -40,8 +42,10 @@ export function CommunityRiskMap() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Community Risk Map</h1>
-      <p className="mb-6 text-sm text-slate-500">See risk levels for your village and nearby areas.</p>
+      <h1 className="mb-1 text-2xl font-bold text-slate-900">{t('nav.portalTitles.communityRiskMap')}</h1>
+      <p className="mb-6 text-sm text-slate-500">
+        {isHi ? 'अपने गाँव और आस-पास के क्षेत्रों के जोखिम स्तर देखें।' : 'See risk levels for your village and nearby areas.'}
+      </p>
 
       {/* Controls */}
       <div className="card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -51,7 +55,7 @@ export function CommunityRiskMap() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search village..."
+            placeholder={isHi ? 'गाँव खोजें...' : 'Search village...'}
             className="input pl-9"
           />
         </div>
@@ -62,11 +66,11 @@ export function CommunityRiskMap() {
             onChange={(e) => setRiskFilter(e.target.value as RiskLevel | 'all')}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
-            <option value="all">All Risk Levels</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="all">{isHi ? 'सभी जोखिम स्तर' : 'All Risk Levels'}</option>
+            <option value="low">{t('common.riskLevels.low')}</option>
+            <option value="medium">{t('common.riskLevels.medium')}</option>
+            <option value="high">{t('common.riskLevels.high')}</option>
+            <option value="critical">{t('common.riskLevels.critical')}</option>
           </select>
         </div>
       </div>
@@ -92,21 +96,21 @@ export function CommunityRiskMap() {
                     <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 6px 0' }}>{v.district}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                       <span style={{ fontSize: '12px', color: riskColors[v.riskLevel], fontWeight: 600 }}>
-                        {riskConfig[v.riskLevel].label} Risk
+                        {t(`common.riskLevels.${v.riskLevel}`)}
                       </span>
                       <span style={{ fontSize: '12px', color: '#64748b' }}>· {v.riskScore}%</span>
                     </div>
                     <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 4px 0' }}>
-                      Cases: {v.suspectedCases} · Water: {v.waterStatus}
+                      {isHi ? 'मामले' : 'Cases'}: {v.suspectedCases} · {isHi ? 'पानी' : 'Water'}: {v.waterStatus}
                     </p>
                     <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 8px 0' }}>
-                      Updated {timeAgo(v.lastUpdated)}
+                      {t('common.updated')} {timeAgo(v.lastUpdated)}
                     </p>
                     <a
                       href={`/community/villages/${v.id}`}
                       style={{ fontSize: '12px', color: '#2563eb', fontWeight: 500, textDecoration: 'none' }}
                     >
-                      View Village →
+                      {t('common.viewDetails')} →
                     </a>
                   </div>
                 </Popup>
@@ -121,7 +125,7 @@ export function CommunityRiskMap() {
         {(Object.keys(riskColors) as RiskLevel[]).map((level) => (
           <div key={level} className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: riskColors[level] }} />
-            <span className="text-xs text-slate-600">{riskConfig[level].label}</span>
+            <span className="text-xs text-slate-600">{t(`common.riskLevels.${level}`)}</span>
           </div>
         ))}
       </div>

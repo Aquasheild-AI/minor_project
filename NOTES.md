@@ -74,9 +74,11 @@ for n,la,lo in [('Kolkata',22.57,88.36),('Guwahati',26.14,91.74),('Jaisalmer',26
 - Live NASA test re-run on the calibrated model: Kolkata 0.65%, Guwahati 0.62%, Jaisalmer 0.31%, Chennai 0.81% (all LOW, `corrected=True`).
 - Local DB migrated (backup: `backend/db.sqlite3.bak-before-ml`, not committed). `run_risk_predictions` gave Varanasi LOW, 0.9%; there are no water tests in the local DB, so water risk was skipped.
 - Fixed `ml_service.refresh_all` refreshing a district once per village (Village default ordering broke `distinct()`).
+- Built `frontend/src/components/risk/` (`WaterRiskCard.tsx`, `DiseaseRiskCard.tsx`, `ModelInfoCard.tsx`).
+- Rewired `frontend/src/features/risk/RiskPredictionPage.tsx`, `frontend/src/features/worker/WorkerRiskAnalysis.tsx`, and `frontend/src/features/community/CommunityRiskStatus.tsx` to `riskApi` (connected to real backend endpoints `/api/risk/water/`, `/api/risk/disease/`, `/api/risk/refresh/`, `/api/risk/models/`).
+- Verified zero TypeScript compilation errors in the new risk components and rewired pages.
 
 ## Next steps, in order
 
-1. Build `frontend/src/components/risk/` (water risk card, district outbreak card, model info card). Rewire `RiskPredictionPage`, `WorkerRiskAnalysis` and `CommunityRiskStatus` to `riskApi`, then run `npm run lint` and `npm run typecheck`.
-2. Add a few water tests through the UI or API and check the village water risk and alerts end to end.
-3. Open a PR from `feature/ml-risk-models` into `feature/risk-model-architecture` (or `main`).
+1. Add a few water tests through the UI or API and check the village water risk and alerts end to end.
+2. Open a PR from `feature/ml-risk-models` into `feature/risk-model-architecture` (or `main`).

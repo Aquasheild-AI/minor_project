@@ -15,7 +15,7 @@ interface TableProps<T> {
   empty?: ReactNode;
 }
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T extends object>({
   columns,
   data,
   rowKey,
@@ -49,7 +49,7 @@ export function Table<T extends Record<string, unknown>>({
             >
               {columns.map((col) => (
                 <td key={col.key} className={`table-cell ${col.className || ''}`}>
-                  {col.render ? col.render(row) : (row[col.key] as ReactNode)}
+                  {col.render ? col.render(row) : ((row as any)[col.key] as ReactNode)}
                 </td>
               ))}
             </tr>

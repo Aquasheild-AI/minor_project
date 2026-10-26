@@ -8,7 +8,19 @@ export type DiseaseCategory =
   | 'Diarrheal Disease'
   | 'Other';
 
-export type AgeGroup = '0-5' | '6-12' | '13-18' | '19-40' | '41-60' | '60+';
+export type AgeGroup =
+  | '0-5'
+  | '6-12'
+  | '13-18'
+  | '19-40'
+  | '41-60'
+  | '60+'
+  | 'Under 5'
+  | '5-14'
+  | '15-30'
+  | '31-50'
+  | '51-65'
+  | '65+';
 
 export type Symptom =
   | 'Fever'
@@ -136,6 +148,37 @@ export interface WaterRiskFactor {
   /** Change in risk score (points) versus a typical reading; positive raises risk. */
   impact: number;
   description: string;
+}
+
+export interface WaterEvaluationInput {
+  ph: number;
+  temperature?: number;
+  tds?: number;
+  dissolved_oxygen?: number;
+  dissolvedOxygen?: number;
+  nitrate?: number;
+  source_type?: string;
+  waterSource?: string;
+  fecal_coliform?: number;
+  fecalColiform?: number;
+  e_coli_detected?: boolean;
+  source_name?: string;
+  district?: string;
+}
+
+export interface WaterRiskEvaluation {
+  risk_score: number;
+  risk_level: ApiRiskLevel;
+  probability_fc_over_100: number;
+  probabilities: Record<ApiRiskLevel, number>;
+  water_body_used: string;
+  source_type_approximated: boolean;
+  factors: WaterRiskFactor[];
+  plain_language_explanation: string;
+  recommended_actions: string[];
+  lab_confirmed_contamination: boolean;
+  model_name: string;
+  trained_at?: string;
 }
 
 export interface WaterRiskPrediction {

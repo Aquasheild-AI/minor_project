@@ -16,19 +16,20 @@ import {
   User,
 } from 'lucide-react';
 import { currentUser } from '@/data/mockData';
+import { useTranslation } from 'react-i18next';
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/health', label: 'Health Surveillance', icon: HeartPulse },
-  { to: '/water-quality', label: 'Water Quality', icon: Droplets },
-  { to: '/risk-prediction', label: 'Risk Prediction', icon: Brain },
-  { to: '/risk-map', label: 'Risk Map', icon: Map },
-  { to: '/trends', label: 'Historical Trends', icon: TrendingUp },
-  { to: '/alerts', label: 'Alerts', icon: Bell },
-  { to: '/villages', label: 'Villages', icon: MapPin },
-  { to: '/admin', label: 'Administration', icon: Users },
-  { to: '/settings', label: 'Profile & Settings', icon: User },
-];
+const navKeyMap = [
+  { to: '/dashboard', key: 'dashboard', icon: LayoutDashboard },
+  { to: '/health', key: 'healthSurveillance', icon: HeartPulse },
+  { to: '/water-quality', key: 'waterQuality', icon: Droplets },
+  { to: '/risk-prediction', key: 'riskPrediction', icon: Brain },
+  { to: '/risk-map', key: 'riskMap', icon: Map },
+  { to: '/trends', key: 'historicalTrends', icon: TrendingUp },
+  { to: '/alerts', key: 'alerts', icon: Bell },
+  { to: '/villages', key: 'villages', icon: MapPin },
+  { to: '/admin', key: 'administration', icon: Users },
+  { to: '/settings', key: 'settings', icon: User },
+] as const;
 
 interface SidebarProps {
   open: boolean;
@@ -38,6 +39,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
@@ -57,8 +59,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-900">Surveillance</p>
-            <p className="truncate text-xs text-slate-500">Early Warning System</p>
+            <p className="truncate text-sm font-bold text-slate-900">{t('common.appName')}</p>
+            <p className="truncate text-xs text-slate-500">{t('common.appTagline')}</p>
           </div>
           <button onClick={onClose} className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 lg:hidden">
             <X className="h-5 w-5" />
@@ -66,7 +68,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {navItems.map((item) => {
+          {navKeyMap.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -82,7 +84,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 }
               >
                 <Icon className="h-4.5 w-4.5 flex-shrink-0" style={{ width: 18, height: 18 }} />
-                {item.label}
+                {t(`nav.${item.key}`)}
               </NavLink>
             );
           })}
@@ -95,12 +97,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-900">{user?.name || currentUser.name}</p>
-              <p className="truncate text-xs text-slate-500">{user?.role === 'admin' ? 'Admin' : 'Authority'}</p>
+              <p className="truncate text-xs text-slate-500">{t('auth.roles.AUTHORITY')}</p>
             </div>
             <button
               onClick={handleLogout}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              title="Logout"
+              title={t('common.buttons.logout')}
             >
               <LogOut className="h-4 w-4" />
             </button>

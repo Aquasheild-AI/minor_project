@@ -6,12 +6,15 @@ import { LoadingState, EmptyState } from '@/components/ui/States';
 import { communityApi } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { CommunityAlert } from '@/data/communityData';
+import { useTranslation } from 'react-i18next';
 
 export function CommunityAlertDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [alert, setAlert] = useState<CommunityAlert | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const { t, i18n } = useTranslation();
+  const isHi = i18n.language?.startsWith('hi');
 
   useEffect(() => {
     communityApi.getAlert(id!).then((a) => {
@@ -20,12 +23,12 @@ export function CommunityAlertDetails() {
     });
   }, [id]);
 
-  if (loading) return <LoadingState />;
+  if (loading) return <LoadingState message={t('common.states.loading')} />;
 
   if (!alert) {
     return (
       <div className="card">
-        <EmptyState icon={AlertTriangle} title="Alert Not Found" message="This alert may have been removed or is no longer available." />
+        <EmptyState icon={AlertTriangle} title={t('common.states.empty')} message={t('common.states.noResults')} />
       </div>
     );
   }
@@ -35,7 +38,7 @@ export function CommunityAlertDetails() {
   return (
     <div className="mx-auto max-w-3xl">
       <button onClick={() => navigate('/community/alerts')} className="btn-secondary mb-4 text-sm">
-        <ArrowLeft className="h-4 w-4" /> Back to Alerts
+        <ArrowLeft className="h-4 w-4" /> {t('common.back')}
       </button>
 
       {/* Alert Header */}
@@ -55,9 +58,9 @@ export function CommunityAlertDetails() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <InfoItem label="Village" value={alert.villageName} />
-            <InfoItem label="Risk Status" value={`${alert.riskScore}%`} />
-            <InfoItem label="Detected" value={timeAgo(alert.detectedAt)} />
+            <InfoItem label={t('common.village')} value={alert.villageName} />
+            <InfoItem label={t('common.riskScore')} value={`${alert.riskScore}%`} />
+            <InfoItem label={isHi ? 'पहचाना गया' : 'Detected'} value={timeAgo(alert.detectedAt)} />
           </div>
 
           <p className="mt-4 text-sm text-slate-600">{alert.message}</p>
@@ -66,7 +69,9 @@ export function CommunityAlertDetails() {
 
       {/* Why this alert was generated */}
       <div className="card mb-6 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">Why This Alert Was Generated</h3>
+        <h3 className="mb-4 text-sm font-semibold text-slate-900">
+          {isHi ? 'यह चेतावनी क्यों जारी की गई?' : 'Why This Alert Was Generated'}
+        </h3>
         <div className="space-y-3">
           {alert.factors.map((factor, i) => (
             <div key={i} className="flex items-start gap-3 rounded-lg border border-slate-100 p-3">
@@ -81,7 +86,7 @@ export function CommunityAlertDetails() {
 
       {/* What the community can do */}
       <div className="card mb-6 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">What the Community Can Do</h3>
+        <h3 className="mb-4 text-sm font-semibold text-slate-900">{t('community.alertsPage.guidanceTitle')}</h3>
         <div className="space-y-3">
           {alert.guidance.map((g, i) => (
             <div key={i} className="flex items-start gap-3 rounded-lg bg-primary-50/50 p-3">
@@ -92,20 +97,20 @@ export function CommunityAlertDetails() {
         </div>
         <p className="mt-4 flex items-start gap-1.5 text-xs text-slate-400">
           <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-          This guidance is general public-health information. It does not constitute medical advice, diagnosis, or treatment recommendations.
+          {t('community.disclaimer')}
         </p>
       </div>
 
       {/* Quick links */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <button onClick={() => navigate('/community/risk')} className="btn-secondary flex-1">
-          <Shield className="h-4 w-4" /> View Risk Status
+          <Shield className="h-4 w-4" /> {t('nav.riskStatus')}
         </button>
         <button onClick={() => navigate('/community/water-quality')} className="btn-secondary flex-1">
-          <Droplets className="h-4 w-4" /> Water Quality
+          <Droplets className="h-4 w-4" /> {t('nav.waterQuality')}
         </button>
         <button onClick={() => navigate('/community/report')} className="btn-primary flex-1">
-          <HeartPulse className="h-4 w-4" /> Report Issue
+          <HeartPulse className="h-4 w-4" /> {t('community.quickActionsItems.report')}
         </button>
       </div>
     </div>

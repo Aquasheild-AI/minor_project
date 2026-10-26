@@ -114,6 +114,110 @@ def _predict_test(test):
     return result, factors, lab_confirmed
 
 
+def normalize_source_type(source_type):
+    if not source_type:
+        return 'GROUNDWATER'
+    st = str(source_type).strip().lower()
+    if 'bore' in st or 'tube' in st:
+        return 'TUBEWELL'
+    if 'well' in st:
+        return 'WELL'
+    if 'river' in st or 'stream' in st or 'canal' in st:
+        return 'RIVER'
+    if 'pond' in st or 'lake' in st:
+        return 'POND'
+    if 'pipe' in st or 'tap' in st:
+        return 'TAP'
+    if 'handpump' in st or 'hand' in st or 'pump' in st:
+        return 'HANDPUMP'
+    return 'OTHER'
+
+
+def evaluate_water_reading(
+    ph,
+    temperature=25.0,
+    tds=300.0,
+    dissolved_oxygen=6.0,
+    nitrate=10.0,
+    source_type='HANDPUMP',
+    e_coli_detected=False,
+    fecal_coliform=None,
+    source_name='Water Sample',
+):
+    water, _ = _ml()
+    norm_source_type = normalize_source_type(source_type)
+    try:
+        result = water.predict(
+            ph=ph,
+            temperature=temperature,
+            tds=tds,
+            dissolved_oxygen=dissolved_oxygen,
+            nitrate=nitrate,
+            source_type=norm_source_type,
+        )
+    except FileNotFoundError as exc:
+        raise PredictionUnavailable(f'Water risk model file missing: {exc}') from exc
+
+    readings = {
+        'ph': ph,
+        'temp_c': temperature,
+        'ec_us_cm': tds,
+        'do_mg_l': dissolved_oxygen,
+        'nitrate_n_mg_l': nitrate,
+    }
+    factors = []
+    for feature, impact in result['contributing_factors'].items():
+        label, unit = water.FIELD_LABELS[feature]
+        val = readings.get(feature)
+        factors.append({
+            'feature': feature,
+            'label': label,
+            'value': val,
+            'unit': unit.strip(),
+            'impact': impact,
+            'description': water.describe_factor(feature, impact, val) if val is not None else f'{label} impact: {impact:+g}',
+        })
+
+    lab_confirmed = bool(e_coli_detected) or (fecal_coliform is not None and fecal_coliform > 100)
+    if lab_confirmed:
+        result['risk_level'] = 'CRITICAL'
+        result['risk_score'] = max(result['risk_score'], 90.0)
+
+    p = result['probability_fc_over_100']
+    explanation = (
+        f"Based on the measured water parameters of {source_name}, the model estimates a "
+        f"{p:.0%} probability of faecal coliform exceeding 100 MPN/100 mL (WHO high-risk threshold)."
+    )
+    raising = [f['description'] for f in factors if f['impact'] >= 2][:2]
+    if raising:
+        explanation += ' Primary risk drivers: ' + '; '.join(raising) + '.'
+    if result.get('source_type_approximated'):
+        explanation += ' This water source type was approximated to nearest monitored groundwater body.'
+    if lab_confirmed:
+        explanation = (
+            f"Severe contamination confirmed in {source_name}: faecal indicator or E. coli detected. "
+            f"The water is unsafe for human consumption without immediate treatment."
+        )
+
+    risk_level = result['risk_level']
+    actions = WATER_ACTIONS.get(risk_level, WATER_ACTIONS['LOW'])
+
+    return {
+        'risk_score': result['risk_score'],
+        'risk_level': risk_level,
+        'probability_fc_over_100': result['probability_fc_over_100'],
+        'probabilities': result['probabilities'],
+        'water_body_used': result['water_body_used'],
+        'source_type_approximated': result['source_type_approximated'],
+        'factors': factors,
+        'plain_language_explanation': explanation,
+        'recommended_actions': actions,
+        'lab_confirmed_contamination': lab_confirmed,
+        'model_name': result['model_name'],
+        'trained_at': result['trained_at'],
+    }
+
+
 def _water_explanation(source, result, factors, lab_confirmed):
     p = result['probability_fc_over_100']
     text = (

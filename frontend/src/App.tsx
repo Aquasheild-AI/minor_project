@@ -6,6 +6,7 @@ import { WorkerLayout } from '@/components/layout/WorkerLayout';
 import { CommunityLayout } from '@/components/layout/CommunityLayout';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
+import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { HealthRecordsPage } from '@/features/health/HealthRecordsPage';
 import { AddHealthRecordPage } from '@/features/health/AddHealthRecordPage';
@@ -54,6 +55,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
           {/* Admin / Authority routes */}
           <Route

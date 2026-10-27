@@ -11,7 +11,8 @@ from .models import (
     WaterRiskPrediction,
     DiseaseRiskPrediction,
     Alert,
-    AlertAcknowledgement
+    AlertAcknowledgement,
+    PasswordResetOTP,
 )
 
 
@@ -117,3 +118,12 @@ class AlertAcknowledgementAdmin(admin.ModelAdmin):
     list_display = ('alert', 'user', 'acknowledged_at')
     search_fields = ('alert__title', 'user__username')
     date_hierarchy = 'acknowledged_at'
+
+
+@admin.register(PasswordResetOTP)
+class PasswordResetOTPAdmin(admin.ModelAdmin):
+    list_display = ('email', 'user', 'otp', 'is_used', 'created_at', 'expires_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('email', 'user__username', 'otp')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at',)

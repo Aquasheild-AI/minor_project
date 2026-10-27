@@ -150,6 +150,13 @@ export function LoginPage() {
                 />
                 {t('auth.rememberMe')}
               </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-sm font-semibold text-primary-600 hover:text-primary-700 hover:underline"
+              >
+                {t('auth.forgotPassword', { defaultValue: 'Forgot password?' })}
+              </Link>
             </div>
 
             {error && (

@@ -146,11 +146,27 @@
       "HEALTH_WORKER": "Field Health Worker (ASHA / ANM)",
       "AUTHORITY": "Health Authority / Admin"
     },
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordTitle": "Forgot your password?",
+    "forgotPasswordSubtitle": "Reset your password securely via email verification code.",
+    "registeredEmail": "Registered Email Address",
+    "verificationCode": "6-Digit Verification Code",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "resendCode": "Resend Code",
+    "resendIn": "Resend in",
+    "passwordResetSuccessTitle": "Password Reset Successfully!",
+    "passwordResetSuccessDesc": "Your account password has been updated securely. You can now use your new password to sign in.",
     "errors": {
       "required": "Please enter your username and password.",
       "loginFailed": "Login failed. Please check your credentials.",
       "passwordMismatch": "Passwords do not match.",
-      "passwordMinLength": "Password must be at least 8 characters."
+      "passwordMinLength": "Password must be at least 8 characters.",
+      "emailRequired": "Please enter your registered email address.",
+      "invalidEmail": "Please enter a valid email address.",
+      "allRequired": "Username, password, and email are required.",
+      "otpRequired": "Please enter the 6-digit verification code.",
+      "newPasswordRequired": "Please enter your new password."
     }
   },
   "community": {

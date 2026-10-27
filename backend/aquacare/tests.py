@@ -328,3 +328,104 @@ class AquaCareRBACTestCase(TestCase):
         self.assertIn('recommended_actions', res.data)
         self.assertIsInstance(res.data['recommended_actions'], list)
 
+    def test_community_registration_requires_email(self):
+        """COMMUNITY registration must require a valid email and fail if omitted."""
+        payload = {
+            'username': 'new_citizen',
+            'password': 'password123',
+            'first_name': 'New',
+            'last_name': 'Citizen',
+            'phone': '9876543210',
+            # email missing
+        }
+        res = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Invalid email format
+        payload['email'] = 'invalid-email-format'
+        res = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Valid email succeeds
+        payload['email'] = 'citizen.new@example.com'
+        res = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['user']['email'], 'citizen.new@example.com')
+
+    def test_create_authority_requires_email(self):
+        """AUTHORITY creation must require a valid email."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        payload = {
+            'username': 'new_officer',
+            'password': 'officerPassword123',
+            'first_name': 'Dr.',
+            'last_name': 'Verma',
+            # email missing
+        }
+        res = self.client.post('/api/manage/users/create-authority/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Valid email succeeds
+        payload['email'] = 'verma@authority.gov.in'
+        res = self.client.post('/api/manage/users/create-authority/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['email'], 'verma@authority.gov.in')
+
+    def test_create_worker_requires_email(self):
+        """HEALTH_WORKER creation must require a valid email."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        payload = {
+            'username': 'new_field_worker',
+            'password': 'workerPassword123',
+            'first_name': 'Sunita',
+            'last_name': 'Sharma',
+            # email missing
+        }
+        res = self.client.post('/api/manage/users/create-worker/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Valid email succeeds
+        payload['email'] = 'sunita.worker@health.gov.in'
+        res = self.client.post('/api/manage/users/create-worker/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['email'], 'sunita.worker@health.gov.in')
+
+    def test_forgot_password_otp_flow(self):
+        """Test complete password reset flow: request OTP -> verify OTP -> confirm new password -> login."""
+        from django.core import mail
+        from aquacare.models import PasswordResetOTP
+
+        # 1. Request OTP
+        res = self.client.post('/api/auth/password-reset/request/', {'email': self.citizen.email}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Verify OTP was created in database
+        otp_record = PasswordResetOTP.objects.filter(email=self.citizen.email, is_used=False).first()
+        self.assertIsNotNone(otp_record)
+        otp = otp_record.otp
+
+        # 2. Verify OTP endpoint
+        res = self.client.post('/api/auth/password-reset/verify-otp/', {
+            'email': self.citizen.email,
+            'otp': otp,
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data.get('valid'))
+
+        # 3. Confirm password reset
+        new_pass = 'newSuperSecurePassword999'
+        res = self.client.post('/api/auth/password-reset/confirm/', {
+            'email': self.citizen.email,
+            'otp': otp,
+            'new_password': new_pass,
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # 4. Verify user can log in with new password
+        login_res = self.client.post('/api/auth/login/', {
+            'username': self.citizen.username,
+            'password': new_pass,
+        }, format='json')
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        self.assertIn('token', login_res.data)
+

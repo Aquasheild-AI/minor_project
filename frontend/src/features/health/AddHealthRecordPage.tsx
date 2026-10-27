@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, HeartPulse, Activity, Check, ArrowLeft } from 'lucide-react';
+import { MapPin, HeartPulse, Activity, Check, ArrowLeft, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { villages } from '@/data/mockData';
-import { riskFromScore } from '@/utils/risk';
-import type { DiseaseCategory, Symptom, AgeGroup } from '@/types';
+import { api } from '@/services/api';
+import type { DiseaseCategory, Symptom, AgeGroup, Village } from '@/types';
 
 const diseases: DiseaseCategory[] = ['Cholera', 'Typhoid', 'Dysentery', 'Hepatitis', 'Diarrheal Disease', 'Other'];
 const allSymptoms: Symptom[] = ['Fever', 'Diarrhea', 'Vomiting', 'Abdominal Pain', 'Dehydration', 'Headache', 'Other'];
@@ -12,22 +11,46 @@ const ageGroups: AgeGroup[] = ['0-5', '6-12', '13-18', '19-40', '41-60', '60+'];
 
 export function AddHealthRecordPage() {
   const navigate = useNavigate();
+  const [villageList, setVillageList] = useState<Village[]>([]);
   const [form, setForm] = useState({
     villageId: '',
     district: '',
-    reportingDate: '',
+    reportingDate: new Date().toISOString().split('T')[0],
     diseaseCategory: '',
-    suspectedCases: '',
-    ageGroup: '',
+    suspectedCases: '1',
+    ageGroup: '19-40',
+    notes: '',
   });
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  useEffect(() => {
+    api.getVillages().then((v) => {
+      setVillageList(v);
+      if (v.length > 0) {
+        setForm((prev) => ({
+          ...prev,
+          villageId: v[0].id,
+          district: v[0].district,
+        }));
+      }
+    });
+  }, []);
+
   const update = (key: string, value: string) => {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (key === 'villageId') {
+        const found = villageList.find((v) => v.id === value);
+        if (found) next.district = found.district;
+      }
+      return next;
+    });
     setErrors((e) => ({ ...e, [key]: '' }));
+    setServerError(null);
   };
 
   const toggleSymptom = (s: Symptom) => {
@@ -47,15 +70,31 @@ export function AddHealthRecordPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setServerError(null);
+
+    try {
+      await api.createHealthRecord({
+        villageId: form.villageId,
+        reportingDate: form.reportingDate,
+        diseaseCategory: form.diseaseCategory,
+        suspectedCases: parseInt(form.suspectedCases),
+        ageGroup: form.ageGroup,
+        symptoms,
+        notes: form.notes,
+      });
+
       setSuccess(true);
       setTimeout(() => navigate('/health'), 1500);
-    }, 800);
+    } catch (err: any) {
+      console.error('Failed to create health record:', err);
+      setServerError(err.message || 'Failed to submit health record. Please verify permissions.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (success) {
@@ -65,7 +104,7 @@ export function AddHealthRecordPage() {
           <Check className="h-8 w-8 text-risk-low" />
         </div>
         <h2 className="text-xl font-bold text-slate-900">Health Record Saved</h2>
-        <p className="text-sm text-slate-500">The record has been added successfully.</p>
+        <p className="text-sm text-slate-500">The record has been saved successfully to the surveillance database.</p>
       </div>
     );
   }
@@ -79,6 +118,13 @@ export function AddHealthRecordPage() {
         actions={<button onClick={() => navigate('/health')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back</button>}
       />
 
+      {serverError && (
+        <div className="mb-6 flex items-center gap-2 rounded-xl bg-risk-critical-bg p-4 text-sm text-risk-critical">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span>{serverError}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
         {/* Section 1: Location */}
         <div className="card p-6">
@@ -91,13 +137,13 @@ export function AddHealthRecordPage() {
               <label className="label">Village *</label>
               <select value={form.villageId} onChange={(e) => update('villageId', e.target.value)} className={`input ${errors.villageId ? 'input-error' : ''}`}>
                 <option value="">Select village</option>
-                {villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
               {errors.villageId && <p className="mt-1 text-xs text-risk-critical">{errors.villageId}</p>}
             </div>
             <div>
               <label className="label">District</label>
-              <input type="text" value={form.district} onChange={(e) => update('district', e.target.value)} placeholder="Auto-filled from village" className="input" />
+              <input type="text" value={form.district} readOnly placeholder="Auto-filled from village" className="input bg-slate-50" />
             </div>
             <div>
               <label className="label">Reporting Date *</label>
@@ -142,7 +188,7 @@ export function AddHealthRecordPage() {
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Symptoms</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Observed Symptoms</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {allSymptoms.map((s) => (
@@ -162,6 +208,18 @@ export function AddHealthRecordPage() {
             ))}
           </div>
           {errors.symptoms && <p className="mt-2 text-xs text-risk-critical">{errors.symptoms}</p>}
+        </div>
+
+        {/* Section 4: Notes */}
+        <div className="card p-6">
+          <label className="label">Clinical Notes / Treatment Given</label>
+          <textarea
+            value={form.notes}
+            onChange={(e) => update('notes', e.target.value)}
+            rows={3}
+            placeholder="E.g., patient provided ORS and zinc supplements, advised boiling drinking water."
+            className="input"
+          />
         </div>
 
         {/* Actions */}

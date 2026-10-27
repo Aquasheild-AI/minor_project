@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
 import { api } from '@/services/api';
-import { alerts as mockAlerts } from '@/data/mockData';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { Village, Alert } from '@/types';
 
@@ -41,7 +40,10 @@ export function RiskMapPage() {
 
   const villageAlerts = selected ? alerts.filter((a) => a.villageId === selected.id) : [];
 
-  if (loading) return <LoadingState message="Loading map data..." />;
+  const centerLat = filtered.length > 0 ? filtered.reduce((s, v) => s + v.lat, 0) / filtered.length : 25.6;
+  const centerLng = filtered.length > 0 ? filtered.reduce((s, v) => s + v.lng, 0) / filtered.length : 85.1;
+
+  if (loading) return <LoadingState message="Loading live GIS map data..." />;
 
   return (
     <div>
@@ -76,7 +78,7 @@ export function RiskMapPage() {
         {/* Map */}
         <div className="card overflow-hidden lg:col-span-2">
           <div className="h-[600px]">
-            <MapContainer center={[25.32, 83.0]} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+            <MapContainer center={[centerLat, centerLng]} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
               {filtered.map((v) => (
                 <CircleMarker
@@ -93,7 +95,7 @@ export function RiskMapPage() {
                       <div className="mt-1 space-y-0.5 text-xs">
                         <p>Risk Score: <span className="font-semibold">{v.riskScore}%</span></p>
                         <p>Suspected Cases: {v.suspectedCases}</p>
-                        <p>Water Status: {v.waterStatus}</p>
+                        <p>Water Status: <span className="uppercase font-medium">{v.waterStatus}</span></p>
                         <p>Updated: {timeAgo(v.lastUpdated)}</p>
                       </div>
                       <Link to={`/villages/${v.id}`} className="text-xs font-medium text-primary-600 hover:underline">View Village Details</Link>
@@ -113,7 +115,7 @@ export function RiskMapPage() {
                 <MapPin className="h-7 w-7 text-slate-400" />
               </div>
               <h3 className="text-sm font-semibold text-slate-900">Select a Village</h3>
-              <p className="text-sm text-slate-500">Click on a marker in the map to view detailed village information.</p>
+              <p className="text-sm text-slate-500">Click on any marker on the map to inspect live surveillance status and water metrics.</p>
             </div>
           ) : (
             <div className="flex h-full flex-col">
@@ -151,30 +153,18 @@ export function RiskMapPage() {
 
                 {/* Water Quality */}
                 <div className="mb-5">
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Water Quality</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Water Quality Status</h4>
                   <div className="space-y-2">
-                    <WaterRow icon={Beaker} label="pH" value="7.2" status="Within range" />
-                    <WaterRow icon={Droplets} label="Turbidity" value="4.8 NTU" status="Moderate" statusColor="text-risk-medium" />
-                    <WaterRow icon={Activity} label="TDS" value="420 ppm" status="Normal" statusColor="text-risk-low" />
-                    <WaterRow icon={Thermometer} label="Temperature" value="27.5°C" status="Normal" statusColor="text-risk-low" />
-                  </div>
-                </div>
-
-                {/* Risk Factors */}
-                <div className="mb-5">
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Factors</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm"><AlertTriangle className="h-3.5 w-3.5 text-risk-high" /> High suspected cases</div>
-                    <div className="flex items-center gap-2 text-sm"><AlertTriangle className="h-3.5 w-3.5 text-risk-medium" /> Elevated turbidity</div>
-                    <div className="flex items-center gap-2 text-sm"><AlertTriangle className="h-3.5 w-3.5 text-risk-medium" /> High TDS levels</div>
+                    <WaterRow icon={Beaker} label="Condition" value={selected.waterStatus.toUpperCase()} status="Monitored" />
+                    <WaterRow icon={Activity} label="Surveillance Level" value={`${selected.riskScore}%`} status="Current Index" statusColor="text-risk-medium" />
                   </div>
                 </div>
 
                 {/* Recent Alerts */}
                 <div className="mb-5">
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent Alerts</h4>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Active Village Advisories</h4>
                   {villageAlerts.length === 0 ? (
-                    <p className="text-sm text-slate-400">No recent alerts for this village.</p>
+                    <p className="text-sm text-slate-400">No active alerts for this village.</p>
                   ) : (
                     <div className="space-y-2">
                       {villageAlerts.map((a) => (

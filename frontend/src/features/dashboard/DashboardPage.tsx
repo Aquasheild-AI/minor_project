@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   MapPin,
@@ -20,49 +20,82 @@ import { ChartCard } from '@/components/ui/ChartCard';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
 import { api } from '@/services/api';
-import { villages, alerts } from '@/data/mockData';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village, Alert } from '@/types';
-
-const riskDistribution = [
-  { name: 'Low', value: villages.filter((v) => v.riskLevel === 'low').length, color: riskConfig.low.hex },
-  { name: 'Medium', value: villages.filter((v) => v.riskLevel === 'medium').length, color: riskConfig.medium.hex },
-  { name: 'High', value: villages.filter((v) => v.riskLevel === 'high').length, color: riskConfig.high.hex },
-  { name: 'Critical', value: villages.filter((v) => v.riskLevel === 'critical').length, color: riskConfig.critical.hex },
-];
-
-const trendData = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date(2026, 6, 22 + i);
-  return {
-    date: d.toISOString().slice(5, 10),
-    cases: Math.floor(20 + Math.sin(i / 4) * 15 + Math.random() * 10),
-  };
-});
-
-const waterStats = {
-  ph: 7.2,
-  turbidity: 3.4,
-  tds: 380,
-  temperature: 27.5,
-};
+import type { Village, Alert, TrendPoint } from '@/types';
 
 export function DashboardPage() {
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
   const [villageList, setVillageList] = useState<Village[]>([]);
   const [alertList, setAlertList] = useState<Alert[]>([]);
+  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [trendRange, setTrendRange] = useState<'7' | '30' | '90'>('30');
+  const [waterStats, setWaterStats] = useState({
+    ph: 7.2,
+    turbidity: 3.4,
+    tds: 380,
+    temperature: 26.5,
+  });
 
   useEffect(() => {
-    Promise.all([api.getVillages(), api.getAlerts()]).then(([v, a]) => {
-      setVillageList(v);
-      setAlertList(a);
-      setLoading(false);
-    });
+    async function loadDashboard() {
+      try {
+        const [dashStats, villages, alerts, waterRecords] = await Promise.all([
+          api.getDashboardStats(),
+          api.getVillages(),
+          api.getAlerts(),
+          api.getWaterQuality(),
+        ]);
+
+        setStats(dashStats);
+        setVillageList(villages);
+        setAlertList(alerts);
+
+        if (waterRecords && waterRecords.length > 0) {
+          const avgPh = +(waterRecords.reduce((s, w) => s + w.ph, 0) / waterRecords.length).toFixed(1);
+          const avgTurb = +(waterRecords.reduce((s, w) => s + w.turbidity, 0) / waterRecords.length).toFixed(1);
+          const avgTds = Math.round(waterRecords.reduce((s, w) => s + w.tds, 0) / waterRecords.length);
+          const avgTemp = +(waterRecords.reduce((s, w) => s + w.temperature, 0) / waterRecords.length).toFixed(1);
+          setWaterStats({ ph: avgPh, turbidity: avgTurb, tds: avgTds, temperature: avgTemp });
+        }
+
+        const primaryVillageId = villages[0]?.id || '1';
+        const trends = await api.getTrends(primaryVillageId, 90);
+        setTrendData(trends);
+      } catch (e) {
+        console.error('Failed to load dashboard data:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
   }, []);
 
-  if (loading) return <LoadingState message="Loading dashboard..." />;
+  const riskDistribution = useMemo(() => {
+    return [
+      { name: 'Low', value: villageList.filter((v) => v.riskLevel === 'low').length, color: riskConfig.low.hex },
+      { name: 'Medium', value: villageList.filter((v) => v.riskLevel === 'medium').length, color: riskConfig.medium.hex },
+      { name: 'High', value: villageList.filter((v) => v.riskLevel === 'high').length, color: riskConfig.high.hex },
+      { name: 'Critical', value: villageList.filter((v) => v.riskLevel === 'critical').length, color: riskConfig.critical.hex },
+    ];
+  }, [villageList]);
 
-  const filteredTrend = trendRange === '7' ? trendData.slice(-7) : trendRange === '30' ? trendData : trendData;
+  if (loading) return <LoadingState message="Loading live dashboard metrics..." />;
+
+  const filteredTrend = trendRange === '7'
+    ? trendData.slice(-7)
+    : trendRange === '30'
+    ? trendData.slice(-30)
+    : trendData;
+
+  const totalVillages = stats?.totalVillages || villageList.length;
+  const totalCases = stats?.totalCases || villageList.reduce((s, v) => s + v.suspectedCases, 0);
+  const highRiskCount = stats?.highRiskVillages || villageList.filter((v) => v.riskLevel === 'high').length;
+  const criticalRiskCount = villageList.filter((v) => v.riskLevel === 'critical').length;
+
+  const centerLat = villageList.length > 0 ? villageList.reduce((s, v) => s + v.lat, 0) / villageList.length : 25.6;
+  const centerLng = villageList.length > 0 ? villageList.reduce((s, v) => s + v.lng, 0) / villageList.length : 85.1;
 
   return (
     <div>
@@ -73,16 +106,52 @@ export function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Villages" value={villageList.length} icon={MapPin} trend="+4.2%" trendDirection="up" trendNote="vs last month" iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="Total Reported Cases" value={villageList.reduce((s, v) => s + v.suspectedCases, 0)} icon={Users} trend="+12.5%" trendDirection="up" trendNote="vs last week" iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="High Risk Villages" value={villageList.filter((v) => v.riskLevel === 'high').length} icon={AlertTriangle} trend="+2 from last week" trendDirection="up" trendNote="" iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
-        <StatCard label="Critical Risk Villages" value={villageList.filter((v) => v.riskLevel === 'critical').length} icon={ShieldAlert} trend="Requires attention" trendDirection="up" trendNote="" iconColor="text-risk-critical" iconBg="bg-risk-critical-bg" />
+        <StatCard
+          label="Total Villages"
+          value={totalVillages}
+          icon={MapPin}
+          trend="+100% Monitored"
+          trendDirection="up"
+          trendNote="live from database"
+          iconColor="text-primary-600"
+          iconBg="bg-primary-50"
+        />
+        <StatCard
+          label="Reported Cases (30d)"
+          value={totalCases}
+          icon={Users}
+          trend={`${stats?.recentCases30d || totalCases} active`}
+          trendDirection="up"
+          trendNote="surveillance records"
+          iconColor="text-primary-600"
+          iconBg="bg-primary-50"
+        />
+        <StatCard
+          label="High Risk Villages"
+          value={highRiskCount}
+          icon={AlertTriangle}
+          trend={highRiskCount > 0 ? `${highRiskCount} alert` : 'All normal'}
+          trendDirection={highRiskCount > 0 ? 'up' : 'down'}
+          trendNote=""
+          iconColor="text-risk-high"
+          iconBg="bg-risk-high-bg"
+        />
+        <StatCard
+          label="Critical Risk Villages"
+          value={criticalRiskCount}
+          icon={ShieldAlert}
+          trend={criticalRiskCount > 0 ? 'Immediate action required' : 'None detected'}
+          trendDirection="up"
+          trendNote=""
+          iconColor="text-risk-critical"
+          iconBg="bg-risk-critical-bg"
+        />
       </div>
 
       {/* Charts row */}
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Risk Distribution */}
-        <ChartCard title="Risk Distribution" subtitle="Villages by current risk level">
+        <ChartCard title="Risk Distribution" subtitle="Monitored villages by current risk level">
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={riskDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
@@ -98,8 +167,8 @@ export function DashboardPage() {
 
         {/* Disease Trend */}
         <ChartCard
-          title="Disease Trend"
-          subtitle="Suspected cases over time"
+          title="Disease & Surveillance Trend"
+          subtitle="Monitored caseload progression over time"
           className="lg:col-span-2"
           actions={
             <select
@@ -135,7 +204,9 @@ export function DashboardPage() {
               <span className="text-sm text-slate-500">Average pH</span>
             </div>
             <p className="mt-2 text-2xl font-bold text-slate-900">{waterStats.ph}</p>
-            <span className="badge mt-1 bg-risk-low-bg text-risk-low">Within range</span>
+            <span className={`badge mt-1 ${waterStats.ph >= 6.5 && waterStats.ph <= 8.5 ? 'bg-risk-low-bg text-risk-low' : 'bg-risk-critical-bg text-risk-critical'}`}>
+              {waterStats.ph >= 6.5 && waterStats.ph <= 8.5 ? 'Within range' : 'Out of range'}
+            </span>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2">
@@ -143,7 +214,9 @@ export function DashboardPage() {
               <span className="text-sm text-slate-500">Average Turbidity</span>
             </div>
             <p className="mt-2 text-2xl font-bold text-slate-900">{waterStats.turbidity} <span className="text-sm font-normal text-slate-400">NTU</span></p>
-            <span className="badge mt-1 bg-risk-medium-bg text-risk-medium">Moderate</span>
+            <span className={`badge mt-1 ${waterStats.turbidity < 5 ? 'bg-risk-low-bg text-risk-low' : 'bg-risk-medium-bg text-risk-medium'}`}>
+              {waterStats.turbidity < 5 ? 'Normal (<5 NTU)' : 'Elevated'}
+            </span>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2">
@@ -151,7 +224,7 @@ export function DashboardPage() {
               <span className="text-sm text-slate-500">Average TDS</span>
             </div>
             <p className="mt-2 text-2xl font-bold text-slate-900">{waterStats.tds} <span className="text-sm font-normal text-slate-400">ppm</span></p>
-            <span className="badge mt-1 bg-risk-low-bg text-risk-low">Normal</span>
+            <span className="badge mt-1 bg-risk-low-bg text-risk-low">Recorded</span>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2">
@@ -159,7 +232,7 @@ export function DashboardPage() {
               <span className="text-sm text-slate-500">Average Temp</span>
             </div>
             <p className="mt-2 text-2xl font-bold text-slate-900">{waterStats.temperature} <span className="text-sm font-normal text-slate-400">°C</span></p>
-            <span className="badge mt-1 bg-risk-low-bg text-risk-low">Normal</span>
+            <span className="badge mt-1 bg-risk-low-bg text-risk-low">Standard</span>
           </div>
         </div>
       </div>
@@ -168,7 +241,7 @@ export function DashboardPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="GIS Risk Preview" subtitle="Village locations with risk markers" className="lg:col-span-2">
           <div className="h-80 overflow-hidden rounded-lg">
-            <MapContainer center={[25.32, 83.0]} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+            <MapContainer center={[centerLat, centerLng]} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
               {villageList.map((v) => (
                 <CircleMarker
@@ -202,21 +275,25 @@ export function DashboardPage() {
             <Link to="/alerts" className="text-xs font-medium text-primary-600 hover:underline">View all</Link>
           </div>
           <div className="space-y-3">
-            {alertList.slice(0, 5).map((alert) => (
-              <div key={alert.id} className="flex gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: riskConfig[alert.severity].hex + '15' }}>
-                  <Bell className="h-4 w-4" style={{ color: riskConfig[alert.severity].hex }} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <RiskBadge level={alert.severity} />
-                    <span className="text-xs text-slate-400">{timeAgo(alert.detectedAt)}</span>
+            {alertList.length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-400">No active alerts reported.</p>
+            ) : (
+              alertList.slice(0, 5).map((alert) => (
+                <div key={alert.id} className="flex gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: riskConfig[alert.severity].hex + '15' }}>
+                    <Bell className="h-4 w-4" style={{ color: riskConfig[alert.severity].hex }} />
                   </div>
-                  <p className="mt-1 text-sm font-medium text-slate-800">{alert.villageName}</p>
-                  <p className="text-xs text-slate-500">{alert.message}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <RiskBadge level={alert.severity} />
+                      <span className="text-xs text-slate-400">{timeAgo(alert.detectedAt)}</span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-slate-800">{alert.villageName}</p>
+                    <p className="text-xs text-slate-500 truncate">{alert.message}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

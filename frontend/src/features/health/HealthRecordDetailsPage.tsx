@@ -16,17 +16,34 @@ export function HealthRecordDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    api.getHealthRecords().then((records) => {
-      const r = records.find((rec) => rec.id === id);
+    if (!id) return;
+    api.getHealthRecord(id).then((r) => {
       if (r) setRecord(r);
       else setError(true);
+      setLoading(false);
+    }).catch(() => {
+      setError(true);
       setLoading(false);
     });
   }, [id]);
 
-  if (loading) return <LoadingState />;
+  const handleDelete = async () => {
+    if (!record) return;
+    setDeleting(true);
+    try {
+      await api.deleteHealthRecord(record.id);
+      navigate('/health');
+    } catch (e) {
+      console.error('Failed to delete health record:', e);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (loading) return <LoadingState message="Loading health surveillance record..." />;
   if (error || !record) return <ErrorState message="Health record not found." onRetry={() => navigate('/health')} />;
 
   return (
@@ -76,20 +93,22 @@ export function HealthRecordDetailsPage() {
         <div className="card p-6">
           <h3 className="text-sm font-semibold text-slate-900">Record Timeline</h3>
           <div className="mt-4 space-y-4">
-            <TimelineItem title="Record Created" date={record.reportingDate} description="Health record submitted by health worker." active />
-            <TimelineItem title="Under Review" date="2026-08-19" description="Record flagged for risk assessment." />
-            <TimelineItem title="Risk Assessment" date="2026-08-20" description={`Risk level determined: ${record.riskLevel}`} />
+            <TimelineItem title="Record Created" date={record.reportingDate} description={`Logged by ${record.reportedBy}`} active />
+            <TimelineItem title="Clinical Triage" date={record.reportingDate} description="Symptoms classified under surveillance rules." active />
+            <TimelineItem title="Risk Evaluation" date={record.reportingDate} description={`Calculated severity status: ${record.riskLevel}`} active />
           </div>
         </div>
       </div>
 
       <Modal open={showDelete} onClose={() => setShowDelete(false)} title="Delete Health Record" size="sm">
         <p className="text-sm text-slate-600">
-          Are you sure you want to delete this health record? This action cannot be undone.
+          Are you sure you want to delete this health record? This will permanently remove it from the surveillance database.
         </p>
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={() => setShowDelete(false)} className="btn-secondary">Cancel</button>
-          <button onClick={() => navigate('/health')} className="btn-danger">Delete Record</button>
+          <button onClick={() => setShowDelete(false)} disabled={deleting} className="btn-secondary">Cancel</button>
+          <button onClick={handleDelete} disabled={deleting} className="btn-danger">
+            {deleting ? 'Deleting...' : 'Delete Record'}
+          </button>
         </div>
       </Modal>
     </div>

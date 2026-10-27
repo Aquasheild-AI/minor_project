@@ -1,20 +1,64 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Droplets, Thermometer, Beaker, Activity } from 'lucide-react';
+import { ArrowLeft, Check, Droplets, Thermometer, Beaker, Activity, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { villages } from '@/data/mockData';
+import { api } from '@/services/api';
 import { phStatus, tdsStatus, turbidityStatus } from '@/utils/risk';
+import type { Village } from '@/types';
 
 export function AddWaterQualityPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ villageId: '', date: '', ph: '', turbidity: '', temperature: '', tds: '' });
+  const [villageList, setVillageList] = useState<Village[]>([]);
+  const [waterSources, setWaterSources] = useState<any[]>([]);
+  const [form, setForm] = useState({
+    villageId: '',
+    waterSourceId: '',
+    date: new Date().toISOString().split('T')[0],
+    ph: '7.2',
+    turbidity: '2.5',
+    temperature: '26.0',
+    tds: '350',
+    coliformBacteria: '0',
+    dissolvedOxygen: '6.5',
+    notes: '',
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    api.getVillages().then((v) => {
+      setVillageList(v);
+      if (v.length > 0) {
+        setForm((prev) => ({ ...prev, villageId: v[0].id }));
+        loadSources(v[0].id);
+      }
+    });
+  }, []);
+
+  const loadSources = async (villageId: string) => {
+    try {
+      const sources = await api.getWaterSources(villageId);
+      setWaterSources(sources);
+      if (sources.length > 0) {
+        setForm((prev) => ({ ...prev, waterSourceId: String(sources[0].id) }));
+      } else {
+        setForm((prev) => ({ ...prev, waterSourceId: '1' }));
+      }
+    } catch {
+      setWaterSources([]);
+    }
+  };
 
   const update = (key: string, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: '' }));
+    setServerError(null);
+
+    if (key === 'villageId') {
+      loadSources(value);
+    }
   };
 
   const validate = () => {
@@ -30,11 +74,34 @@ export function AddWaterQualityPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSuccess(true); setTimeout(() => navigate('/water-quality'), 1500); }, 800);
+    setServerError(null);
+
+    try {
+      await api.createWaterQuality({
+        villageId: form.villageId,
+        waterSourceId: form.waterSourceId || (waterSources[0]?.id ? String(waterSources[0].id) : '1'),
+        date: form.date,
+        ph: parseFloat(form.ph),
+        turbidity: parseFloat(form.turbidity),
+        temperature: parseFloat(form.temperature),
+        tds: parseFloat(form.tds),
+        coliformBacteria: parseFloat(form.coliformBacteria || '0'),
+        dissolvedOxygen: parseFloat(form.dissolvedOxygen || '6.5'),
+        notes: form.notes,
+      });
+
+      setSuccess(true);
+      setTimeout(() => navigate('/water-quality'), 1500);
+    } catch (err: any) {
+      console.error('Failed to record water sample:', err);
+      setServerError(err.message || 'Failed to submit water quality sample.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (success) {
@@ -44,14 +111,14 @@ export function AddWaterQualityPage() {
           <Check className="h-8 w-8 text-risk-low" />
         </div>
         <h2 className="text-xl font-bold text-slate-900">Water Quality Record Saved</h2>
-        <p className="text-sm text-slate-500">The sample has been recorded successfully.</p>
+        <p className="text-sm text-slate-500">The sample has been stored and automatic WQI / AI risk re-scoring has been executed.</p>
       </div>
     );
   }
 
-  const phVal = parseFloat(form.ph);
-  const tdsVal = parseFloat(form.tds);
-  const turbVal = parseFloat(form.turbidity);
+  const phVal = parseFloat(form.ph) || 7.0;
+  const tdsVal = parseFloat(form.tds) || 350;
+  const turbVal = parseFloat(form.turbidity) || 2.5;
 
   return (
     <div>
@@ -61,6 +128,13 @@ export function AddWaterQualityPage() {
         breadcrumb={['Home', 'Water Quality', 'Add Record']}
         actions={<button onClick={() => navigate('/water-quality')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back</button>}
       />
+
+      {serverError && (
+        <div className="mb-6 flex items-center gap-2 rounded-xl bg-risk-critical-bg p-4 text-sm text-risk-critical">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span>{serverError}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="max-w-2xl">
         <div className="card p-6">
@@ -74,14 +148,44 @@ export function AddWaterQualityPage() {
               <label className="label">Village *</label>
               <select value={form.villageId} onChange={(e) => update('villageId', e.target.value)} className={`input ${errors.villageId ? 'input-error' : ''}`}>
                 <option value="">Select village</option>
-                {villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
               {errors.villageId && <p className="mt-1 text-xs text-risk-critical">{errors.villageId}</p>}
             </div>
+
+            <div>
+              <label className="label">Water Source *</label>
+              <select
+                value={form.waterSourceId}
+                onChange={(e) => update('waterSourceId', e.target.value)}
+                className="input"
+              >
+                {waterSources.length === 0 ? (
+                  <option value="1">Primary Community Source</option>
+                ) : (
+                  waterSources.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.source_type_display || s.source_type})</option>
+                  ))
+                )}
+              </select>
+            </div>
+
             <div>
               <label className="label">Sample Date *</label>
               <input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} className={`input ${errors.date ? 'input-error' : ''}`} />
               {errors.date && <p className="mt-1 text-xs text-risk-critical">{errors.date}</p>}
+            </div>
+
+            <div>
+              <label className="label">Dissolved Oxygen (mg/L)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={form.dissolvedOxygen}
+                onChange={(e) => update('dissolvedOxygen', e.target.value)}
+                placeholder="6.5"
+                className="input"
+              />
             </div>
           </div>
 

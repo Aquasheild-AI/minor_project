@@ -1,23 +1,34 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart, ComposedChart } from 'recharts';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ChartCard } from '@/components/ui/ChartCard';
 import { LoadingState } from '@/components/ui/States';
 import { api } from '@/services/api';
-import { villages } from '@/data/mockData';
 import { riskConfig } from '@/utils/risk';
-import type { TrendPoint } from '@/types';
+import type { TrendPoint, Village } from '@/types';
 
 export function TrendsPage() {
-  const [villageId, setVillageId] = useState('v01');
+  const [villageList, setVillageList] = useState<Village[]>([]);
+  const [villageId, setVillageId] = useState('');
   const [period, setPeriod] = useState(30);
   const [data, setData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [compareVillages, setCompareVillages] = useState<string[]>(['v01', 'v02', 'v03']);
+  const [compareVillages, setCompareVillages] = useState<string[]>([]);
   const [compareData, setCompareData] = useState<Record<string, TrendPoint[]>>({});
 
   useEffect(() => {
+    api.getVillages().then((v) => {
+      setVillageList(v);
+      if (v.length > 0) {
+        setVillageId(v[0].id);
+        setCompareVillages(v.slice(0, 3).map((item) => item.id));
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!villageId) return;
     setLoading(true);
     api.getTrends(villageId, period).then((d) => {
       setData(d);
@@ -26,6 +37,7 @@ export function TrendsPage() {
   }, [villageId, period]);
 
   useEffect(() => {
+    if (compareVillages.length === 0) return;
     const fetches = compareVillages.map((id) => api.getTrends(id, 30).then((d) => [id, d] as const));
     Promise.all(fetches).then((entries) => {
       setCompareData(Object.fromEntries(entries));
@@ -38,8 +50,8 @@ export function TrendsPage() {
     ? data.map((point, i) => {
         const row: Record<string, number | string> = { date: point.date };
         compareVillages.forEach((id) => {
-          const v = villages.find((v) => v.id === id);
-          row[v?.name || id] = compareData[id]?.[i]?.cases || 0;
+          const v = villageList.find((v) => v.id === id);
+          row[v?.name || `Village #${id}`] = compareData[id]?.[i]?.cases || 0;
         });
         return row;
       })
@@ -57,14 +69,14 @@ export function TrendsPage() {
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <select value={villageId} onChange={(e) => setVillageId(e.target.value)} className="input pl-10">
-                {villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="label">Disease</label>
+            <label className="label">Disease Category</label>
             <select className="input">
-              <option>All Diseases</option>
+              <option>All Monitored Diseases</option>
               <option>Cholera</option>
               <option>Typhoid</option>
               <option>Dysentery</option>
@@ -84,7 +96,7 @@ export function TrendsPage() {
       </div>
 
       {loading ? (
-        <LoadingState />
+        <LoadingState message="Loading historical trend vectors..." />
       ) : (
         <div className="space-y-6">
           {/* Disease Cases Trend */}
@@ -107,7 +119,7 @@ export function TrendsPage() {
           </ChartCard>
 
           {/* Risk Level History */}
-          <ChartCard title="Risk Level History" subtitle="Risk score progression over time">
+          <ChartCard title="Risk Level History" subtitle="Calculated risk score progression over time">
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -179,9 +191,9 @@ export function TrendsPage() {
           </div>
 
           {/* Comparison */}
-          <ChartCard title="Village Comparison" subtitle="Compare disease cases across selected villages">
+          <ChartCard title="Village Comparison" subtitle="Compare disease trends across monitored villages">
             <div className="mb-4 flex flex-wrap gap-2">
-              {villages.slice(0, 6).map((v, i) => (
+              {villageList.slice(0, 6).map((v, i) => (
                 <button
                   key={v.id}
                   onClick={() => {
@@ -208,9 +220,9 @@ export function TrendsPage() {
                 <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
                 <Legend />
                 {compareVillages.map((id, i) => {
-                  const v = villages.find((v) => v.id === id);
+                  const v = villageList.find((v) => v.id === id);
                   return (
-                    <Line key={id} type="monotone" dataKey={v?.name || id} stroke={riskColors[i % 4]} strokeWidth={2} dot={false} />
+                    <Line key={id} type="monotone" dataKey={v?.name || `Village #${id}`} stroke={riskColors[i % 4]} strokeWidth={2} dot={false} />
                   );
                 })}
               </ComposedChart>

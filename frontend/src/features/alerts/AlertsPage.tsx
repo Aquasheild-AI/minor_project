@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, Clock, MapPin, X } from 'lucide-react';
+import { Bell, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, Clock, MapPin, Plus, Send } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Drawer } from '@/components/ui/Drawer';
+import { Modal } from '@/components/ui/Modal';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { api } from '@/services/api';
 import { riskConfig, timeAgo, formatDateTime } from '@/utils/risk';
-import type { Alert, AlertStatus } from '@/types';
+import type { Alert, AlertStatus, Village } from '@/types';
 
 const tabs: { key: 'all' | 'critical' | 'high' | 'medium' | 'resolved'; label: string }[] = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All Active' },
   { key: 'critical', label: 'Critical' },
   { key: 'high', label: 'High' },
   { key: 'medium', label: 'Medium' },
@@ -26,13 +27,30 @@ const statusConfig: Record<AlertStatus, { label: string; icon: React.ElementType
 
 export function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [villageList, setVillageList] = useState<Village[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [selected, setSelected] = useState<Alert | null>(null);
 
+  // New Alert Modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    villageId: '',
+    title: '',
+    message: '',
+    severity: 'HIGH',
+    targetAudience: 'ALL',
+    actionRequired: 'Boil water before consumption.',
+  });
+
   useEffect(() => {
-    api.getAlerts().then((a) => {
+    Promise.all([api.getAlerts(), api.getVillages()]).then(([a, v]) => {
       setAlerts(a);
+      setVillageList(v);
+      if (v.length > 0) {
+        setCreateForm((prev) => ({ ...prev, villageId: v[0].id }));
+      }
       setLoading(false);
     });
   }, []);
@@ -50,21 +68,61 @@ export function AlertsPage() {
     medium: alerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length,
   };
 
-  const updateStatus = (id: string, status: AlertStatus) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-    setSelected((prev) => (prev?.id === id ? { ...prev, status } : prev));
+  const updateStatus = async (id: string, status: AlertStatus) => {
+    try {
+      if (status === 'resolved') {
+        await api.resolveAlert(id);
+      }
+      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+      setSelected((prev) => (prev?.id === id ? { ...prev, status } : prev));
+    } catch (e) {
+      console.error('Failed to update alert status:', e);
+    }
+  };
+
+  const handleCreateAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.villageId || !createForm.title || !createForm.message) return;
+    setCreating(true);
+
+    try {
+      const created = await api.createAlert(createForm);
+      setAlerts((prev) => [created, ...prev]);
+      setShowCreateModal(false);
+      setCreateForm({
+        villageId: villageList[0]?.id || '',
+        title: '',
+        message: '',
+        severity: 'HIGH',
+        targetAudience: 'ALL',
+        actionRequired: 'Boil water before consumption.',
+      });
+    } catch (err) {
+      console.error('Failed to broadcast alert:', err);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
     <div>
-      <PageHeader title="Early Warnings & Alerts" subtitle="Monitor and manage disease risk alerts across monitored villages." breadcrumb={['Home', 'Alerts']} />
+      <PageHeader
+        title="Early Warnings & Advisories"
+        subtitle="Monitor and broadcast disease and water contamination alerts across monitored communities."
+        breadcrumb={['Home', 'Alerts']}
+        actions={
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            <Plus className="h-4 w-4" /> Broadcast Advisory
+          </button>
+        }
+      />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total Active Alerts" value={stats.total} icon={Bell} iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="Critical" value={stats.critical} icon={ShieldAlert} iconColor="text-risk-critical" iconBg="bg-risk-critical-bg" />
-        <StatCard label="High" value={stats.high} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
-        <StatCard label="Medium" value={stats.medium} icon={AlertCircle} iconColor="text-risk-medium" iconBg="bg-risk-medium-bg" />
+        <StatCard label="Critical Risk" value={stats.critical} icon={ShieldAlert} iconColor="text-risk-critical" iconBg="bg-risk-critical-bg" />
+        <StatCard label="High Risk" value={stats.high} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
+        <StatCard label="Medium Risk" value={stats.medium} icon={AlertCircle} iconColor="text-risk-medium" iconBg="bg-risk-medium-bg" />
       </div>
 
       {/* Tabs */}
@@ -87,10 +145,10 @@ export function AlertsPage() {
       {/* Alert cards */}
       <div className="mt-4 space-y-3">
         {loading ? (
-          <LoadingState />
+          <LoadingState message="Loading early warnings..." />
         ) : filtered.length === 0 ? (
           <div className="card">
-            <EmptyState icon={Bell} title="No Alerts" message="No alerts found for this filter. All clear for now." />
+            <EmptyState icon={Bell} title="No Alerts" message="No active alerts found for this filter. All monitored villages are within normal limits." />
           </div>
         ) : (
           filtered.map((alert) => {
@@ -99,8 +157,8 @@ export function AlertsPage() {
             return (
               <div
                 key={alert.id}
-                className={`card cursor-pointer p-4 transition-shadow hover:shadow-card-hover ${!alert.read ? 'border-l-4' : ''}`}
-                style={!alert.read ? { borderLeftColor: cfg.hex } : {}}
+                className={`card cursor-pointer p-4 transition-shadow hover:shadow-card-hover ${alert.status === 'active' ? 'border-l-4' : ''}`}
+                style={alert.status === 'active' ? { borderLeftColor: cfg.hex } : {}}
                 onClick={() => setSelected(alert)}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -114,7 +172,7 @@ export function AlertsPage() {
                         <span className="badge bg-slate-100 text-slate-600">{status.label}</span>
                       </div>
                       <p className="mt-1 text-sm font-semibold text-slate-900">{alert.message}</p>
-                      <p className="text-xs text-slate-500">{alert.villageName} — Risk Score: {alert.riskScore}%</p>
+                      <p className="text-xs text-slate-500">{alert.villageName} — Severity Level: {alert.severity.toUpperCase()}</p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {alert.factors.map((f, i) => (
                           <span key={i} className="text-xs text-slate-400">• {f}</span>
@@ -164,9 +222,9 @@ export function AlertsPage() {
               </div>
             </div>
 
-            {/* Risk Factors */}
+            {/* Recommended action / checklist */}
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Factors</h4>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Advisory Action</h4>
               <div className="space-y-2">
                 {selected.factors.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2.5 text-sm text-slate-700">
@@ -177,48 +235,107 @@ export function AlertsPage() {
               </div>
             </div>
 
-            {/* Related data */}
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Related Health Records</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5">
-                  <span className="text-sm text-slate-700">Diarrheal Disease — 12 cases</span>
-                  <span className="text-xs text-slate-400">Aug 19</span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5">
-                  <span className="text-sm text-slate-700">Cholera — 8 cases</span>
-                  <span className="text-xs text-slate-400">Aug 18</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Water Quality Readings</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">pH</p><p className="text-sm font-semibold text-slate-900">6.1</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">Turbidity</p><p className="text-sm font-semibold text-slate-900">6.2 NTU</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">TDS</p><p className="text-sm font-semibold text-slate-900">620 ppm</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">Temp</p><p className="text-sm font-semibold text-slate-900">28.3°C</p></div>
-              </div>
-            </div>
-
             {/* Actions */}
             <div className="space-y-2 border-t border-slate-200 pt-4">
-              <Link to={`/villages/${selected.villageId}`} className="btn-secondary w-full"><MapPin className="h-4 w-4" /> View Village</Link>
-              {selected.status === 'active' && (
-                <button onClick={() => updateStatus(selected.id, 'under_review')} className="btn-secondary w-full">
-                  <Clock className="h-4 w-4" /> Mark as Reviewed
-                </button>
-              )}
+              <Link to={`/villages/${selected.villageId}`} className="btn-secondary w-full"><MapPin className="h-4 w-4" /> View Village Profile</Link>
               {selected.status !== 'resolved' && (
                 <button onClick={() => updateStatus(selected.id, 'resolved')} className="btn-primary w-full">
-                  <CheckCircle2 className="h-4 w-4" /> Resolve Alert
+                  <CheckCircle2 className="h-4 w-4" /> Resolve Alert (Deactivate)
                 </button>
               )}
             </div>
           </div>
         )}
       </Drawer>
+
+      {/* Broadcast Alert Modal */}
+      <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Broadcast Emergency Advisory" size="md">
+        <form onSubmit={handleCreateAlert} className="space-y-4">
+          <div>
+            <label className="label">Target Village *</label>
+            <select
+              value={createForm.villageId}
+              onChange={(e) => setCreateForm({ ...createForm, villageId: e.target.value })}
+              className="input"
+              required
+            >
+              {villageList.map((v) => (
+                <option key={v.id} value={v.id}>{v.name} ({v.district})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Advisory Title *</label>
+            <input
+              type="text"
+              placeholder="E.g., Boil Water Advisory Issued"
+              value={createForm.title}
+              onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+              className="input"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Severity Level</label>
+              <select
+                value={createForm.severity}
+                onChange={(e) => setCreateForm({ ...createForm, severity: e.target.value })}
+                className="input"
+              >
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Target Audience</label>
+              <select
+                value={createForm.targetAudience}
+                onChange={(e) => setCreateForm({ ...createForm, targetAudience: e.target.value })}
+                className="input"
+              >
+                <option value="ALL">All (Citizens & Staff)</option>
+                <option value="COMMUNITY">Community Citizens</option>
+                <option value="HEALTH_WORKERS">Health Workers Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Advisory Message *</label>
+            <textarea
+              rows={3}
+              placeholder="Describe the detected contamination or health threat..."
+              value={createForm.message}
+              onChange={(e) => setCreateForm({ ...createForm, message: e.target.value })}
+              className="input"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="label">Recommended Action</label>
+            <input
+              type="text"
+              placeholder="E.g., Boil all drinking water; avoid handpump #3"
+              value={createForm.actionRequired}
+              onChange={(e) => setCreateForm({ ...createForm, actionRequired: e.target.value })}
+              className="input"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={creating} className="btn-primary">
+              <Send className="h-4 w-4" /> {creating ? 'Broadcasting...' : 'Broadcast Alert'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

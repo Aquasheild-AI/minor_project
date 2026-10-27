@@ -19,6 +19,15 @@ const symptomLabels: Record<Symptom, { en: string; hi: string }> = {
   Other: { en: 'Other', hi: 'अन्य (Other)' },
 };
 
+const ageGroupOptions = [
+  { value: 'Under 5', en: 'Under 5 yrs (Infants / Toddlers)', hi: '5 वर्ष से कम (शिशु)' },
+  { value: '5-14', en: '5-14 yrs (Children)', hi: '5-14 वर्ष (बच्चे)' },
+  { value: '15-30', en: '15-30 yrs (Youth / Adults)', hi: '15-30 वर्ष (युवा)' },
+  { value: '31-50', en: '31-50 yrs (Adults)', hi: '31-50 वर्ष (वयस्क)' },
+  { value: '51-65', en: '51-65 yrs (Middle-aged)', hi: '51-65 वर्ष (प्रौढ़)' },
+  { value: '65+', en: '65+ yrs (Senior Citizens)', hi: '65+ वर्ष (वरिष्ठ नागरिक)' },
+];
+
 export function CommunityReportIssue() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -180,7 +189,11 @@ export function CommunityReportIssue() {
           </div>
           <select value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} className="input">
             <option value="">{isHi ? 'आयु वर्ग चुनें (वैकल्पिक)' : 'Select age group (optional)'}</option>
-            {['Under 5', '5-14', '15-30', '31-50', '51-65', '65+'].map((a) => <option key={a} value={a}>{a}</option>)}
+            {ageGroupOptions.map((a) => (
+              <option key={a.value} value={a.value}>
+                {isHi ? a.hi : a.en}
+              </option>
+            ))}
           </select>
         </div>
 

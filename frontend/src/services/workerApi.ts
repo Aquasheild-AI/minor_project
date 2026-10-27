@@ -25,8 +25,14 @@ export const workerApi = {
 
   getNotifications: (): Promise<Notification[]> => api.getNotifications(),
 
-  getTrends: (villageId: string, days: number): Promise<TrendPoint[]> =>
-    api.getTrends(villageId, days),
+  getTrends: (villageId: string, days: number, disease?: string): Promise<TrendPoint[]> =>
+    api.getTrends(villageId, days, disease),
+
+  getCommunityReports: (params?: Record<string, string>): Promise<any[]> =>
+    api.getCommunityReports(params),
+
+  reviewCommunityReport: (id: string, statusOrPayload: string | Record<string, any>, notes?: string): Promise<any> =>
+    api.reviewCommunityReport(id, statusOrPayload, notes),
 
   getProfile: async (): Promise<User> => {
     try {

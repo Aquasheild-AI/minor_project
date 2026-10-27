@@ -130,7 +130,9 @@ export function normalizeWaterQualityRecord(w: any): WaterQualityRecord {
 export function normalizeAlert(a: any): Alert {
   const severityMap: Record<string, RiskLevel> = {
     LOW: 'low',
+    INFO: 'low',
     MEDIUM: 'medium',
+    WARNING: 'medium',
     HIGH: 'high',
     CRITICAL: 'critical',
     low: 'low',
@@ -230,6 +232,34 @@ export const api = {
     } catch {
       return undefined;
     }
+  },
+
+  // POST /api/villages/
+  createVillage: async (data: Partial<Village> & { name: string; code?: string; district: string; state?: string; population?: number }): Promise<Village> => {
+    const payload = {
+      name: data.name,
+      code: data.code || `VIL-${Date.now().toString().slice(-4)}`,
+      district: data.district,
+      state: data.state || 'Uttar Pradesh',
+      population: Number(data.population || 1000),
+      latitude: Number(data.lat || 25.3176),
+      longitude: Number(data.lng || 82.9739),
+    };
+    const created = await authPost<any>('/api/villages/', payload);
+    return normalizeVillage(created);
+  },
+
+  // PATCH /api/villages/<id>/
+  updateVillage: async (id: string, data: Partial<Village>): Promise<Village> => {
+    const payload: Record<string, any> = {};
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.district !== undefined) payload.district = data.district;
+    if (data.state !== undefined) payload.state = data.state;
+    if (data.population !== undefined) payload.population = Number(data.population);
+    if (data.lat !== undefined) payload.latitude = Number(data.lat);
+    if (data.lng !== undefined) payload.longitude = Number(data.lng);
+    const updated = await authPatch<any>(`/api/villages/${id}/`, payload);
+    return normalizeVillage(updated);
   },
 
   // GET /api/health-records/
@@ -341,6 +371,23 @@ export const api = {
     await authFetch(`/api/health-records/${id}/`, { method: 'DELETE' });
   },
 
+  // PATCH /api/health-records/<id>/
+  updateHealthRecord: async (id: string, updates: Partial<HealthRecord> & Record<string, any>): Promise<HealthRecord> => {
+    const payload: Record<string, any> = {};
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.severity !== undefined) payload.severity = updates.severity;
+    if (updates.suspectedCases !== undefined || updates.suspected_cases !== undefined) {
+      payload.suspected_cases = Number(updates.suspectedCases ?? updates.suspected_cases);
+    }
+    if (updates.symptoms !== undefined) payload.symptoms = updates.symptoms;
+    if (updates.treatmentAdministered !== undefined || updates.treatment !== undefined) {
+      payload.treatment_administered = updates.treatmentAdministered ?? updates.treatment;
+    }
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    const updated = await authPatch<any>(`/api/health-records/${id}/`, payload);
+    return normalizeHealthRecord(updated);
+  },
+
   // GET /api/water-quality/
   getWaterQuality: async (params?: Record<string, string>): Promise<WaterQualityRecord[]> => {
     const query = params ? `?${new URLSearchParams(params).toString()}` : '';
@@ -402,13 +449,29 @@ export const api = {
     targetAudience?: string;
     actionRequired?: string;
   }): Promise<Alert> => {
+    const sevMap: Record<string, string> = {
+      CRITICAL: 'CRITICAL',
+      HIGH: 'HIGH',
+      MEDIUM: 'WARNING',
+      LOW: 'INFO',
+      INFO: 'INFO',
+      WARNING: 'WARNING',
+    };
+    const audMap: Record<string, string> = {
+      ALL: 'ALL',
+      COMMUNITY: 'COMMUNITY',
+      HEALTH_WORKERS: 'HEALTH_WORKER',
+      HEALTH_WORKER: 'HEALTH_WORKER',
+      AUTHORITY: 'AUTHORITY',
+    };
+
     const payload = {
       village: Number(data.villageId),
       title: data.title,
       message: data.message,
-      severity: data.severity.toUpperCase(),
+      severity: sevMap[data.severity.toUpperCase()] || 'WARNING',
       alert_type: 'WATER_CONTAMINATION',
-      target_audience: (data.targetAudience || 'ALL').toUpperCase(),
+      target_audience: audMap[(data.targetAudience || 'ALL').toUpperCase()] || 'ALL',
       action_required: data.actionRequired || '',
       is_active: true,
     };
@@ -434,33 +497,48 @@ export const api = {
     await authPost(`/api/alerts/${id}/acknowledge/`, {});
   },
 
-  // GET /api/notifications (mapped from active alerts)
+  // GET /api/notifications/
   getNotifications: async (): Promise<Notification[]> => {
     try {
-      const list = await authGet<any[]>('/api/alerts/');
-      return list.map(normalizeNotification);
+      const list = await authGet<any[]>('/api/notifications/');
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map((n) => ({
+          id: String(n.id),
+          type: n.type || 'alert',
+          severity: n.severity || 'info',
+          message: n.message || 'Notification',
+          detail: n.detail,
+          villageName: n.villageName,
+          time: n.time || new Date().toISOString(),
+          read: Boolean(n.read),
+          link: n.link,
+        }));
+      }
     } catch {
-      return [];
+      // Fallback to active alerts if notifications endpoint unavailable
+      try {
+        const alerts = await authGet<any[]>('/api/alerts/');
+        return alerts.map(normalizeNotification);
+      } catch {
+        return [];
+      }
     }
+    return [];
   },
 
   // GET /api/trends
-  getTrends: async (villageId: string, days = 30): Promise<TrendPoint[]> => {
+  getTrends: async (villageId: string, days = 30, disease?: string): Promise<TrendPoint[]> => {
     try {
-      const list = await authGet<any[]>(`/api/risk/water/${villageId}/history/?limit=${days}`);
+      const query = new URLSearchParams({ village_id: villageId, days: String(days) });
+      if (disease && disease !== 'All Monitored Diseases' && disease !== 'All') {
+        query.append('disease', disease);
+      }
+      const list = await authGet<TrendPoint[]>(`/api/trends/?${query.toString()}`);
       if (list && list.length > 0) {
-        return list.map((item) => ({
-          date: (item.prediction_date || item.created_at || '').slice(5, 10),
-          cases: Math.round(Number(item.risk_score || 0) * 0.4),
-          riskScore: Math.round(Number(item.risk_score || 0)),
-          ph: 7.2,
-          turbidity: 3.5,
-          tds: 380,
-          temperature: 26,
-        }));
+        return list;
       }
     } catch (e) {
-      console.warn('Could not load prediction history for village', villageId, e);
+      console.warn('Could not load aggregated trends for village', villageId, e);
     }
 
     // Graceful fallback trend generation for UI continuity
@@ -477,6 +555,34 @@ export const api = {
         temperature: 26.5 + Math.sin(i / 6) * 1.5,
       };
     });
+  },
+
+  // POST /api/auth/change-password/
+  changePassword: async (currentPassword: string, newPassword: string, confirmPassword: string): Promise<any> => {
+    return authPost<any>('/api/auth/change-password/', {
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    });
+  },
+
+  // GET /api/community-reports/
+  getCommunityReports: async (params?: Record<string, string>): Promise<any[]> => {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+    return authGet<any[]>(`/api/community-reports/${query}`);
+  },
+
+  // PATCH /api/community-reports/<pk>/review/
+  reviewCommunityReport: async (
+    id: string,
+    statusOrPayload: string | Record<string, any>,
+    reviewNotes?: string
+  ): Promise<any> => {
+    const payload =
+      typeof statusOrPayload === 'string'
+        ? { status: statusOrPayload, review_notes: reviewNotes || '' }
+        : statusOrPayload;
+    return authPatch<any>(`/api/community-reports/${id}/review/`, payload);
   },
 
   // GET /api/users

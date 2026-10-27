@@ -15,13 +15,18 @@ export function riskFromScore(score: number): RiskLevel {
 }
 
 export function timeAgo(iso: string): string {
-  const now = new Date('2026-08-20T10:00:00Z').getTime();
+  if (!iso) return 'Recently';
   const then = new Date(iso).getTime();
+  if (isNaN(then)) return 'Recently';
+  const now = Date.now();
   const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return `${diff}s ago`;
+
+  // If time is slightly in the future due to client/server clock skew or just created
+  if (diff < 60) return 'Just now';
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
-  return `${Math.floor(diff / 86400)} days ago`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} days ago`;
+  return formatDate(iso);
 }
 
 export function formatDate(iso: string): string {

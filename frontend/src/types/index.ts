@@ -110,9 +110,11 @@ export interface Notification {
   type: 'alert' | 'water' | 'health' | 'system';
   severity: RiskLevel | 'info';
   message: string;
+  detail?: string;
   villageName?: string;
   time: string;
   read: boolean;
+  link?: string;
 }
 
 export interface User {

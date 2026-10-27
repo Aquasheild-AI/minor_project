@@ -12,6 +12,7 @@ export function WorkerTrends() {
   const [villageList, setVillageList] = useState<Village[]>([]);
   const [villageId, setVillageId] = useState('');
   const [period, setPeriod] = useState(30);
+  const [selectedDisease, setSelectedDisease] = useState('All Monitored Diseases');
   const [data, setData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,11 +28,11 @@ export function WorkerTrends() {
   useEffect(() => {
     if (!villageId) return;
     setLoading(true);
-    workerApi.getTrends(villageId, period).then((d) => {
+    workerApi.getTrends(villageId, period, selectedDisease).then((d) => {
       setData(d);
       setLoading(false);
     });
-  }, [villageId, period]);
+  }, [villageId, period, selectedDisease]);
 
   return (
     <div>
@@ -50,13 +51,17 @@ export function WorkerTrends() {
           </div>
           <div>
             <label className="label">Disease Category</label>
-            <select className="input">
-              <option>All Monitored Diseases</option>
-              <option>Cholera</option>
-              <option>Typhoid</option>
-              <option>Dysentery</option>
-              <option>Hepatitis</option>
-              <option>Diarrheal Disease</option>
+            <select
+              value={selectedDisease}
+              onChange={(e) => setSelectedDisease(e.target.value)}
+              className="input"
+            >
+              <option value="All Monitored Diseases">All Monitored Diseases</option>
+              <option value="Cholera">Cholera</option>
+              <option value="Typhoid">Typhoid</option>
+              <option value="Dysentery">Dysentery</option>
+              <option value="Hepatitis">Hepatitis</option>
+              <option value="Diarrheal Disease">Diarrheal Disease</option>
             </select>
           </div>
           <div>

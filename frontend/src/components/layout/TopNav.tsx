@@ -19,10 +19,17 @@ export function TopNav({ title, onMenuClick }: TopNavProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      navigate(`/villages?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   useEffect(() => {
     api.getNotifications().then((list) => {
@@ -56,7 +63,10 @@ export function TopNav({ title, onMenuClick }: TopNavProps) {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={t('common.search', { defaultValue: 'Search...' })}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            placeholder={t('common.search', { defaultValue: 'Search villages, press Enter...' })}
             className="w-64 rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
         </div>
@@ -89,7 +99,12 @@ export function TopNav({ title, onMenuClick }: TopNavProps) {
                   notifications.slice(0, 5).map((n) => (
                     <div
                       key={n.id}
-                      className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 ${
+                      onClick={() => {
+                        setNotifOpen(false);
+                        if (n.link) navigate(n.link);
+                        else navigate('/alerts');
+                      }}
+                      className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 cursor-pointer ${
                         !n.read ? 'bg-primary-50/40' : ''
                       }`}
                     >
@@ -101,7 +116,7 @@ export function TopNav({ title, onMenuClick }: TopNavProps) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-800">{n.message}</p>
+                        <p className="text-sm font-medium text-slate-800">{n.message}</p>
                         {n.villageName && <p className="text-xs text-slate-500">{n.villageName}</p>}
                         <p className="mt-0.5 text-xs text-slate-400">{timeAgo(n.time)}</p>
                       </div>

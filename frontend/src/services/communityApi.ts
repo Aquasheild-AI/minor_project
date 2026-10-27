@@ -28,6 +28,27 @@ export interface CommunityWaterQualitySummary {
   villageName?: string;
 }
 
+export function mapAgeGroupToBackend(raw?: string): string {
+  if (!raw) return 'ALL_AGES';
+  const clean = raw.trim().toLowerCase();
+  if (['under 5', 'under_5', '0-5', '5-14', 'child', 'children'].includes(clean)) return 'CHILD';
+  if (['15-30', 'teen', 'teenager', 'teenagers', '12-18'].includes(clean)) return 'TEEN';
+  if (['31-50', 'adult', 'adults', '18-60'].includes(clean)) return 'ADULT';
+  if (['51-65', '65+', '60+', 'elderly', 'senior', 'seniors', 'senior citizen', 'senior citizens'].includes(clean)) return 'ELDERLY';
+  if (['all ages', 'all_ages', 'all', 'multiple'].includes(clean)) return 'ALL_AGES';
+  if (['CHILD', 'TEEN', 'ADULT', 'ELDERLY', 'ALL_AGES'].includes(raw.toUpperCase())) return raw.toUpperCase();
+  return 'ALL_AGES';
+}
+
+export function mapPeopleCountToBackend(raw?: string): number {
+  if (!raw) return 1;
+  if (raw === '2-5') return 3;
+  if (raw === '6-10') return 8;
+  if (raw === '10+') return 10;
+  const parsed = parseInt(raw, 10);
+  return isNaN(parsed) || parsed < 1 ? 1 : parsed;
+}
+
 function normalizeCommunityReport(r: any): CommunityReport {
   const statusMap: Record<string, 'submitted' | 'under_review' | 'reviewed'> = {
     SUBMITTED: 'submitted',
@@ -41,13 +62,21 @@ function normalizeCommunityReport(r: any): CommunityReport {
     reviewed: 'reviewed',
   };
 
+  const ageLabels: Record<string, string> = {
+    CHILD: 'Children (< 12 yrs)',
+    TEEN: 'Teenagers (12-18 yrs)',
+    ADULT: 'Adults (18-60 yrs)',
+    ELDERLY: 'Senior Citizens (60+ yrs)',
+    ALL_AGES: 'All Age Groups',
+  };
+
   return {
     id: String(r.id),
     date: (r.created_at || new Date().toISOString()).split('T')[0],
     villageName: r.village_name || `Village #${r.village || ''}`,
     symptoms: Array.isArray(r.symptoms) ? r.symptoms : [],
     peopleAffected: String(r.people_affected ?? '1'),
-    ageGroup: r.age_group || 'All Ages',
+    ageGroup: r.age_group_display || ageLabels[r.age_group] || r.age_group || 'All Ages',
     notes: r.description || r.notes || '',
     status: statusMap[r.status] || 'submitted',
   };
@@ -144,8 +173,8 @@ export const communityApi = {
       reporter_name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username || 'Citizen',
       reporter_phone: me.phone || '',
       symptoms: report.symptoms || [],
-      people_affected: parseInt(report.peopleAffected) || 1,
-      age_group: (report.ageGroup || 'ALL_AGES').toUpperCase().replace(' ', '_'),
+      people_affected: mapPeopleCountToBackend(report.peopleAffected),
+      age_group: mapAgeGroupToBackend(report.ageGroup),
       description: report.notes || '',
       water_issue_observed: 'OTHER',
     };

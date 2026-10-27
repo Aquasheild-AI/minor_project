@@ -143,23 +143,71 @@ class HealthRecordSerializer(serializers.ModelSerializer):
 class CommunityReportSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
     water_source_name = serializers.CharField(source='water_source_suspected.name', read_only=True)
+    age_group_display = serializers.CharField(source='get_age_group_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    health_record_id = serializers.SerializerMethodField()
+
+    def get_health_record_id(self, obj):
+        hr = HealthRecord.objects.filter(patient_identifier__startswith=f"CR-{obj.id:04d}").first()
+        return hr.id if hr else None
 
     class Meta:
         model = CommunityReport
         fields = [
             'id', 'citizen', 'village', 'village_name', 'reporter_name', 'reporter_phone',
-            'symptoms', 'people_affected', 'age_group',
+            'symptoms', 'people_affected', 'age_group', 'age_group_display',
             'water_source_suspected', 'water_source_name', 'water_issue_observed',
-            'description', 'status', 'reviewed_by', 'review_notes',
-            'reviewed_at', 'created_at'
+            'description', 'status', 'status_display', 'reviewed_by', 'review_notes',
+            'reviewed_at', 'created_at', 'health_record_id'
         ]
-        read_only_fields = ['citizen', 'status', 'reviewed_by', 'review_notes', 'reviewed_at', 'created_at']
+        read_only_fields = ['citizen', 'status', 'reviewed_by', 'review_notes', 'reviewed_at', 'created_at', 'health_record_id']
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+
+        # Normalize age_group if present
+        raw_age = str(data.get('age_group', '')).strip().lower()
+        if raw_age:
+            if raw_age in ['under 5', 'under_5', '0-5', '5-14', 'child', 'children']:
+                data['age_group'] = 'CHILD'
+            elif raw_age in ['15-30', 'teen', 'teenager', 'teenagers', '12-18']:
+                data['age_group'] = 'TEEN'
+            elif raw_age in ['31-50', 'adult', 'adults', '18-60']:
+                data['age_group'] = 'ADULT'
+            elif raw_age in ['51-65', '65+', '60+', 'elderly', 'senior', 'seniors', 'senior citizen', 'senior citizens']:
+                data['age_group'] = 'ELDERLY'
+            elif raw_age in ['all_ages', 'all ages', 'multiple', 'all', 'multiple / all age groups']:
+                data['age_group'] = 'ALL_AGES'
+            elif data.get('age_group') not in dict(CommunityReport.AGE_GROUP_CHOICES):
+                data['age_group'] = 'ALL_AGES'
+        else:
+            data['age_group'] = 'ALL_AGES'
+
+        # Normalize people_affected if passed as string range or non-integer
+        raw_people = data.get('people_affected')
+        if raw_people is not None:
+            if isinstance(raw_people, str):
+                cleaned_people = raw_people.strip()
+                if '-' in cleaned_people:
+                    parts = [int(p) for p in cleaned_people.split('-') if p.isdigit()]
+                    data['people_affected'] = sum(parts) // len(parts) if parts else 1
+                elif '+' in cleaned_people:
+                    digits = ''.join(c for c in cleaned_people if c.isdigit())
+                    data['people_affected'] = int(digits) if digits else 10
+                else:
+                    try:
+                        data['people_affected'] = max(1, int(cleaned_people))
+                    except ValueError:
+                        data['people_affected'] = 1
+
+        return super().to_internal_value(data)
 
 
 class CommunityReportReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = CommunityReport
-        fields = ['status', 'review_notes']
+        fields = ['id', 'status', 'review_notes', 'reviewed_by', 'reviewed_at']
+        read_only_fields = ['id', 'reviewed_by', 'reviewed_at']
 
 
 # 7. AI/ML Risk Prediction Serializers
@@ -199,6 +247,35 @@ class AlertSerializer(serializers.ModelSerializer):
             'severity', 'alert_type', 'target_audience', 'action_required',
             'is_active', 'generated_by_ai', 'created_at', 'resolved_at'
         ]
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+
+        # Normalize severity
+        sev = str(data.get('severity', '')).strip().upper()
+        if sev in ('MEDIUM', 'MODERATE', 'WARN'):
+            data['severity'] = 'WARNING'
+        elif sev in ('LOW', 'NOTICE'):
+            data['severity'] = 'INFO'
+        elif sev in ('HIGH', 'SEVERE'):
+            data['severity'] = 'HIGH'
+        elif sev in ('CRITICAL', 'EMERGENCY'):
+            data['severity'] = 'CRITICAL'
+
+        # Normalize target_audience
+        aud = str(data.get('target_audience', '')).strip().upper()
+        if aud in ('HEALTH_WORKERS', 'WORKER', 'WORKERS', 'STAFF'):
+            data['target_audience'] = 'HEALTH_WORKER'
+        elif aud in ('CITIZENS', 'VILLAGERS', 'PUBLIC'):
+            data['target_audience'] = 'COMMUNITY'
+        elif aud in ('ALL_USERS', 'EVERYONE'):
+            data['target_audience'] = 'ALL'
+
+        # Default alert_type if missing
+        if not data.get('alert_type'):
+            data['alert_type'] = 'WATER_CONTAMINATION'
+
+        return super().to_internal_value(data)
 
 
 # 9. Detailed Village Serializer with nested relations

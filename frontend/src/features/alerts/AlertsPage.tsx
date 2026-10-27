@@ -300,7 +300,7 @@ export function AlertsPage() {
               >
                 <option value="ALL">All (Citizens & Staff)</option>
                 <option value="COMMUNITY">Community Citizens</option>
-                <option value="HEALTH_WORKERS">Health Workers Only</option>
+                <option value="HEALTH_WORKER">Health Workers Only</option>
               </select>
             </div>
           </div>

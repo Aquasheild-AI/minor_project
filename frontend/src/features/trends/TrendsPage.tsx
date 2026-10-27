@@ -12,6 +12,7 @@ export function TrendsPage() {
   const [villageList, setVillageList] = useState<Village[]>([]);
   const [villageId, setVillageId] = useState('');
   const [period, setPeriod] = useState(30);
+  const [selectedDisease, setSelectedDisease] = useState('All Monitored Diseases');
   const [data, setData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [compareVillages, setCompareVillages] = useState<string[]>([]);
@@ -30,19 +31,19 @@ export function TrendsPage() {
   useEffect(() => {
     if (!villageId) return;
     setLoading(true);
-    api.getTrends(villageId, period).then((d) => {
+    api.getTrends(villageId, period, selectedDisease).then((d) => {
       setData(d);
       setLoading(false);
     });
-  }, [villageId, period]);
+  }, [villageId, period, selectedDisease]);
 
   useEffect(() => {
     if (compareVillages.length === 0) return;
-    const fetches = compareVillages.map((id) => api.getTrends(id, 30).then((d) => [id, d] as const));
+    const fetches = compareVillages.map((id) => api.getTrends(id, 30, selectedDisease).then((d) => [id, d] as const));
     Promise.all(fetches).then((entries) => {
       setCompareData(Object.fromEntries(entries));
     });
-  }, [compareVillages]);
+  }, [compareVillages, selectedDisease]);
 
   const riskColors = [riskConfig.low.hex, riskConfig.medium.hex, riskConfig.high.hex, riskConfig.critical.hex];
 
@@ -75,13 +76,17 @@ export function TrendsPage() {
           </div>
           <div>
             <label className="label">Disease Category</label>
-            <select className="input">
-              <option>All Monitored Diseases</option>
-              <option>Cholera</option>
-              <option>Typhoid</option>
-              <option>Dysentery</option>
-              <option>Hepatitis</option>
-              <option>Diarrheal Disease</option>
+            <select
+              value={selectedDisease}
+              onChange={(e) => setSelectedDisease(e.target.value)}
+              className="input"
+            >
+              <option value="All Monitored Diseases">All Monitored Diseases</option>
+              <option value="Cholera">Cholera</option>
+              <option value="Typhoid">Typhoid</option>
+              <option value="Dysentery">Dysentery</option>
+              <option value="Hepatitis">Hepatitis</option>
+              <option value="Diarrheal Disease">Diarrheal Disease</option>
             </select>
           </div>
           <div>

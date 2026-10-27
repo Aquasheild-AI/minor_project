@@ -101,7 +101,12 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
                   notifications.slice(0, 5).map((n) => (
                     <div
                       key={n.id}
-                      className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 ${
+                      onClick={() => {
+                        setNotifOpen(false);
+                        if (n.link) navigate(n.link);
+                        else navigate('/community/alerts');
+                      }}
+                      className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 cursor-pointer ${
                         !n.read ? 'bg-primary-50/40' : ''
                       }`}
                     >
@@ -113,7 +118,7 @@ export function CommunityTopNav({ title, onMenuClick }: CommunityTopNavProps) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-800">{n.message}</p>
+                        <p className="text-sm font-medium text-slate-800">{n.message}</p>
                         {n.villageName && <p className="text-xs text-slate-500">{n.villageName}</p>}
                         <p className="mt-0.5 text-xs text-slate-400">{timeAgo(n.time)}</p>
                       </div>

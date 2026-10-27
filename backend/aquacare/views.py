@@ -4,7 +4,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
@@ -1112,8 +1112,8 @@ def dashboard_stats(request):
         'contaminated_water_sources': water_sources_qs.filter(status='CONTAMINATED').count(),
         'moderate_risk_water_sources': water_sources_qs.filter(status='MODERATE').count(),
         'total_water_tests': WaterQualityTest.objects.count(),
-        'recent_cases_30d': health_records_qs.filter(date_recorded__gte=thirty_days_ago).count(),
-        'total_cases': health_records_qs.count(),
+        'recent_cases_30d': health_records_qs.filter(date_recorded__gte=thirty_days_ago).aggregate(s=Sum('suspected_cases'))['s'] or 0,
+        'total_cases': health_records_qs.aggregate(s=Sum('suspected_cases'))['s'] or 0,
         'active_alerts': alerts_qs.count(),
         'pending_community_reports': community_reports_qs.filter(status__in=['SUBMITTED', 'UNDER_REVIEW']).count(),
         'resolved_community_reports': community_reports_qs.filter(status='RESOLVED').count(),

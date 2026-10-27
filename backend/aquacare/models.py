@@ -130,7 +130,10 @@ class Village(models.Model):
     @property
     def recent_cases_count(self):
         thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
-        return self.health_records.filter(date_recorded__gte=thirty_days_ago).count()
+        total = self.health_records.filter(date_recorded__gte=thirty_days_ago).aggregate(
+            total=models.Sum('suspected_cases')
+        )['total']
+        return total if total is not None else 0
 
 
 class WaterSource(models.Model):
@@ -417,6 +420,10 @@ class HealthRecord(models.Model):
         max_length=30,
         choices=DISEASE_CHOICES,
         default='ACUTE_DIARRHEA'
+    )
+    suspected_cases = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of suspected cases observed"
     )
     symptoms = models.JSONField(
         default=list,

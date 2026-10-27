@@ -133,7 +133,7 @@ class HealthRecordSerializer(serializers.ModelSerializer):
             'id', 'village', 'village_name', 'recorded_by', 'recorded_by_name',
             'patient_identifier', 'patient_name', 'age', 'gender',
             'disease_type', 'disease_type_display', 'symptoms', 'severity',
-            'status', 'date_of_onset', 'date_recorded',
+            'suspected_cases', 'status', 'date_of_onset', 'date_recorded',
             'suspected_water_source', 'treatment_administered', 'notes'
         ]
         read_only_fields = ['recorded_by', 'date_recorded']

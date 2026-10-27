@@ -53,8 +53,11 @@ export function normalizeHealthRecord(r: any): HealthRecord {
     TYPHOID: 'Typhoid',
     DYSENTERY: 'Dysentery',
     HEPATITIS_A: 'Hepatitis',
+    HEPATITIS_E: 'Hepatitis',
     HEPATITIS: 'Hepatitis',
     DIARRHEA: 'Diarrheal Disease',
+    ACUTE_DIARRHEA: 'Diarrheal Disease',
+    GASTROENTERITIS: 'Diarrheal Disease',
     ACUTE_GASTROENTERITIS: 'Diarrheal Disease',
     OTHER: 'Other',
     Cholera: 'Cholera',
@@ -93,7 +96,7 @@ export function normalizeHealthRecord(r: any): HealthRecord {
       ? r.date_recorded.split('T')[0]
       : (r.reportingDate || new Date().toISOString().split('T')[0]),
     diseaseCategory: diseaseMap[r.disease_type] || r.diseaseCategory || 'Other',
-    suspectedCases: Number(r.suspectedCases ?? 1),
+    suspectedCases: Number(r.suspected_cases ?? r.suspectedCases ?? 1),
     symptoms: Array.isArray(r.symptoms) ? r.symptoms : [],
     ageGroup: r.age != null ? ageToGroup(Number(r.age)) : (r.ageGroup || '19-40'),
     riskLevel: severityToRisk[r.severity] || (r.riskLevel as RiskLevel) || 'medium',
@@ -255,22 +258,75 @@ export const api = {
       '19-40': 28,
       '41-60': 50,
       '60+': 68,
+      'Under 5': 3,
+      '5-14': 9,
+      '15-30': 22,
+      '31-50': 40,
+      '51-65': 58,
+      '65+': 70,
     };
 
-    const diseaseBackend = String(record.diseaseCategory || record.disease_type || 'OTHER')
+    const diseaseMap: Record<string, string> = {
+      CHOLERA: 'CHOLERA',
+      TYPHOID: 'TYPHOID',
+      DYSENTERY: 'DYSENTERY',
+      HEPATITIS: 'HEPATITIS_A',
+      HEPATITIS_A: 'HEPATITIS_A',
+      HEPATITIS_E: 'HEPATITIS_E',
+      DIARRHEA: 'ACUTE_DIARRHEA',
+      DIARRHEAL_DISEASE: 'ACUTE_DIARRHEA',
+      ACUTE_DIARRHEA: 'ACUTE_DIARRHEA',
+      GASTROENTERITIS: 'GASTROENTERITIS',
+      ACUTE_GASTROENTERITIS: 'GASTROENTERITIS',
+      OTHER: 'OTHER',
+    };
+
+    const rawDisease = String(record.diseaseCategory || record.disease_type || 'OTHER')
       .toUpperCase()
       .replace(/\s+/g, '_');
+    const diseaseType = diseaseMap[rawDisease] || 'OTHER';
+
+    // Backend choices: ('M', 'Male'), ('F', 'Female'), ('O', 'Other')
+    const rawGender = String(record.gender || 'O').toUpperCase();
+    const gender = rawGender.startsWith('M') ? 'M' : rawGender.startsWith('F') ? 'F' : 'O';
+
+    // Backend choices: ('UNDER_TREATMENT', 'Under Treatment'), ('RECOVERED', 'Recovered'), ('HOSPITALIZED', 'Hospitalized / Referred'), ('DECEASED', 'Deceased')
+    const statusMap: Record<string, string> = {
+      UNDER_TREATMENT: 'UNDER_TREATMENT',
+      RECOVERED: 'RECOVERED',
+      HOSPITALIZED: 'HOSPITALIZED',
+      DECEASED: 'DECEASED',
+      CONFIRMED: 'UNDER_TREATMENT',
+      SUSPECTED: 'UNDER_TREATMENT',
+      ACTIVE: 'UNDER_TREATMENT',
+    };
+    const rawStatus = String(record.status || 'UNDER_TREATMENT').toUpperCase();
+    const status = statusMap[rawStatus] || 'UNDER_TREATMENT';
+
+    // Backend choices: ('MILD', 'Mild'), ('MODERATE', 'Moderate'), ('SEVERE', 'Severe'), ('CRITICAL', 'Critical / ICU Required')
+    const severityMap: Record<string, string> = {
+      LOW: 'MILD',
+      MEDIUM: 'MODERATE',
+      HIGH: 'SEVERE',
+      CRITICAL: 'CRITICAL',
+      MILD: 'MILD',
+      MODERATE: 'MODERATE',
+      SEVERE: 'SEVERE',
+    };
+    const rawSeverity = String(record.severity || record.riskLevel || 'MODERATE').toUpperCase();
+    const severity = severityMap[rawSeverity] || 'MODERATE';
 
     const payload = {
       village: Number(record.villageId || record.village),
       patient_identifier: record.patientIdentifier || record.patientName || `P-${Date.now().toString().slice(-4)}`,
       patient_name: record.patientName || record.patient_name || 'Anonymous',
       age: Number(record.age || ageMap[record.ageGroup] || 25),
-      gender: (record.gender || 'OTHER').toUpperCase(),
-      disease_type: diseaseBackend === 'DIARRHEAL_DISEASE' ? 'DIARRHEA' : diseaseBackend,
-      symptoms: record.symptoms || [],
-      severity: (record.severity || (record.riskLevel === 'critical' ? 'SEVERE' : record.riskLevel === 'high' ? 'SEVERE' : 'MODERATE')).toUpperCase(),
-      status: (record.status || 'CONFIRMED').toUpperCase(),
+      gender,
+      disease_type: diseaseType,
+      symptoms: Array.isArray(record.symptoms) ? record.symptoms : [],
+      severity,
+      status,
+      suspected_cases: Number(record.suspectedCases || record.suspected_cases || 1),
       date_of_onset: record.dateOfOnset || record.reportingDate || new Date().toISOString().split('T')[0],
       treatment_administered: record.treatmentAdministered || record.treatment || '',
       notes: record.notes || '',

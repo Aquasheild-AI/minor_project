@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom';
 import { FileText, Plus, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
-import { communityApi } from '@/services/communityApi';
+import { communityApi, type CommunityReport } from '@/services/communityApi';
 import { formatDate } from '@/utils/risk';
-import type { CommunityReport } from '@/data/communityData';
 import { useTranslation } from 'react-i18next';
 
 const statusVariant: Record<string, 'low' | 'medium' | 'info'> = {

@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ArrowRight, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
-import { communityApi } from '@/services/communityApi';
+import { communityApi, type CommunityAlert } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { CommunityAlert } from '@/data/communityData';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityAlerts() {

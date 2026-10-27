@@ -15,7 +15,6 @@ import {
   MessageSquare,
   Compass,
 } from 'lucide-react';
-import { communityUser } from '@/data/communityData';
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunityTour } from '@/features/community/tour';
 import { useTranslation } from 'react-i18next';
@@ -115,10 +114,10 @@ export function CommunitySidebar({ open, onClose }: CommunitySidebarProps) {
           </NavLink>
           <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {(user?.name || communityUser.name).split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {(user?.name || user?.username || 'Community Citizen').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-900">{user?.name || communityUser.name}</p>
+              <p className="truncate text-sm font-medium text-slate-900">{user?.name || user?.username || 'Community Citizen'}</p>
               <p className="truncate text-xs text-slate-500">{t('auth.roles.COMMUNITY')}</p>
             </div>
             <button

@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu, Search, Bell, ChevronDown } from 'lucide-react';
-import { workerNotifications } from '@/data/workerData';
+import { workerApi } from '@/services/workerApi';
 import { timeAgo } from '@/utils/risk';
 import { RiskBadge } from '@/components/ui/RiskBadge';
-import { healthWorker } from '@/data/workerData';
 import { useAuth } from '@/hooks/useAuth';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import type { Notification } from '@/types';
 
 interface WorkerTopNavProps {
   title: string;
@@ -18,10 +18,15 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
   const { t } = useTranslation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    workerApi.getNotifications().then(setNotifications).catch(() => setNotifications([]));
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -32,7 +37,7 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const unreadCount = workerNotifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md lg:px-6">
@@ -74,28 +79,32 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
                 <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {workerNotifications.slice(0, 5).map((n) => (
-                  <div
-                    key={n.id}
-                    className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 ${
-                      !n.read ? 'bg-primary-50/40' : ''
-                    }`}
-                  >
-                    <div className="mt-0.5">
-                      {n.severity !== 'info' ? (
-                        <RiskBadge level={n.severity as 'low' | 'medium' | 'high' | 'critical'} showDot={false} />
-                      ) : (
-                        <span className="badge bg-slate-100 text-slate-600">INFO</span>
-                      )}
+                {notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-slate-400">No active notifications</p>
+                ) : (
+                  notifications.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      className={`flex gap-3 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 ${
+                        !n.read ? 'bg-primary-50/40' : ''
+                      }`}
+                    >
+                      <div className="mt-0.5">
+                        {n.severity !== 'info' ? (
+                          <RiskBadge level={n.severity as 'low' | 'medium' | 'high' | 'critical'} showDot={false} />
+                        ) : (
+                          <span className="badge bg-slate-100 text-slate-600">INFO</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-800">{n.message}</p>
+                        {n.villageName && <p className="text-xs text-slate-500">{n.villageName}</p>}
+                        <p className="mt-0.5 text-xs text-slate-400">{timeAgo(n.time)}</p>
+                      </div>
+                      {!n.read && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-primary-500" />}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-slate-800">{n.message}</p>
-                      {n.villageName && <p className="text-xs text-slate-500">{n.villageName}</p>}
-                      <p className="mt-0.5 text-xs text-slate-400">{timeAgo(n.time)}</p>
-                    </div>
-                    {!n.read && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-primary-500" />}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
               <button
                 onClick={() => { setNotifOpen(false); navigate('/worker/alerts'); }}
@@ -115,10 +124,10 @@ export function WorkerTopNav({ title, onMenuClick }: WorkerTopNavProps) {
             aria-expanded={profileOpen}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {(user?.name || user?.username || healthWorker.name).split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+              {(user?.name || user?.username || 'Health Worker').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="hidden text-left sm:block">
-              <p className="text-sm font-medium text-slate-900">{user?.name || user?.username || healthWorker.name}</p>
+              <p className="text-sm font-medium text-slate-900">{user?.name || user?.username || 'Health Worker'}</p>
               <p className="text-xs text-slate-500">Health Worker</p>
             </div>
             <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, MapPin, Globe, Bell, LogOut, Shield, Check, Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { communityUser } from '@/data/communityData';
+import { communityApi } from '@/services/communityApi';
 import { Toast } from '@/components/ui/Toast';
 import { useCommunityTour } from '@/features/community/tour';
 import { useTranslation } from 'react-i18next';
@@ -19,13 +19,20 @@ export function CommunityProfile() {
   const [toastShow, setToastShow] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [userVillage, setUserVillage] = useState({ name: 'Assigned Village', district: 'District' });
   
   // Use actual user name from context or fallback to username
-  const initialName = user?.name || user?.username || communityUser.name;
+  const initialName = user?.name || user?.username || 'Community Citizen';
   const initialEmail = user?.email ?? '';
   
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
+
+  useEffect(() => {
+    communityApi.getUserVillage().then((v) => {
+      if (v) setUserVillage({ name: v.name, district: v.district });
+    });
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -72,7 +79,7 @@ export function CommunityProfile() {
             {initialName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="text-lg font-bold text-slate-900">{user?.name || user?.username || communityUser.name}</p>
+            <p className="text-lg font-bold text-slate-900">{user?.name || user?.username || 'Community Citizen'}</p>
             <p className="text-sm text-slate-500">{initialEmail || 'No email provided'}</p>
           </div>
         </div>
@@ -80,8 +87,8 @@ export function CommunityProfile() {
         <div className="space-y-4">
           <ProfileField icon={User} label={t('community.profile.name')} value={name} editable={editing} onChange={setName} />
           <ProfileField icon={Mail} label={t('community.profile.email')} value={email} editable={editing} onChange={setEmail} />
-          <ProfileField icon={MapPin} label={t('community.profile.village')} value={communityUser.villageName} editable={false} />
-          <ProfileField icon={MapPin} label={t('community.profile.district')} value={communityUser.district} editable={false} />
+          <ProfileField icon={MapPin} label={t('community.profile.village')} value={userVillage.name} editable={false} />
+          <ProfileField icon={MapPin} label={t('community.profile.district')} value={userVillage.district} editable={false} />
           <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
             <Shield className="h-4 w-4 text-slate-400" />
             <div className="flex-1">

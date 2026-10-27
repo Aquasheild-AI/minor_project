@@ -13,6 +13,21 @@ export interface CommunityReport {
   status: 'submitted' | 'under_review' | 'reviewed';
 }
 
+export interface CommunityAlert extends Alert {
+  type: string;
+  guidance: string[];
+}
+
+export interface CommunityWaterQualitySummary {
+  ph: number;
+  turbidity: number;
+  tds: number;
+  temperature: number;
+  status: 'safe' | 'moderate' | 'unsafe';
+  date: string;
+  villageName?: string;
+}
+
 function normalizeCommunityReport(r: any): CommunityReport {
   const statusMap: Record<string, 'submitted' | 'under_review' | 'reviewed'> = {
     SUBMITTED: 'submitted',
@@ -69,27 +84,27 @@ export const communityApi = {
     };
   },
 
-  getAlerts: async () => {
-    const alerts = await api.getAlerts({ is_active: 'true' });
+  getAlerts: async (): Promise<CommunityAlert[]> => {
+    const alerts = await api.getAlerts();
     return alerts.map((a) => ({
       ...a,
       type: a.severity,
       guidance: [
         'Follow official local health advisories.',
         'Boil drinking water for at least 10 minutes.',
-        'Report suspected symptoms immediately.',
+        'Report suspected symptoms immediately to local health workers.',
       ],
     }));
   },
 
-  getAlert: async (id: string) => {
+  getAlert: async (id: string): Promise<CommunityAlert | undefined> => {
     const list = await communityApi.getAlerts();
     return list.find((a) => a.id === id);
   },
 
   getNotifications: (): Promise<Notification[]> => api.getNotifications(),
 
-  getWaterQuality: async () => {
+  getWaterQuality: async (): Promise<CommunityWaterQualitySummary> => {
     try {
       const me = await authGet<any>('/api/auth/me/');
       const villageId = me.village ? String(me.village) : undefined;
@@ -122,10 +137,10 @@ export const communityApi = {
     }
   },
 
-  createReport: async (report: Omit<CommunityReport, 'id' | 'status'>): Promise<CommunityReport> => {
+  createReport: async (report: Omit<CommunityReport, 'id' | 'status'> & { villageId?: string }): Promise<CommunityReport> => {
     const me = await authGet<any>('/api/auth/me/').catch(() => ({}));
     const payload = {
-      village: Number(me.village || 1),
+      village: Number(report.villageId || me.village || 1),
       reporter_name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username || 'Citizen',
       reporter_phone: me.phone || '',
       symptoms: report.symptoms || [],
@@ -138,7 +153,14 @@ export const communityApi = {
     return normalizeCommunityReport(created);
   },
 
-  getTrends: (days: number): Promise<TrendPoint[]> => api.getTrends('1', days),
+  getTrends: async (days: number): Promise<TrendPoint[]> => {
+    try {
+      const v = await communityApi.getUserVillage();
+      return api.getTrends(v.id, days);
+    } catch {
+      return api.getTrends('1', days);
+    }
+  },
 
   getUser: async () => {
     try {

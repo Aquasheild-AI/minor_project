@@ -12,23 +12,28 @@ import {
 } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
-import { communityApi } from '@/services/communityApi';
-import { communityUser, communityAlerts } from '@/data/communityData';
+import { communityApi, type CommunityAlert } from '@/services/communityApi';
+import { useAuth } from '@/hooks/useAuth';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { Village } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityHome() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [village, setVillage] = useState<Village | null>(null);
+  const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
 
   useEffect(() => {
-    communityApi.getUserVillage().then((v) => {
-      setVillage(v);
-      setLoading(false);
-    });
+    Promise.all([communityApi.getUserVillage(), communityApi.getAlerts()])
+      .then(([v, al]) => {
+        setVillage(v);
+        setAlerts(al);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingState message={t('common.states.loading')} />;
@@ -36,7 +41,7 @@ export function CommunityHome() {
 
   const cfg = riskConfig[village.riskLevel];
   const showBanner = village.riskLevel === 'high' || village.riskLevel === 'critical';
-  const villageAlert = communityAlerts.find((a) => a.villageId === village.id && a.status === 'active');
+  const villageAlert = alerts.find((a) => a.villageId === village.id && a.status === 'active') || alerts.find((a) => a.status === 'active') || alerts[0];
   const localizedRiskLevel = t(`common.riskLevels.${village.riskLevel}`, { defaultValue: cfg.label });
 
   return (
@@ -44,7 +49,7 @@ export function CommunityHome() {
       {/* Welcome */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">
-          {t('community.greeting', { name: communityUser.name.split(' ')[0] })}
+          {t('community.greeting', { name: (user?.name || user?.username || 'Neighbor').split(' ')[0] })}
         </h1>
         <p className="mt-1 text-sm text-slate-500">{t('community.homeSubtitle')}</p>
       </div>

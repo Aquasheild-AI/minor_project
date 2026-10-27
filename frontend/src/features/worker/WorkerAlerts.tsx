@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, Clock, MapPin, X, Droplets, Beaker, Thermometer, Activity } from 'lucide-react';
+import { Bell, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, Clock, MapPin } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/ui/RiskBadge';
@@ -9,11 +9,12 @@ import { Modal } from '@/components/ui/Modal';
 import { Toast } from '@/components/ui/Toast';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { workerApi } from '@/services/workerApi';
+import { api } from '@/services/api';
 import { riskConfig, timeAgo, formatDateTime } from '@/utils/risk';
 import type { Alert, AlertStatus } from '@/types';
 
 const tabs = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All Active' },
   { key: 'critical', label: 'Critical' },
   { key: 'high', label: 'High' },
   { key: 'medium', label: 'Medium' },
@@ -22,7 +23,7 @@ const tabs = [
 
 const statusConfig: Record<AlertStatus, { label: string; icon: React.ElementType; color: string }> = {
   active: { label: 'Active', icon: AlertTriangle, color: 'text-risk-critical' },
-  under_review: { label: 'Under Review', icon: Clock, color: 'text-risk-medium' },
+  under_review: { label: 'Acknowledged', icon: Clock, color: 'text-risk-medium' },
   resolved: { label: 'Resolved', icon: CheckCircle2, color: 'text-risk-low' },
 };
 
@@ -54,7 +55,16 @@ export function WorkerAlerts() {
     medium: alerts.filter((a) => a.severity === 'medium' && a.status !== 'resolved').length,
   };
 
-  const updateStatus = (id: string, status: AlertStatus, message: string) => {
+  const updateStatus = async (id: string, status: AlertStatus, message: string) => {
+    try {
+      if (status === 'resolved') {
+        await api.resolveAlert(id);
+      } else {
+        await api.acknowledgeAlert(id);
+      }
+    } catch (e) {
+      console.warn('Backend alert update notice:', e);
+    }
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
     setSelected((prev) => (prev?.id === id ? { ...prev, status } : prev));
     setToast(message);
@@ -62,15 +72,15 @@ export function WorkerAlerts() {
 
   return (
     <div>
-      <PageHeader title="Early Warnings & Alerts" subtitle="Monitor and respond to disease risk alerts in your assigned villages." breadcrumb={['Home', 'Alerts']} />
+      <PageHeader title="Early Warnings & Advisories" subtitle="Monitor and respond to disease risk alerts in your assigned villages." breadcrumb={['Home', 'Alerts']} />
 
       <Toast message={toast} show={!!toast} onClose={() => setToast('')} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active Alerts" value={stats.total} icon={Bell} iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="Critical" value={stats.critical} icon={ShieldAlert} iconColor="text-risk-critical" iconBg="bg-risk-critical-bg" />
-        <StatCard label="High" value={stats.high} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
-        <StatCard label="Medium" value={stats.medium} icon={AlertCircle} iconColor="text-risk-medium" iconBg="bg-risk-medium-bg" />
+        <StatCard label="Critical Risk" value={stats.critical} icon={ShieldAlert} iconColor="text-risk-critical" iconBg="bg-risk-critical-bg" />
+        <StatCard label="High Risk" value={stats.high} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
+        <StatCard label="Medium Risk" value={stats.medium} icon={AlertCircle} iconColor="text-risk-medium" iconBg="bg-risk-medium-bg" />
       </div>
 
       <div className="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200">
@@ -89,7 +99,7 @@ export function WorkerAlerts() {
 
       <div className="mt-4 space-y-3">
         {loading ? (
-          <LoadingState />
+          <LoadingState message="Loading assigned advisories..." />
         ) : filtered.length === 0 ? (
           <div className="card">
             <EmptyState icon={Bell} title="No Active Alerts" message="No active alerts for your assigned villages. All clear for now." />
@@ -101,8 +111,8 @@ export function WorkerAlerts() {
             return (
               <div
                 key={alert.id}
-                className={`card cursor-pointer p-4 transition-shadow hover:shadow-card-hover ${!alert.read ? 'border-l-4' : ''}`}
-                style={!alert.read ? { borderLeftColor: cfg.hex } : {}}
+                className={`card cursor-pointer p-4 transition-shadow hover:shadow-card-hover ${alert.status === 'active' ? 'border-l-4' : ''}`}
+                style={alert.status === 'active' ? { borderLeftColor: cfg.hex } : {}}
                 onClick={() => setSelected(alert)}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -116,7 +126,7 @@ export function WorkerAlerts() {
                         <span className="badge bg-slate-100 text-slate-600">{status.label}</span>
                       </div>
                       <p className="mt-1 text-sm font-semibold text-slate-900">{alert.message}</p>
-                      <p className="text-xs text-slate-500">{alert.villageName} — Risk Score: {alert.riskScore}%</p>
+                      <p className="text-xs text-slate-500">{alert.villageName} — Severity Level: {alert.severity.toUpperCase()}</p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {alert.factors.map((f, i) => <span key={i} className="text-xs text-slate-400">• {f}</span>)}
                       </div>
@@ -152,7 +162,7 @@ export function WorkerAlerts() {
             </div>
 
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Factors</h4>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Advisory Action</h4>
               <div className="space-y-2">
                 {selected.factors.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2.5 text-sm text-slate-700">
@@ -162,31 +172,13 @@ export function WorkerAlerts() {
               </div>
             </div>
 
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Health Data Summary</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5"><span className="text-sm text-slate-700">Diarrheal Disease — 12 cases</span><span className="text-xs text-slate-400">Aug 19</span></div>
-                <div className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5"><span className="text-sm text-slate-700">Cholera — 8 cases</span><span className="text-xs text-slate-400">Aug 18</span></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Water Quality Summary</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">pH</p><p className="text-sm font-semibold text-slate-900">6.1</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">Turbidity</p><p className="text-sm font-semibold text-slate-900">6.2 NTU</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">TDS</p><p className="text-sm font-semibold text-slate-900">620 ppm</p></div>
-                <div className="rounded-lg border border-slate-100 p-2.5"><p className="text-xs text-slate-500">Temp</p><p className="text-sm font-semibold text-slate-900">28.3°C</p></div>
-              </div>
-            </div>
-
             <div className="space-y-2 border-t border-slate-200 pt-4">
               <Link to={`/worker/villages/${selected.villageId}`} className="btn-secondary w-full"><MapPin className="h-4 w-4" /> View Village</Link>
               {selected.status === 'active' && (
-                <button onClick={() => setConfirmAction({ type: 'review', alert: selected })} className="btn-secondary w-full"><Clock className="h-4 w-4" /> Mark as Reviewed</button>
+                <button onClick={() => setConfirmAction({ type: 'review', alert: selected })} className="btn-secondary w-full"><Clock className="h-4 w-4" /> Acknowledge Advisory</button>
               )}
               {selected.status !== 'resolved' && (
-                <button onClick={() => setConfirmAction({ type: 'resolve', alert: selected })} className="btn-primary w-full"><CheckCircle2 className="h-4 w-4" /> Resolve Alert</button>
+                <button onClick={() => setConfirmAction({ type: 'resolve', alert: selected })} className="btn-primary w-full"><CheckCircle2 className="h-4 w-4" /> Mark Action Taken / Resolved</button>
               )}
             </div>
           </div>
@@ -194,11 +186,11 @@ export function WorkerAlerts() {
       </Drawer>
 
       {/* Confirmation Modal */}
-      <Modal open={!!confirmAction} onClose={() => setConfirmAction(null)} title={confirmAction?.type === 'review' ? 'Mark as Reviewed' : 'Resolve Alert'} size="sm">
+      <Modal open={!!confirmAction} onClose={() => setConfirmAction(null)} title={confirmAction?.type === 'review' ? 'Acknowledge Advisory' : 'Resolve Alert'} size="sm">
         <p className="text-sm text-slate-600">
           {confirmAction?.type === 'review'
-            ? `Mark this alert for ${confirmAction.alert.villageName} as under review?`
-            : `Are you sure you want to resolve this alert for ${confirmAction?.alert.villageName}?`}
+            ? `Acknowledge this advisory for ${confirmAction.alert.villageName} and log that field action is underway?`
+            : `Are you sure you want to mark this advisory for ${confirmAction?.alert.villageName} as resolved?`}
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={() => setConfirmAction(null)} className="btn-secondary">Cancel</button>
@@ -206,7 +198,7 @@ export function WorkerAlerts() {
             onClick={() => {
               if (confirmAction) {
                 const status = confirmAction.type === 'review' ? 'under_review' : 'resolved';
-                const msg = confirmAction.type === 'review' ? 'Alert marked as reviewed.' : 'Alert resolved successfully.';
+                const msg = confirmAction.type === 'review' ? 'Advisory acknowledged by health worker.' : 'Advisory marked as resolved.';
                 updateStatus(confirmAction.alert.id, status, msg);
               }
               setConfirmAction(null);

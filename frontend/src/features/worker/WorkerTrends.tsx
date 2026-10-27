@@ -5,17 +5,27 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { ChartCard } from '@/components/ui/ChartCard';
 import { LoadingState } from '@/components/ui/States';
 import { workerApi } from '@/services/workerApi';
-import { assignedVillages } from '@/data/workerData';
 import { riskConfig } from '@/utils/risk';
-import type { TrendPoint } from '@/types';
+import type { TrendPoint, Village } from '@/types';
 
 export function WorkerTrends() {
-  const [villageId, setVillageId] = useState('wv01');
+  const [villageList, setVillageList] = useState<Village[]>([]);
+  const [villageId, setVillageId] = useState('');
   const [period, setPeriod] = useState(30);
   const [data, setData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    workerApi.getVillages().then((v) => {
+      setVillageList(v);
+      if (v.length > 0) {
+        setVillageId(v[0].id);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!villageId) return;
     setLoading(true);
     workerApi.getTrends(villageId, period).then((d) => {
       setData(d);
@@ -30,18 +40,18 @@ export function WorkerTrends() {
       <div className="card mb-6 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <label className="label">Village</label>
+            <label className="label">Assigned Village</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <select value={villageId} onChange={(e) => setVillageId(e.target.value)} className="input pl-10">
-                {assignedVillages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.district})</option>)}
               </select>
             </div>
           </div>
           <div>
             <label className="label">Disease Category</label>
             <select className="input">
-              <option>All Diseases</option>
+              <option>All Monitored Diseases</option>
               <option>Cholera</option>
               <option>Typhoid</option>
               <option>Dysentery</option>
@@ -61,7 +71,7 @@ export function WorkerTrends() {
       </div>
 
       {loading ? (
-        <LoadingState />
+        <LoadingState message="Loading historical trends for your assigned village..." />
       ) : (
         <div className="space-y-6">
           <ChartCard title="Disease Trend" subtitle={`Suspected cases over the last ${period} days`}>
@@ -82,7 +92,7 @@ export function WorkerTrends() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Risk Trend" subtitle="Risk score over time">
+          <ChartCard title="Risk Level Progression" subtitle="Risk score progression over time">
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -123,30 +133,6 @@ export function WorkerTrends() {
                   <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
                   <Line type="monotone" dataKey="turbidity" stroke="#d97706" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="TDS Trend" subtitle="Total dissolved solids (ppm) over time">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
-                  <Line type="monotone" dataKey="tds" stroke="#16a34a" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="Temperature Trend" subtitle="Water temperature (°C) over time">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
-                  <Line type="monotone" dataKey="temperature" stroke="#dc2626" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>

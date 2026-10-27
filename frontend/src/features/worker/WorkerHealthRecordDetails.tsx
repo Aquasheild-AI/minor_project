@@ -1,33 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, MapPin, Calendar, HeartPulse, Users, Activity, User } from 'lucide-react';
+import { ArrowLeft, Pencil, MapPin, Calendar, HeartPulse, Users, Activity, User as UserIcon } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState, ErrorState } from '@/components/ui/States';
-import { workerApi } from '@/services/workerApi';
+import { api } from '@/services/api';
 import { formatDate, formatDateTime } from '@/utils/risk';
-import { healthWorker } from '@/data/workerData';
+import { useAuth } from '@/hooks/useAuth';
 import type { HealthRecord } from '@/types';
 
 export function WorkerHealthRecordDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [record, setRecord] = useState<HealthRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    workerApi.getHealthRecords().then((records) => {
-      const r = records.find((rec) => rec.id === id);
+    if (!id) return;
+    api.getHealthRecord(id).then((r) => {
       if (r) setRecord(r);
       else setError(true);
+      setLoading(false);
+    }).catch(() => {
+      setError(true);
       setLoading(false);
     });
   }, [id]);
 
-  if (loading) return <LoadingState />;
+  if (loading) return <LoadingState message="Loading health surveillance details..." />;
   if (error || !record) return <ErrorState message="Health record not found." onRetry={() => navigate('/worker/health')} />;
+
+  const reporterName = record.reportedBy || user?.name || user?.username || 'Health Worker';
 
   return (
     <div>
@@ -75,18 +81,18 @@ export function WorkerHealthRecordDetails() {
         <div className="card p-6">
           <h3 className="text-sm font-semibold text-slate-900">Reporting Information</h3>
           <div className="mt-4 space-y-4">
-            <InfoRow icon={User} label="Reported By" value={healthWorker.name} />
+            <InfoRow icon={UserIcon} label="Reported By" value={reporterName} />
             <div>
-              <p className="text-xs text-slate-500">Role</p>
-              <p className="text-sm font-medium text-slate-900">{healthWorker.role}</p>
+              <p className="text-xs text-slate-500">Jurisdiction Scoping</p>
+              <p className="text-sm font-medium text-slate-900">Assigned Community</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Reported At</p>
+              <p className="text-xs text-slate-500">Recorded At</p>
               <p className="text-sm font-medium text-slate-900">{formatDateTime(record.reportingDate)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Status</p>
-              <div className="mt-1"><Badge variant="low">Submitted</Badge></div>
+              <p className="text-xs text-slate-500">Surveillance Status</p>
+              <div className="mt-1"><Badge variant="low">Active</Badge></div>
             </div>
           </div>
         </div>

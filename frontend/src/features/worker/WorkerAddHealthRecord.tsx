@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, HeartPulse, Activity, Check, ArrowLeft, StickyNote } from 'lucide-react';
+import { MapPin, HeartPulse, Activity, Check, ArrowLeft, StickyNote, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Toast } from '@/components/ui/Toast';
-import { assignedVillages } from '@/data/workerData';
-import type { DiseaseCategory, Symptom, AgeGroup } from '@/types';
+import { workerApi } from '@/services/workerApi';
+import type { DiseaseCategory, Symptom, AgeGroup, Village } from '@/types';
 
 const diseases: DiseaseCategory[] = ['Cholera', 'Typhoid', 'Dysentery', 'Hepatitis', 'Diarrheal Disease', 'Other'];
 const allSymptoms: Symptom[] = ['Fever', 'Diarrhea', 'Vomiting', 'Abdominal Pain', 'Dehydration', 'Headache', 'Other'];
@@ -12,15 +12,34 @@ const ageGroups: AgeGroup[] = ['Under 5', '5-14', '15-30', '31-50', '51-65', '65
 
 export function WorkerAddHealthRecord() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ villageId: '', reportingDate: '', diseaseCategory: '', suspectedCases: '', ageGroup: '', notes: '' });
+  const [villageList, setVillageList] = useState<Village[]>([]);
+  const [form, setForm] = useState({
+    villageId: '',
+    reportingDate: new Date().toISOString().split('T')[0],
+    diseaseCategory: '',
+    suspectedCases: '1',
+    ageGroup: '15-30',
+    notes: '',
+  });
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [toast, setToast] = useState(false);
+
+  useEffect(() => {
+    workerApi.getVillages().then((v) => {
+      setVillageList(v);
+      if (v.length > 0) {
+        setForm((prev) => ({ ...prev, villageId: v[0].id }));
+      }
+    });
+  }, []);
 
   const update = (key: string, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: '' }));
+    setServerError(null);
   };
 
   const toggleSymptom = (s: Symptom) => {
@@ -29,7 +48,7 @@ export function WorkerAddHealthRecord() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.villageId) e.villageId = 'Please select a village';
+    if (!form.villageId) e.villageId = 'Please select an assigned village';
     if (!form.reportingDate) e.reportingDate = 'Please select a date';
     if (!form.diseaseCategory) e.diseaseCategory = 'Please select a disease';
     if (!form.suspectedCases) e.suspectedCases = 'Please enter number of cases';
@@ -40,15 +59,31 @@ export function WorkerAddHealthRecord() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setServerError(null);
+
+    try {
+      await workerApi.createHealthRecord({
+        villageId: form.villageId,
+        reportingDate: form.reportingDate,
+        diseaseCategory: form.diseaseCategory,
+        suspectedCases: parseInt(form.suspectedCases),
+        ageGroup: form.ageGroup,
+        symptoms,
+        notes: form.notes,
+      });
+
       setToast(true);
-      setTimeout(() => navigate('/worker/health'), 1800);
-    }, 800);
+      setTimeout(() => navigate('/worker/health'), 1500);
+    } catch (err: any) {
+      console.error('Failed to log health record:', err);
+      setServerError(err.message || 'Failed to submit health record. Check your village assignment.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -60,21 +95,28 @@ export function WorkerAddHealthRecord() {
         actions={<button onClick={() => navigate('/worker/health')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back</button>}
       />
 
-      <Toast message="Health record saved successfully." show={toast} onClose={() => setToast(false)} />
+      <Toast message="Health record saved successfully to surveillance registry." show={toast} onClose={() => setToast(false)} />
+
+      {serverError && (
+        <div className="mb-6 flex items-center gap-2 rounded-xl bg-risk-critical-bg p-4 text-sm text-risk-critical">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span>{serverError}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
         {/* Section 1: Location */}
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Location</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Jurisdiction Location</h3>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Village *</label>
+              <label className="label">Assigned Village *</label>
               <select value={form.villageId} onChange={(e) => update('villageId', e.target.value)} className={`input ${errors.villageId ? 'input-error' : ''}`}>
                 <option value="">Select village</option>
-                {assignedVillages.map((v) => <option key={v.id} value={v.id}>{v.name} — {v.district}</option>)}
+                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.district})</option>)}
               </select>
               {errors.villageId && <p className="mt-1 text-xs text-risk-critical">{errors.villageId}</p>}
             </div>
@@ -90,7 +132,7 @@ export function WorkerAddHealthRecord() {
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
             <HeartPulse className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Disease Information</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Clinical Diagnosis</h3>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
@@ -121,7 +163,7 @@ export function WorkerAddHealthRecord() {
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Symptoms</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Symptoms Observed</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             {allSymptoms.map((s) => (
@@ -147,24 +189,21 @@ export function WorkerAddHealthRecord() {
         <div className="card p-6">
           <div className="mb-4 flex items-center gap-2">
             <StickyNote className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Additional Observations</h3>
-            <span className="text-xs text-slate-400">(Optional)</span>
+            <h3 className="text-sm font-semibold text-slate-900">Observations / Field Notes</h3>
           </div>
           <textarea
             value={form.notes}
             onChange={(e) => update('notes', e.target.value)}
-            rows={4}
-            placeholder="Any additional observations about the reported cases..."
-            className="input resize-none"
+            rows={3}
+            placeholder="Add any relevant notes about suspected water source, onset, symptoms, or initial response..."
+            className="input"
           />
         </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <button type="button" onClick={() => navigate('/worker/health')} className="btn-secondary">Cancel</button>
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving ? 'Saving...' : 'Save Health Record'}
-          </button>
+          <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save Record'}</button>
         </div>
       </form>
     </div>

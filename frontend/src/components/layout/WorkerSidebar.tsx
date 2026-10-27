@@ -15,7 +15,6 @@ import {
   HelpCircle,
   User,
 } from 'lucide-react';
-import { healthWorker } from '@/data/workerData';
 import { useTranslation } from 'react-i18next';
 
 const navKeyMap = [
@@ -107,10 +106,10 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
           </NavLink>
           <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {(user?.name || healthWorker.name).split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {(user?.name || user?.username || 'Health Worker').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-900">{user?.name || healthWorker.name}</p>
+              <p className="truncate text-sm font-medium text-slate-900">{user?.name || user?.username || 'Health Worker'}</p>
               <p className="truncate text-xs text-slate-500">{t('auth.roles.HEALTH_WORKER')}</p>
             </div>
             <button

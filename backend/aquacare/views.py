@@ -1,8 +1,14 @@
+import secrets
+import logging
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from django.db.models import Q
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -20,7 +26,10 @@ from .models import (
     DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement,
+    PasswordResetOTP,
 )
+
+logger = logging.getLogger(__name__)
 from .serializers import (
     UserSerializer,
     VillageSerializer,
@@ -108,15 +117,23 @@ def register_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {'error': 'Please provide a valid email address.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     if User.objects.filter(username=username).exists():
         return Response(
             {'error': 'A user with this username already exists.'},
             status=status.HTTP_409_CONFLICT,
         )
 
-    if email and User.objects.filter(email=email).exists():
+    if User.objects.filter(email__iexact=email).exists():
         return Response(
-            {'error': 'A user with this email already exists.'},
+            {'error': 'A user with this email address already exists.'},
             status=status.HTTP_409_CONFLICT,
         )
 
@@ -129,7 +146,7 @@ def register_view(request):
 
     user = User.objects.create_user(
         username=username,
-        email=email,
+        email=email.lower(),
         password=password,
         first_name=first_name,
         last_name=last_name,
@@ -179,6 +196,248 @@ def me_view(request):
         
         serializer.save()
         return Response(UserSerializer(user).data)
+
+
+# ─── Forgot Password / Password Reset Endpoints (SMTP) ────────────
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request_view(request):
+    """
+    POST /api/auth/password-reset/request/
+    Initiates password reset by sending a 6-digit OTP code to the user's email.
+    Supports users of all 3 roles: COMMUNITY, HEALTH_WORKER, AUTHORITY.
+    """
+    email = request.data.get('email', '').strip()
+    if not email:
+        return Response(
+            {'error': 'Please enter your registered email address.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {'error': 'Please enter a valid email address.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response(
+            {'error': 'No account was found with this email address.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if not user.is_active:
+        return Response(
+            {'error': 'This account has been deactivated. Please contact your system administrator.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Invalidate previous unexpired / unused OTPs for this user
+    PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+
+    # Generate secure 6-digit numeric OTP
+    otp = f"{secrets.randbelow(900000) + 100000}"
+    expires_at = timezone.now() + timezone.timedelta(minutes=15)
+
+    PasswordResetOTP.objects.create(
+        user=user,
+        email=user.email,
+        otp=otp,
+        expires_at=expires_at,
+    )
+
+    user_display = user.get_full_name() or user.username
+    role_label = user.get_role_display()
+
+    subject = f"[AquaShield] Password Reset Verification Code: {otp}"
+    plain_message = f"""Hello {user_display},
+
+We received a request to reset the password for your AquaShield ({role_label}) account.
+
+Your 6-digit verification code (OTP) is:
+
+    {otp}
+
+This verification code is valid for 15 minutes.
+
+If you did not request a password reset, please disregard this email. Your account remains secure.
+
+Sincerely,
+AquaShield AI Surveillance Team
+"""
+
+    html_message = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }}
+    .container {{ max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }}
+    .header {{ background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; text-align: center; }}
+    .header h1 {{ color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }}
+    .header p {{ color: #38bdf8; margin: 6px 0 0 0; font-size: 13px; font-weight: 500; }}
+    .content {{ padding: 32px 28px; }}
+    .greeting {{ font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 12px; }}
+    .otp-box {{ background: #f0fdf4; border: 2px dashed #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }}
+    .otp-label {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; color: #0369a1; margin-bottom: 8px; }}
+    .otp-code {{ font-size: 36px; font-weight: 800; letter-spacing: 10px; color: #0284c7; font-family: 'Courier New', Courier, monospace; }}
+    .otp-expiry {{ font-size: 12px; color: #64748b; margin-top: 8px; }}
+    .footer {{ padding: 20px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>AquaShield AI Surveillance</h1>
+      <p>Water-Borne Disease Monitoring & Early Warning System</p>
+    </div>
+    <div class="content">
+      <div class="greeting">Hello, {user_display}!</div>
+      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+        We received a request to reset your password for your <strong>{role_label}</strong> account.
+        Please use the 6-digit verification code below to set a new password:
+      </p>
+      <div class="otp-box">
+        <div class="otp-label">Password Reset Code</div>
+        <div class="otp-code">{otp}</div>
+        <div class="otp-expiry">Valid for 15 minutes. Do not disclose this code to anyone.</div>
+      </div>
+      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 16px 0 0 0;">
+        If you did not request this password reset, you can safely ignore this email. Your current password will remain unchanged.
+      </p>
+    </div>
+    <div class="footer">
+      AquaShield Health &amp; Water Quality Monitoring System<br>
+      Automated Security Notification &bull; Please do not reply directly to this email.
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+    try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', 'noreply@aquashield.org')
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=from_email,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send password reset email to {user.email}: {e}")
+        return Response(
+            {'error': f'Failed to send email via SMTP ({str(e)}). Please check server SMTP configuration.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Mask email for privacy (e.g., a***v@gmail.com)
+    email_parts = user.email.split('@')
+    name_part = email_parts[0]
+    masked_name = name_part[0] + '***' + (name_part[-1] if len(name_part) > 1 else '')
+    masked_email = f"{masked_name}@{email_parts[1]}"
+
+    return Response({
+        'message': f'A 6-digit verification code has been sent to {masked_email}.',
+        'email': user.email,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_verify_otp_view(request):
+    """
+    POST /api/auth/password-reset/verify-otp/
+    Validates OTP before password entry to provide instant UI feedback.
+    """
+    email = request.data.get('email', '').strip()
+    otp = request.data.get('otp', '').strip()
+
+    if not email or not otp:
+        return Response(
+            {'error': 'Email and verification code are required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    otp_record = PasswordResetOTP.objects.filter(
+        email__iexact=email,
+        otp=otp,
+        is_used=False
+    ).first()
+
+    if not otp_record:
+        return Response(
+            {'error': 'Invalid verification code. Please check and try again.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not otp_record.is_valid():
+        return Response(
+            {'error': 'This verification code has expired. Please request a new code.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({
+        'valid': True,
+        'message': 'Verification code verified successfully.'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm_view(request):
+    """
+    POST /api/auth/password-reset/confirm/
+    Resets the user's password using the verified OTP.
+    """
+    email = request.data.get('email', '').strip()
+    otp = request.data.get('otp', '').strip()
+    new_password = request.data.get('new_password', '')
+
+    if not email or not otp or not new_password:
+        return Response(
+            {'error': 'Email, verification code, and new password are required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(new_password) < 8:
+        return Response(
+            {'error': 'Password must be at least 8 characters long.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    otp_record = PasswordResetOTP.objects.filter(
+        email__iexact=email,
+        otp=otp,
+        is_used=False
+    ).first()
+
+    if not otp_record or not otp_record.is_valid():
+        return Response(
+            {'error': 'Invalid or expired verification code. Please request a new code.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = otp_record.user
+    user.set_password(new_password)
+    user.save()
+
+    # Mark OTP as consumed
+    otp_record.is_used = True
+    otp_record.save()
+
+    # Invalidate old auth tokens so previous sessions are terminated
+    Token.objects.filter(user=user).delete()
+
+    return Response({
+        'message': 'Password reset successful! You can now sign in with your new password.',
+        'username': user.username,
+    })
 
 
 # ─── User Management API Views ────────────────────────────────────
@@ -237,9 +496,17 @@ def manage_create_authority(request):
     phone = data.get('phone', '').strip()
     organization = data.get('organization', '').strip()
 
-    if not username or not password:
+    if not username or not password or not email:
         return Response(
-            {'error': 'Username and password are required.'},
+            {'error': 'Username, password, and email are required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {'error': 'Please enter a valid email address.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -249,15 +516,15 @@ def manage_create_authority(request):
             status=status.HTTP_409_CONFLICT,
         )
 
-    if email and User.objects.filter(email=email).exists():
+    if User.objects.filter(email__iexact=email).exists():
         return Response(
-            {'error': 'A user with this email already exists.'},
+            {'error': 'A user with this email address already exists.'},
             status=status.HTTP_409_CONFLICT,
         )
 
     user = User.objects.create_user(
         username=username,
-        email=email,
+        email=email.lower(),
         password=password,
         first_name=first_name,
         last_name=last_name,
@@ -291,9 +558,17 @@ def manage_create_worker(request):
     phone = data.get('phone', '').strip()
     organization = data.get('organization', '').strip()
 
-    if not username or not password:
+    if not username or not password or not email:
         return Response(
-            {'error': 'Username and password are required.'},
+            {'error': 'Username, password, and email are required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {'error': 'Please enter a valid email address.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -303,15 +578,15 @@ def manage_create_worker(request):
             status=status.HTTP_409_CONFLICT,
         )
 
-    if email and User.objects.filter(email=email).exists():
+    if User.objects.filter(email__iexact=email).exists():
         return Response(
-            {'error': 'A user with this email already exists.'},
+            {'error': 'A user with this email address already exists.'},
             status=status.HTTP_409_CONFLICT,
         )
 
     user = User.objects.create_user(
         username=username,
-        email=email,
+        email=email.lower(),
         password=password,
         first_name=first_name,
         last_name=last_name,

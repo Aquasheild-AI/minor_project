@@ -92,8 +92,14 @@ export function AdminPage() {
   };
 
   const handleAdd = async () => {
-    if (!newUser.username.trim() || !newUser.password) {
-      setError('Username and password are required.');
+    if (!newUser.username.trim() || !newUser.password || !newUser.email.trim()) {
+      setError('Username, password, and email are required.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUser.email.trim())) {
+      setError('Please provide a valid email address.');
       return;
     }
 
@@ -312,13 +318,16 @@ export function AdminPage() {
           </div>
 
           <div>
-            <label className="label">Email Address</label>
+            <label className="label">
+              Email Address <span className="text-red-500">*</span>
+            </label>
             <input
               type="email"
               value={newUser.email}
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-              placeholder="worker@health.gov.in"
+              placeholder={newUser.role === 'AUTHORITY' ? 'authority@health.gov.in' : 'worker@health.gov.in'}
               className="input"
+              required
             />
           </div>
 

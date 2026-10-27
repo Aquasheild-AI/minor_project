@@ -10,6 +10,9 @@ urlpatterns = [
     path('auth/register/', views.register_view, name='auth-register'),
     path('auth/logout/', views.logout_view, name='auth-logout'),
     path('auth/me/', views.me_view, name='auth-me'),
+    path('auth/password-reset/request/', views.password_reset_request_view, name='auth-password-reset-request'),
+    path('auth/password-reset/verify-otp/', views.password_reset_verify_otp_view, name='auth-password-reset-verify-otp'),
+    path('auth/password-reset/confirm/', views.password_reset_confirm_view, name='auth-password-reset-confirm'),
 
     # User management endpoints
     path('manage/users/', views.manage_list_users, name='manage-list-users'),

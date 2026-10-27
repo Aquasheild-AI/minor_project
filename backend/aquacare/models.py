@@ -821,3 +821,31 @@ class AlertAcknowledgement(models.Model):
 
     def __str__(self):
         return f"{self.user.username} acknowledged {self.alert.title}"
+
+
+class PasswordResetOTP(models.Model):
+    """
+    Stores 6-digit one-time verification codes (OTP) for password resets across all three user roles.
+    Expires in 15 minutes.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_otps')
+    email = models.EmailField(help_text="Email address the OTP was sent to")
+    otp = models.CharField(max_length=6, help_text="6-digit verification code")
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(help_text="Expiration timestamp (default 15 mins)")
+    is_used = models.BooleanField(default=False, help_text="Marked true once successfully consumed")
+
+    class Meta:
+        verbose_name = 'Password Reset OTP'
+        verbose_name_plural = 'Password Reset OTPs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['email', 'otp', 'is_used']),
+        ]
+
+    def is_valid(self):
+        return not self.is_used and timezone.now() < self.expires_at
+
+    def __str__(self):
+        status = 'USED' if self.is_used else ('EXPIRED' if timezone.now() >= self.expires_at else 'VALID')
+        return f"OTP {self.otp} for {self.email} [{status}]"

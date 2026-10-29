@@ -1,48 +1,59 @@
-import {
-  assignedVillages,
-  workerHealthRecords,
-  workerWaterQuality,
-  workerAlerts,
-  workerNotifications,
-  workerDashboardStats,
-  getWorkerRiskPrediction,
-  getWorkerTrendData,
-  healthWorker,
-} from '@/data/workerData';
+import { api } from './api';
+import { authGet } from './authFetch';
 import type { Village, HealthRecord, WaterQualityRecord, Alert, Notification, User, TrendPoint } from '@/types';
 
 /**
  * Health Worker API service layer.
- * Replace mock implementations with fetch calls to Flask API later.
+ * Backed by live Django REST endpoints with automatic RBAC scoping.
  */
-const delay = <T>(data: T, ms = 300): Promise<T> =>
-  new Promise((resolve) => setTimeout(() => resolve(structuredClone(data)), ms));
-
 export const workerApi = {
-  getDashboardStats: () => delay(workerDashboardStats),
-  getVillages: (): Promise<Village[]> => delay(assignedVillages),
-  getVillage: (id: string): Promise<Village | undefined> =>
-    delay(assignedVillages.find((v) => v.id === id)),
+  getDashboardStats: () => api.getDashboardStats(),
+  getVillages: (): Promise<Village[]> => api.getVillages(),
+  getVillage: (id: string): Promise<Village | undefined> => api.getVillage(id),
 
-  getHealthRecords: (): Promise<HealthRecord[]> => delay(workerHealthRecords),
-  createHealthRecord: (record: Omit<HealthRecord, 'id'>): Promise<HealthRecord> =>
-    delay({ ...record, id: `whr${Date.now()}` }, 600),
+  getHealthRecords: (): Promise<HealthRecord[]> => api.getHealthRecords(),
+  createHealthRecord: (record: any): Promise<HealthRecord> => api.createHealthRecord(record),
 
-  getWaterQuality: (): Promise<WaterQualityRecord[]> => delay(workerWaterQuality),
-  createWaterQuality: (record: Omit<WaterQualityRecord, 'id'>): Promise<WaterQualityRecord> =>
-    delay({ ...record, id: `wwq${Date.now()}` }, 600),
+  getWaterQuality: (): Promise<WaterQualityRecord[]> => api.getWaterQuality(),
+  createWaterQuality: (record: any): Promise<WaterQualityRecord> => api.createWaterQuality(record),
 
-  predictRisk: (villageId: string, date: string) =>
-    delay(getWorkerRiskPrediction(villageId, date), 800),
+  predictRisk: (villageId: string, date: string) => api.predictRisk(villageId, date),
 
-  getAlerts: (): Promise<Alert[]> => delay(workerAlerts),
+  getAlerts: (): Promise<Alert[]> => api.getAlerts(),
   updateAlertStatus: (id: string, status: Alert['status']): Promise<Alert> =>
-    delay({ ...workerAlerts.find((a) => a.id === id)!, status }),
+    api.updateAlertStatus(id, status),
 
-  getNotifications: (): Promise<Notification[]> => delay(workerNotifications),
+  getNotifications: (): Promise<Notification[]> => api.getNotifications(),
 
-  getTrends: (villageId: string, days: number): Promise<TrendPoint[]> =>
-    delay(getWorkerTrendData(villageId, days)),
+  getTrends: (villageId: string, days: number, disease?: string): Promise<TrendPoint[]> =>
+    api.getTrends(villageId, days, disease),
 
-  getProfile: (): Promise<User> => delay(healthWorker),
+  getCommunityReports: (params?: Record<string, string>): Promise<any[]> =>
+    api.getCommunityReports(params),
+
+  reviewCommunityReport: (id: string, statusOrPayload: string | Record<string, any>, notes?: string): Promise<any> =>
+    api.reviewCommunityReport(id, statusOrPayload, notes),
+
+  getProfile: async (): Promise<User> => {
+    try {
+      const u = await authGet<any>('/api/auth/me/');
+      return {
+        id: String(u.id),
+        name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
+        email: u.email || `${u.username}@system.local`,
+        role: 'Health Worker',
+        status: u.is_active ? 'active' : 'disabled',
+        lastLogin: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        id: '1',
+        name: 'Health Worker',
+        email: 'worker@system.local',
+        role: 'Health Worker',
+        status: 'active',
+        lastLogin: new Date().toISOString(),
+      };
+    }
+  },
 };

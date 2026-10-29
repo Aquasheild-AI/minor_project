@@ -429,3 +429,161 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(login_res.status_code, status.HTTP_200_OK)
         self.assertIn('token', login_res.data)
 
+    def test_community_report_age_group_and_people_normalization(self):
+        """Test community report submission normalizes age_group strings like '5-14' and ranges like '2-5'."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_citizen}')
+
+        # Test "5-14" and "2-5"
+        payload_1 = {
+            'village': self.village_a.id,
+            'symptoms': ['Fever', 'Diarrhea'],
+            'people_affected': '2-5',
+            'age_group': '5-14',
+            'description': 'Family members unwell after using pump',
+        }
+        res_1 = self.client.post('/api/community-reports/', payload_1, format='json')
+        self.assertEqual(res_1.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_1.data['age_group'], 'CHILD')
+        self.assertEqual(res_1.data['age_group_display'], 'Children (< 12 yrs)')
+        self.assertEqual(res_1.data['people_affected'], 3)
+
+        # Test "65+" and "10+"
+        payload_2 = {
+            'village': self.village_a.id,
+            'symptoms': ['Vomiting'],
+            'people_affected': '10+',
+            'age_group': '65+',
+        }
+        res_2 = self.client.post('/api/community-reports/', payload_2, format='json')
+        self.assertEqual(res_2.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_2.data['age_group'], 'ELDERLY')
+        self.assertEqual(res_2.data['people_affected'], 10)
+
+    def test_worker_review_community_report_creates_health_record(self):
+        """Test that a health worker reviewing a community report can optionally create a HealthRecord."""
+        report = CommunityReport.objects.create(
+            village=self.village_a,
+            citizen=self.citizen,
+            reporter_name='Ramesh Kumar',
+            reporter_phone='9876543210',
+            symptoms=['Diarrhea', 'Vomiting'],
+            people_affected=4,
+            age_group='ADULT',
+            status='SUBMITTED',
+            description='Severe stomach cramps and dehydration',
+        )
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        review_payload = {
+            'status': 'VERIFIED',
+            'review_notes': 'Inspected house, distributed ORS packets.',
+            'create_health_record': True,
+            'disease_type': 'ACUTE_DIARRHEA',
+            'severity': 'MODERATE',
+        }
+        res = self.client.patch(f'/api/community-reports/{report.id}/review/', review_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['status'], 'VERIFIED')
+        self.assertIn('created_health_record_id', res.data)
+
+        # Check that HealthRecord was created
+        hr_id = res.data['created_health_record_id']
+        hr = HealthRecord.objects.get(id=hr_id)
+        self.assertEqual(hr.village, self.village_a)
+        self.assertEqual(hr.recorded_by, self.worker)
+        self.assertEqual(hr.patient_name, 'Ramesh Kumar')
+        self.assertEqual(hr.disease_type, 'ACUTE_DIARRHEA')
+        self.assertEqual(hr.suspected_cases, 4)
+        self.assertIn('Diarrhea', hr.symptoms)
+        self.assertEqual(hr.severity, 'MODERATE')
+
+        # Test deduplication: review second time with updated notes
+        review_payload['review_notes'] = 'Follow-up visit: patient recovering.'
+        review_payload['severity'] = 'MILD'
+        res2 = self.client.patch(f'/api/community-reports/{report.id}/review/', review_payload, format='json')
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+
+        # Count of matching health records must be strictly 1 (no duplicates)
+        matching_count = HealthRecord.objects.filter(patient_identifier__startswith=f"CR-{report.id:04d}").count()
+        self.assertEqual(matching_count, 1)
+
+        # Check existing record was updated
+        hr.refresh_from_db()
+        self.assertEqual(hr.severity, 'MILD')
+
+    def test_notifications_flow_citizen_to_worker_and_worker_to_citizen(self):
+        """
+        Verify:
+        1. When citizen creates a community report, assigned worker gets a notification.
+        2. When worker reviews/resolves the report, citizen gets a notification.
+        """
+        # Citizen creates a report
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_citizen}')
+        report_payload = {
+            'village': self.village_a.id,
+            'symptoms': ['Diarrhea', 'Fever'],
+            'people_affected': 3,
+            'age_group': 'CHILD',
+            'description': 'Children having diarrhea in ward 4',
+        }
+        res_create = self.client.post('/api/community-reports/', report_payload, format='json')
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        report_id = res_create.data['id']
+
+        # Worker assigned to village_a checks /api/notifications/
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        res_worker_notif = self.client.get('/api/notifications/')
+        self.assertEqual(res_worker_notif.status_code, status.HTTP_200_OK)
+        worker_notifs = res_worker_notif.data if isinstance(res_worker_notif.data, list) else res_worker_notif.data.get('results', [])
+        
+        # Verify notification for new citizen report is present
+        report_notif = next((n for n in worker_notifs if f"#{report_id}" in n['title']), None)
+        self.assertIsNotNone(report_notif, "Worker should receive notification for newly submitted citizen report")
+        self.assertEqual(report_notif['village_name'], self.village_a.name)
+        self.assertEqual(report_notif['link'], '/worker/reports')
+
+        # Worker reviews and resolves the report
+        review_payload = {
+            'status': 'RESOLVED',
+            'review_notes': 'Chlorination tablets distributed. Case resolved.',
+        }
+        res_review = self.client.patch(f'/api/community-reports/{report_id}/review/', review_payload, format='json')
+        self.assertEqual(res_review.status_code, status.HTTP_200_OK)
+
+        # Citizen checks /api/notifications/
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_citizen}')
+        res_citizen_notif = self.client.get('/api/notifications/')
+        self.assertEqual(res_citizen_notif.status_code, status.HTTP_200_OK)
+        citizen_notifs = res_citizen_notif.data if isinstance(res_citizen_notif.data, list) else res_citizen_notif.data.get('results', [])
+
+        # Verify citizen notification for resolved report is present
+        resolved_notif = next((n for n in citizen_notifs if f"#{report_id}" in n['title'] and 'resolve' in n['title'].lower()), None)
+        self.assertIsNotNone(resolved_notif, "Citizen should receive notification when report is resolved")
+        self.assertIn('Chlorination tablets distributed', resolved_notif['detail'])
+        self.assertEqual(resolved_notif['link'], '/community/reports')
+
+    def test_alert_worker_resolution_and_severity_normalization(self):
+        """Test alert creation with non-standard labels and resolution by health worker."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        alert_payload = {
+            'village': self.village_a.id,
+            'title': 'High Coliform Detected in Well',
+            'message': 'Test results show microbial contamination.',
+            'severity': 'MEDIUM',  # Serializer normalizes MEDIUM -> WARNING
+            'target_audience': 'HEALTH_WORKERS',  # Serializer normalizes HEALTH_WORKERS -> HEALTH_WORKER
+        }
+        res = self.client.post('/api/alerts/', alert_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['severity'], 'WARNING')
+        self.assertEqual(res.data['target_audience'], 'HEALTH_WORKER')
+        alert_id = res.data['id']
+
+        # Worker in village_a can resolve the alert
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        res_resolve = self.client.patch(f'/api/alerts/{alert_id}/resolve/')
+        self.assertEqual(res_resolve.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_resolve.data['is_active'], False)
+        self.assertIsNotNone(res_resolve.data['resolved_at'])
+
+
+

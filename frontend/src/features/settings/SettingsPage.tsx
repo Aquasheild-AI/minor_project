@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Lock, Bell, Sliders, Check } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/services/api';
+
+const PREFS_KEY = 'aquashield_settings_prefs';
 
 const sections = [
   { key: 'profile', label: 'Profile', icon: User },
@@ -17,36 +20,80 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
-  const [notifPrefs, setNotifPrefs] = useState({ critical: true, high: true, medium: false, email: true, sms: false });
-  const [systemPrefs, setSystemPrefs] = useState({ autoRefresh: true, riskThreshold: '60', timezone: 'IST (UTC+5:30)' });
+
+  // Load saved preferences from localStorage
+  const [notifPrefs, setNotifPrefs] = useState(() => {
+    try {
+      const stored = localStorage.getItem(PREFS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.notif) return parsed.notif;
+      }
+    } catch {}
+    return { critical: true, high: true, medium: false, email: true, sms: false };
+  });
+
+  const [systemPrefs, setSystemPrefs] = useState(() => {
+    try {
+      const stored = localStorage.getItem(PREFS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.system) return parsed.system;
+      }
+    } catch {}
+    return { autoRefresh: true, riskThreshold: '60', timezone: 'IST (UTC+5:30)' };
+  });
 
   const initialName = user?.name || user?.username || '';
   const initialEmail = user?.email ?? '';
   const initialPhone = user?.phone ?? '';
   
   const [form, setForm] = useState({ name: initialName, email: initialEmail, phone: initialPhone });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
   const handleSave = async () => {
     setErrorMsg('');
-    if (active === 'profile') {
-      setSaving(true);
-      try {
+    setSaving(true);
+
+    try {
+      if (active === 'profile') {
         const parts = form.name.trim().split(' ');
         const first_name = parts[0] || '';
         const last_name = parts.slice(1).join(' ') || '';
         
         await updateProfile({ first_name, last_name, email: form.email, phone: form.phone });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
         setEditing(false);
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Failed to save settings.');
-      } finally {
-        setSaving(false);
+      } else if (active === 'password') {
+        if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+          throw new Error('Please enter your current password and a new password with confirmation.');
+        }
+        if (passwordForm.newPassword.length < 8) {
+          throw new Error('New password must be at least 8 characters long.');
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+          throw new Error('New password and confirmation do not match.');
+        }
+
+        await api.changePassword(
+          passwordForm.currentPassword,
+          passwordForm.newPassword,
+          passwordForm.confirmPassword
+        );
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        // Save preferences to localStorage
+        localStorage.setItem(
+          PREFS_KEY,
+          JSON.stringify({ notif: notifPrefs, system: systemPrefs })
+        );
       }
-    } else {
+
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to save settings.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -135,10 +182,38 @@ export function SettingsPage() {
           {active === 'password' && (
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Change Password</h3>
+              <p className="mt-1 text-xs text-slate-500">Update your account password securely (minimum 8 characters).</p>
               <div className="mt-4 space-y-4 max-w-md">
-                <div><label className="label">Current Password</label><input type="password" className="input" /></div>
-                <div><label className="label">New Password</label><input type="password" className="input" /></div>
-                <div><label className="label">Confirm New Password</label><input type="password" className="input" /></div>
+                <div>
+                  <label className="label">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="input"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="label">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="input"
+                    placeholder="At least 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="label">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="input"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
               </div>
             </div>
           )}

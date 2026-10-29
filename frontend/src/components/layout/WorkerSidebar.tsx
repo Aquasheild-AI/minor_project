@@ -14,19 +14,20 @@ import {
   X,
   HelpCircle,
   User,
+  FileText,
 } from 'lucide-react';
-import { healthWorker } from '@/data/workerData';
 import { useTranslation } from 'react-i18next';
 
 const navKeyMap = [
-  { to: '/worker/dashboard', key: 'dashboard', icon: LayoutDashboard },
-  { to: '/worker/villages', key: 'myVillages', icon: MapPin },
-  { to: '/worker/health', key: 'healthRecords', icon: HeartPulse },
-  { to: '/worker/water-quality', key: 'waterQuality', icon: Droplets },
-  { to: '/worker/risk-analysis', key: 'riskAnalysis', icon: Brain },
-  { to: '/worker/risk-map', key: 'riskMap', icon: Map },
-  { to: '/worker/trends', key: 'trends', icon: TrendingUp },
-  { to: '/worker/alerts', key: 'alerts', icon: Bell },
+  { to: '/worker/dashboard', key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/worker/villages', key: 'myVillages', label: 'My Villages', icon: MapPin },
+  { to: '/worker/health', key: 'healthRecords', label: 'Health Records', icon: HeartPulse },
+  { to: '/worker/water-quality', key: 'waterQuality', label: 'Water Quality', icon: Droplets },
+  { to: '/worker/reports', key: 'citizenReports', label: 'Citizen Reports', icon: FileText },
+  { to: '/worker/risk-analysis', key: 'riskAnalysis', label: 'Risk Analysis', icon: Brain },
+  { to: '/worker/risk-map', key: 'riskMap', label: 'Risk Map', icon: Map },
+  { to: '/worker/trends', key: 'trends', label: 'Trends', icon: TrendingUp },
+  { to: '/worker/alerts', key: 'alerts', label: 'Alerts', icon: Bell },
 ] as const;
 
 interface WorkerSidebarProps {
@@ -82,7 +83,7 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
                 }
               >
                 <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                {t(`nav.${item.key}`)}
+                {t(`nav.${item.key}`, { defaultValue: item.label })}
               </NavLink>
             );
           })}
@@ -107,10 +108,10 @@ export function WorkerSidebar({ open, onClose }: WorkerSidebarProps) {
           </NavLink>
           <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {(user?.name || healthWorker.name).split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {(user?.name || user?.username || 'Health Worker').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-900">{user?.name || healthWorker.name}</p>
+              <p className="truncate text-sm font-medium text-slate-900">{user?.name || user?.username || 'Health Worker'}</p>
               <p className="truncate text-xs text-slate-500">{t('auth.roles.HEALTH_WORKER')}</p>
             </div>
             <button

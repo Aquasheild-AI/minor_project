@@ -10,6 +10,7 @@ urlpatterns = [
     path('auth/register/', views.register_view, name='auth-register'),
     path('auth/logout/', views.logout_view, name='auth-logout'),
     path('auth/me/', views.me_view, name='auth-me'),
+    path('auth/change-password/', views.change_password_view, name='auth-change-password'),
     path('auth/password-reset/request/', views.password_reset_request_view, name='auth-password-reset-request'),
     path('auth/password-reset/verify-otp/', views.password_reset_verify_otp_view, name='auth-password-reset-verify-otp'),
     path('auth/password-reset/confirm/', views.password_reset_confirm_view, name='auth-password-reset-confirm'),
@@ -54,6 +55,12 @@ urlpatterns = [
     path('risk/models/', risk_views.risk_model_info, name='risk-model-info'),
     path('risk/evaluate/', risk_views.risk_evaluate_reading, name='risk-evaluate'),
 
+    # Trends & Historical Analytics
+    path('trends/', views.trends_aggregation_view, name='trends-aggregation'),
+
     # Dashboard Summary Statistics
     path('dashboard/stats/', views.dashboard_stats, name='dashboard-stats'),
+
+    # Real-time Notifications Feed
+    path('notifications/', views.notifications_list, name='notifications-list'),
 ]

@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Beaker, Droplets, Thermometer, Activity, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
-import { communityApi } from '@/services/communityApi';
+import { communityApi, type CommunityWaterQualitySummary } from '@/services/communityApi';
 import { timeAgo } from '@/utils/risk';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TrendPoint } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityWaterQuality() {
-  const [wq, setWq] = useState<typeof import('@/data/communityData').communityWaterQuality | null>(null);
+  const [wq, setWq] = useState<CommunityWaterQualitySummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);

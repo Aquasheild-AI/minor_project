@@ -1,26 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, MapPin, Phone, LogOut, HeartPulse, Check } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Toast } from '@/components/ui/Toast';
-import { healthWorker, assignedVillages } from '@/data/workerData';
-import { formatDateTime } from '@/utils/risk';
-
+import { workerApi } from '@/services/workerApi';
 import { useAuth } from '@/hooks/useAuth';
+import type { Village } from '@/types';
 
 export function WorkerProfile() {
   const navigate = useNavigate();
   const { user, logout, updateProfile } = useAuth();
+  const [assignedVillagesList, setAssignedVillagesList] = useState<Village[]>([]);
   const [toastMsg, setToastMsg] = useState('');
   const [toastShow, setToastShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
-  
-  const initialName = user?.name || user?.username || healthWorker.name;
+
+  useEffect(() => {
+    workerApi.getVillages().then((v) => setAssignedVillagesList(v));
+  }, []);
+
+  const initialName = user?.name || user?.username || 'Health Worker';
   const initialEmail = user?.email ?? '';
   const initialPhone = user?.phone ?? '';
-  
+
   const [form, setForm] = useState({ name: initialName, email: initialEmail, phone: initialPhone });
 
   const handleSave = async () => {
@@ -29,7 +33,7 @@ export function WorkerProfile() {
       const parts = form.name.trim().split(' ');
       const first_name = parts[0] || '';
       const last_name = parts.slice(1).join(' ') || '';
-      
+
       await updateProfile({ first_name, last_name, email: form.email, phone: form.phone });
       setToastMsg('Profile updated successfully.');
       setToastShow(true);
@@ -63,7 +67,7 @@ export function WorkerProfile() {
             <h3 className="mt-3 text-lg font-bold text-slate-900">{initialName}</h3>
             <p className="text-sm text-slate-500">{initialEmail || 'No email provided'}</p>
             <div className="mt-2">
-              <Badge variant="info">{user?.role === 'worker' ? 'Health Worker' : healthWorker.role}</Badge>
+              <Badge variant="info">Health Worker</Badge>
             </div>
           </div>
 
@@ -78,11 +82,11 @@ export function WorkerProfile() {
             </div>
             <div className="flex items-center gap-3">
               <HeartPulse className="h-4 w-4 text-slate-400" />
-              <span className="text-sm text-slate-600">{assignedVillages.length} villages assigned</span>
+              <span className="text-sm text-slate-600">{assignedVillagesList.length} assigned villages under surveillance</span>
             </div>
             <div className="flex items-center gap-3">
               <User className="h-4 w-4 text-slate-400" />
-              <span className="text-sm text-slate-600">Last login: {formatDateTime(healthWorker.lastLogin)}</span>
+              <span className="text-sm text-slate-600">Active Jurisdiction Account</span>
             </div>
           </div>
 
@@ -94,7 +98,7 @@ export function WorkerProfile() {
         {/* Edit Profile */}
         <div className="card p-6 lg:col-span-2">
           <h3 className="text-sm font-semibold text-slate-900">Edit Profile</h3>
-          <p className="mt-1 text-xs text-slate-500">You can update your name and contact information. Your role and assigned villages are managed by administrators.</p>
+          <p className="mt-1 text-xs text-slate-500">You can update your name and contact information. Your assigned jurisdiction villages are configured by Health Authorities.</p>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -132,7 +136,7 @@ export function WorkerProfile() {
             </div>
             <div>
               <label className="label">Role</label>
-              <input type="text" value={healthWorker.role} disabled className="input bg-slate-50" />
+              <input type="text" value="Health Worker" disabled className="input bg-slate-50" />
             </div>
           </div>
 
@@ -154,14 +158,18 @@ export function WorkerProfile() {
           {/* Assigned Villages */}
           <div className="mt-8 border-t border-slate-200 pt-6">
             <h3 className="mb-3 text-sm font-semibold text-slate-900">Assigned Villages</h3>
-            <div className="flex flex-wrap gap-2">
-              {assignedVillages.map((v) => (
-                <div key={v.id} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                  {v.name}
-                </div>
-              ))}
-            </div>
+            {assignedVillagesList.length === 0 ? (
+              <p className="text-xs text-slate-400">No villages currently mapped to your account.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {assignedVillagesList.map((v) => (
+                  <div key={v.id} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    {v.name} ({v.district})
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

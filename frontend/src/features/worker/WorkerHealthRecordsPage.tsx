@@ -8,15 +8,15 @@ import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { workerApi } from '@/services/workerApi';
-import { assignedVillages } from '@/data/workerData';
 import { formatDate } from '@/utils/risk';
-import type { HealthRecord, DiseaseCategory } from '@/types';
+import type { HealthRecord, DiseaseCategory, Village } from '@/types';
 
 const diseases: DiseaseCategory[] = ['Cholera', 'Typhoid', 'Dysentery', 'Hepatitis', 'Diarrheal Disease', 'Other'];
 
 export function WorkerHealthRecordsPage() {
   const navigate = useNavigate();
   const [records, setRecords] = useState<HealthRecord[]>([]);
+  const [villageList, setVillageList] = useState<Village[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [villageFilter, setVillageFilter] = useState('');
@@ -26,8 +26,9 @@ export function WorkerHealthRecordsPage() {
   const pageSize = 10;
 
   useEffect(() => {
-    workerApi.getHealthRecords().then((r) => {
+    Promise.all([workerApi.getHealthRecords(), workerApi.getVillages()]).then(([r, v]) => {
       setRecords(r);
+      setVillageList(v);
       setLoading(false);
     });
   }, []);
@@ -48,24 +49,24 @@ export function WorkerHealthRecordsPage() {
   const stats = {
     total: records.length,
     suspected: records.reduce((s, r) => s + r.suspectedCases, 0),
-    thisWeek: records.filter((r) => r.reportingDate >= '2026-08-14').length,
+    activeCases: records.filter((r) => r.riskLevel !== 'low').length,
     highRisk: records.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical').length,
   };
 
   return (
     <div>
       <PageHeader
-        title="Health Records"
+        title="Health Surveillance Records"
         subtitle="Track and manage community health reports from your assigned villages."
         breadcrumb={['Home', 'Health Records']}
         actions={<Link to="/worker/health/add" className="btn-primary"><Plus className="h-4 w-4" /> Add Health Record</Link>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Reports" value={stats.total} icon={FileText} iconColor="text-primary-600" iconBg="bg-primary-50" />
+        <StatCard label="Total Records" value={stats.total} icon={FileText} iconColor="text-primary-600" iconBg="bg-primary-50" />
         <StatCard label="Suspected Cases" value={stats.suspected} icon={HeartPulse} iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="Reports This Week" value={stats.thisWeek} icon={CalendarDays} iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="High-Risk Reports" value={stats.highRisk} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
+        <StatCard label="Active Surveillance" value={stats.activeCases} icon={CalendarDays} iconColor="text-primary-600" iconBg="bg-primary-50" />
+        <StatCard label="High-Risk Cases" value={stats.highRisk} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
       </div>
 
       <div className="card mt-6 p-4">
@@ -75,8 +76,8 @@ export function WorkerHealthRecordsPage() {
             <input type="text" placeholder="Search village..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="input pl-10" />
           </div>
           <select value={villageFilter} onChange={(e) => { setVillageFilter(e.target.value); setPage(1); }} className="input">
-            <option value="">All Villages</option>
-            {assignedVillages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            <option value="">All Assigned Villages</option>
+            {villageList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
           <select value={diseaseFilter} onChange={(e) => { setDiseaseFilter(e.target.value); setPage(1); }} className="input">
             <option value="">All Diseases</option>
@@ -94,7 +95,7 @@ export function WorkerHealthRecordsPage() {
 
       <div className="card mt-4">
         {loading ? (
-          <LoadingState />
+          <LoadingState message="Loading health records..." />
         ) : paged.length === 0 ? (
           <EmptyState
             icon={FileText}
@@ -113,7 +114,7 @@ export function WorkerHealthRecordsPage() {
                 { key: 'symptoms', header: 'Symptoms', render: (r: HealthRecord) => <span className="text-xs text-slate-500">{r.symptoms.join(', ')}</span> },
                 { key: 'ageGroup', header: 'Age Group' },
                 { key: 'riskLevel', header: 'Risk', render: (r: HealthRecord) => <RiskBadge level={r.riskLevel} /> },
-                { key: 'status', header: 'Status', render: () => <Badge variant="low">Submitted</Badge> },
+                { key: 'status', header: 'Status', render: () => <Badge variant="low">Active</Badge> },
                 {
                   key: 'actions',
                   header: 'Actions',

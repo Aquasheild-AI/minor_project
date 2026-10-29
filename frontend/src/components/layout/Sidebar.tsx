@@ -15,7 +15,6 @@ import {
   X,
   User,
 } from 'lucide-react';
-import { currentUser } from '@/data/mockData';
 import { useTranslation } from 'react-i18next';
 
 const navKeyMap = [
@@ -46,6 +45,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     navigate('/');
   };
 
+  const displayName = user?.name || user?.username || 'Health Authority';
+  const initials = displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'HA';
+
   return (
     <>
       {open && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={onClose} />}
@@ -58,16 +60,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600">
             <Activity className="h-5 w-5 text-white" />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-900">{t('common.appName')}</p>
-            <p className="truncate text-xs text-slate-500">{t('common.appTagline')}</p>
-          </div>
+          <span className="text-base font-bold text-slate-900">AquaShield</span>
           <button onClick={onClose} className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 lg:hidden">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navKeyMap.map((item) => {
             const Icon = item.icon;
             return (
@@ -76,7 +75,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 to={item.to}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-primary-50 text-primary-700'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -93,10 +92,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="border-t border-slate-200 p-3">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {(user?.name || currentUser.name).split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-900">{user?.name || currentUser.name}</p>
+              <p className="truncate text-sm font-medium text-slate-900">{displayName}</p>
               <p className="truncate text-xs text-slate-500">{t('auth.roles.AUTHORITY')}</p>
             </div>
             <button

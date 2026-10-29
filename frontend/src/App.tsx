@@ -34,6 +34,7 @@ import { WorkerTrends } from '@/features/worker/WorkerTrends';
 import { WorkerAlerts } from '@/features/worker/WorkerAlerts';
 import { WorkerVillageDetails } from '@/features/worker/WorkerVillageDetails';
 import { WorkerProfile } from '@/features/worker/WorkerProfile';
+import { WorkerReportsPage } from '@/features/worker/WorkerReportsPage';
 import { CommunityHome } from '@/features/community/CommunityHome';
 import { CommunityVillage } from '@/features/community/CommunityVillage';
 import { CommunityRiskStatus } from '@/features/community/CommunityRiskStatus';
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="/worker/risk-map" element={<WorkerRiskMap />} />
             <Route path="/worker/trends" element={<WorkerTrends />} />
             <Route path="/worker/alerts" element={<WorkerAlerts />} />
+            <Route path="/worker/reports" element={<WorkerReportsPage />} />
             <Route path="/worker/profile" element={<WorkerProfile />} />
           </Route>
 

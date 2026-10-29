@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Pencil, Trash2, HeartPulse, FileText, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, HeartPulse, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Table, Pagination } from '@/components/ui/Table';
@@ -8,14 +8,14 @@ import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/services/api';
-import { villages } from '@/data/mockData';
-import type { HealthRecord, DiseaseCategory, RiskLevel } from '@/types';
+import type { HealthRecord, DiseaseCategory, Village } from '@/types';
 
 const diseases: DiseaseCategory[] = ['Cholera', 'Typhoid', 'Dysentery', 'Hepatitis', 'Diarrheal Disease', 'Other'];
 
 export function HealthRecordsPage() {
   const navigate = useNavigate();
   const [records, setRecords] = useState<HealthRecord[]>([]);
+  const [villageList, setVillageList] = useState<Village[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [villageFilter, setVillageFilter] = useState('');
@@ -23,11 +23,13 @@ export function HealthRecordsPage() {
   const [riskFilter, setRiskFilter] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<HealthRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pageSize = 10;
 
   useEffect(() => {
-    api.getHealthRecords().then((r) => {
+    Promise.all([api.getHealthRecords(), api.getVillages()]).then(([r, v]) => {
       setRecords(r);
+      setVillageList(v);
       setLoading(false);
     });
   }, []);
@@ -49,7 +51,21 @@ export function HealthRecordsPage() {
     total: records.length,
     suspected: records.reduce((s, r) => s + r.suspectedCases, 0),
     highRisk: records.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical').length,
-    thisWeek: records.filter((r) => r.reportingDate >= '2026-08-14').length,
+    activeRecords: records.filter((r) => r.riskLevel !== 'low').length,
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteHealthRecord(deleteTarget.id);
+      setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Failed to delete health record:', err);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -68,13 +84,13 @@ export function HealthRecordsPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total Records" value={stats.total} icon={FileText} iconColor="text-primary-600" iconBg="bg-primary-50" />
         <StatCard label="Suspected Cases" value={stats.suspected} icon={HeartPulse} iconColor="text-primary-600" iconBg="bg-primary-50" />
-        <StatCard label="High-Risk Reports" value={stats.highRisk} icon={AlertTriangle} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
-        <StatCard label="Reports This Week" value={stats.thisWeek} icon={CalendarDays} iconColor="text-primary-600" iconBg="bg-primary-50" />
+        <StatCard label="High / Critical Risk" value={stats.highRisk} icon={HeartPulse} iconColor="text-risk-high" iconBg="bg-risk-high-bg" />
+        <StatCard label="Monitored Villages" value={villageList.length} icon={FileText} iconColor="text-primary-600" iconBg="bg-primary-50" />
       </div>
 
-      {/* Filters */}
+      {/* Filter toolbar */}
       <div className="card mt-6 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -87,7 +103,7 @@ export function HealthRecordsPage() {
           </div>
           <select value={villageFilter} onChange={(e) => { setVillageFilter(e.target.value); setPage(1); }} className="input">
             <option value="">All Villages</option>
-            {villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            {villageList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
           <select value={diseaseFilter} onChange={(e) => { setDiseaseFilter(e.target.value); setPage(1); }} className="input">
             <option value="">All Diseases</option>
@@ -111,7 +127,7 @@ export function HealthRecordsPage() {
           <EmptyState
             icon={FileText}
             title="No health records found"
-            message="No health records found for the selected filters. Try adjusting your search criteria."
+            message="No health records found for the selected filters. Try adjusting your search criteria or log a new record."
             action={<Link to="/health/add" className="btn-primary"><Plus className="h-4 w-4" /> Add Health Record</Link>}
           />
         ) : (
@@ -149,18 +165,16 @@ export function HealthRecordsPage() {
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Health Record" size="sm">
         <p className="text-sm text-slate-600">
           Are you sure you want to delete this health record for <span className="font-semibold">{deleteTarget?.villageName}</span>?
-          This action cannot be undone.
+          This action will permanently delete the surveillance record from the server.
         </p>
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={() => setDeleteTarget(null)} className="btn-secondary">Cancel</button>
+          <button onClick={() => setDeleteTarget(null)} disabled={deleting} className="btn-secondary">Cancel</button>
           <button
-            onClick={() => {
-              setRecords(records.filter((r) => r.id !== deleteTarget?.id));
-              setDeleteTarget(null);
-            }}
+            onClick={handleDelete}
+            disabled={deleting}
             className="btn-danger"
           >
-            Delete Record
+            {deleting ? 'Deleting...' : 'Delete Record'}
           </button>
         </div>
       </Modal>

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Check, ArrowLeft, HeartPulse, Users, Calendar, StickyNote } from 'lucide-react';
 import { communityApi } from '@/services/communityApi';
-import { communityUser, communityVillages } from '@/data/communityData';
-import type { Symptom } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import type { Symptom, Village } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 const allSymptoms: Symptom[] = ['Fever', 'Diarrhea', 'Vomiting', 'Abdominal Pain', 'Dehydration', 'Headache', 'Other'];
@@ -19,12 +19,23 @@ const symptomLabels: Record<Symptom, { en: string; hi: string }> = {
   Other: { en: 'Other', hi: 'अन्य (Other)' },
 };
 
+const ageGroupOptions = [
+  { value: 'Under 5', en: 'Under 5 yrs (Infants / Toddlers)', hi: '5 वर्ष से कम (शिशु)' },
+  { value: '5-14', en: '5-14 yrs (Children)', hi: '5-14 वर्ष (बच्चे)' },
+  { value: '15-30', en: '15-30 yrs (Youth / Adults)', hi: '15-30 वर्ष (युवा)' },
+  { value: '31-50', en: '31-50 yrs (Adults)', hi: '31-50 वर्ष (वयस्क)' },
+  { value: '51-65', en: '51-65 yrs (Middle-aged)', hi: '51-65 वर्ष (प्रौढ़)' },
+  { value: '65+', en: '65+ yrs (Senior Citizens)', hi: '65+ वर्ष (वरिष्ठ नागरिक)' },
+];
+
 export function CommunityReportIssue() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isHi = i18n.language?.startsWith('hi');
 
-  const [villageId, setVillageId] = useState(communityUser.villageId);
+  const [villages, setVillages] = useState<Village[]>([]);
+  const [villageId, setVillageId] = useState('');
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
   const [peopleAffected, setPeopleAffected] = useState('');
   const [ageGroup, setAgeGroup] = useState('');
@@ -32,6 +43,15 @@ export function CommunityReportIssue() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    communityApi.getVillages().then((vList) => {
+      setVillages(vList);
+      if (vList.length > 0) {
+        setVillageId(String(user?.villageId || vList[0].id));
+      }
+    });
+  }, [user]);
 
   const toggleSymptom = (s: Symptom) => {
     setSymptoms((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -51,10 +71,11 @@ export function CommunityReportIssue() {
     ev.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    const village = communityVillages.find((v) => v.id === villageId);
+    const village = villages.find((v) => String(v.id) === String(villageId));
     communityApi.createReport({
       date: new Date().toISOString().slice(0, 10),
-      villageName: village?.name || communityUser.villageName,
+      villageId: String(villageId),
+      villageName: village?.name || 'Local Village',
       symptoms,
       peopleAffected,
       ageGroup: ageGroup || undefined,
@@ -62,6 +83,9 @@ export function CommunityReportIssue() {
     }).then(() => {
       setSaving(false);
       setSuccess(true);
+    }).catch((err) => {
+      setSaving(false);
+      setErrors({ village: err.message || 'Failed to submit report. Please try again.' });
     });
   };
 
@@ -99,7 +123,7 @@ export function CommunityReportIssue() {
           <div>
             <label className="label">{t('common.village')}</label>
             <select value={villageId} onChange={(e) => setVillageId(e.target.value)} className={`input ${errors.village ? 'input-error' : ''}`}>
-              {communityVillages.map((v) => <option key={v.id} value={v.id}>{v.name} — {v.district}</option>)}
+              {villages.map((v) => <option key={v.id} value={v.id}>{v.name} — {v.district}</option>)}
             </select>
             {errors.village && <p className="mt-1 text-xs text-risk-critical">{errors.village}</p>}
           </div>
@@ -165,7 +189,11 @@ export function CommunityReportIssue() {
           </div>
           <select value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} className="input">
             <option value="">{isHi ? 'आयु वर्ग चुनें (वैकल्पिक)' : 'Select age group (optional)'}</option>
-            {['Under 5', '5-14', '15-30', '31-50', '51-65', '65+'].map((a) => <option key={a} value={a}>{a}</option>)}
+            {ageGroupOptions.map((a) => (
+              <option key={a.value} value={a.value}>
+                {isHi ? a.hi : a.en}
+              </option>
+            ))}
           </select>
         </div>
 

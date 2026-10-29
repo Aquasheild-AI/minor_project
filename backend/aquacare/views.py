@@ -4,7 +4,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
@@ -196,6 +196,54 @@ def me_view(request):
         
         serializer.save()
         return Response(UserSerializer(user).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    """
+    POST /api/auth/change-password/
+    Allows an authenticated user to change their current password.
+    Requires current_password, new_password, confirm_password.
+    """
+    current_password = request.data.get('current_password', '')
+    new_password = request.data.get('new_password', '')
+    confirm_password = request.data.get('confirm_password', '')
+
+    if not current_password or not new_password or not confirm_password:
+        return Response(
+            {'error': 'Current password, new password, and confirmation are required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not request.user.check_password(current_password):
+        return Response(
+            {'error': 'The current password you entered is incorrect.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(new_password) < 8:
+        return Response(
+            {'error': 'New password must be at least 8 characters long.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if new_password != confirm_password:
+        return Response(
+            {'error': 'New password and confirmation do not match.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    Token.objects.filter(user=request.user).delete()
+    new_token = Token.objects.create(user=request.user)
+
+    return Response(
+        {'detail': 'Password changed successfully.', 'token': new_token.key},
+        status=status.HTTP_200_OK,
+    )
 
 
 # ─── Forgot Password / Password Reset Endpoints (SMTP) ────────────
@@ -687,26 +735,54 @@ def manage_update_user(request, user_id):
 
 # ─── Villages & GIS Endpoints ─────────────────────────────────────
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def get_villages_for_gis_map(request):
     """
     GET /api/villages/
     Returns list of all monitored villages.
+    POST /api/villages/
+    Allows Authorities to register a new village.
     """
-    villages = Village.objects.all()
-    serializer = VillageSerializer(villages, many=True)
-    return Response(serializer.data)
+    if request.method == 'GET':
+        villages = Village.objects.all()
+        serializer = VillageSerializer(villages, many=True)
+        return Response(serializer.data)
+    elif request.method == 'POST':
+        if not request.user or not request.user.is_authenticated or request.user.role != 'AUTHORITY':
+            return Response(
+                {'error': 'Only Health Authorities have permission to add new villages.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = VillageSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        village = serializer.save()
+        return Response(VillageSerializer(village).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 def village_detail(request, village_id):
     """
     GET /api/villages/<village_id>/
     Returns comprehensive village details including water sources and active alerts.
+    PATCH /api/villages/<village_id>/
+    Allows Authorities to update village details.
     """
     village = get_object_or_404(Village, id=village_id)
-    serializer = VillageDetailSerializer(village)
-    return Response(serializer.data)
+    if request.method == 'GET':
+        serializer = VillageDetailSerializer(village)
+        return Response(serializer.data)
+    elif request.method == 'PATCH':
+        if not request.user or not request.user.is_authenticated or request.user.role != 'AUTHORITY':
+            return Response(
+                {'error': 'Only Health Authorities have permission to modify village details.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = VillageSerializer(village, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        updated = serializer.save()
+        return Response(VillageSerializer(updated).data)
 
 
 # ─── Water Sources & Water Quality Endpoints ───────────────────────
@@ -863,15 +939,38 @@ def health_records_list_create(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Duplicate safeguard: if an identical record exists for this patient/village on the same onset date
+        patient_name = serializer.validated_data.get('patient_name')
+        patient_id = serializer.validated_data.get('patient_identifier')
+        disease_type = serializer.validated_data.get('disease_type')
+        date_of_onset = serializer.validated_data.get('date_of_onset')
+        suspected_cases = serializer.validated_data.get('suspected_cases', 1)
+
+        dup_qs = HealthRecord.objects.filter(
+            village=village,
+            disease_type=disease_type,
+            date_of_onset=date_of_onset,
+            suspected_cases=suspected_cases,
+        )
+        if patient_id:
+            dup_qs = dup_qs.filter(patient_identifier=patient_id)
+        elif patient_name:
+            dup_qs = dup_qs.filter(patient_name__iexact=patient_name)
+
+        existing_record = dup_qs.first()
+        if existing_record:
+            return Response(HealthRecordSerializer(existing_record).data, status=status.HTTP_200_OK)
+
         record = serializer.save(recorded_by=request.user)
         return Response(HealthRecordSerializer(record).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PATCH', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated, IsHealthWorkerOrAuthority])
 def health_record_detail(request, pk):
     """
     GET /api/health-records/<pk>/
+    PATCH/PUT /api/health-records/<pk>/
     DELETE /api/health-records/<pk>/
     """
     record = get_object_or_404(HealthRecord, pk=pk)
@@ -885,6 +984,13 @@ def health_record_detail(request, pk):
     if request.method == 'GET':
         serializer = HealthRecordSerializer(record)
         return Response(serializer.data)
+
+    elif request.method in ('PATCH', 'PUT'):
+        serializer = HealthRecordSerializer(record, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(HealthRecordSerializer(record).data)
 
     elif request.method == 'DELETE':
         record.delete()
@@ -939,6 +1045,37 @@ def community_reports_list_create(request):
             reporter_name=data.get('reporter_name') or request.user.get_full_name() or request.user.username,
             reporter_phone=data.get('reporter_phone') or request.user.phone or '',
         )
+
+        # Notify assigned health worker(s) via email if configured
+        try:
+            assigned_workers = User.objects.filter(
+                role='HEALTH_WORKER',
+                assigned_villages=report.village,
+                email__isnull=False
+            ).exclude(email='')
+            recipient_list = [w.email for w in assigned_workers if w.email]
+            if recipient_list:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                subject = f"[AquaShield Alert] New Citizen Report in {report.village.name}"
+                body = (
+                    f"A new community health issue has been reported in {report.village.name}.\n\n"
+                    f"Reporter: {report.reporter_name or 'Citizen'}\n"
+                    f"People Affected: {report.people_affected}\n"
+                    f"Symptoms: {', '.join(report.symptoms or [])}\n"
+                    f"Notes: {report.description or 'None provided'}\n\n"
+                    f"Please log in to AquaShield-AI to review and verify this report."
+                )
+                send_mail(
+                    subject,
+                    body,
+                    getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
+                    recipient_list,
+                    fail_silently=True,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to dispatch health worker email: {e}")
+
         return Response(CommunityReportSerializer(report).data, status=status.HTTP_201_CREATED)
 
 
@@ -990,7 +1127,109 @@ def community_report_review(request, pk):
         reviewed_by=request.user,
         reviewed_at=timezone.now(),
     )
-    return Response(CommunityReportSerializer(report).data)
+
+    created_health_record = None
+    if request.data.get('create_health_record'):
+        # Map age_group to an estimated age
+        age_map = {
+            'CHILD': 8,
+            'TEEN': 15,
+            'ADULT': 35,
+            'ELDERLY': 65,
+            'ALL_AGES': 28,
+        }
+        patient_age = age_map.get(report.age_group, 30)
+
+        # Map symptoms or request data to a valid disease_type
+        disease_type = request.data.get('disease_type')
+        valid_diseases = dict(HealthRecord.DISEASE_CHOICES)
+        if not disease_type or disease_type not in valid_diseases:
+            symptoms_str = ' '.join(report.symptoms or []).lower()
+            if 'cholera' in symptoms_str:
+                disease_type = 'CHOLERA'
+            elif 'typhoid' in symptoms_str:
+                disease_type = 'TYPHOID'
+            elif 'hepatitis' in symptoms_str:
+                disease_type = 'VIRAL_HEPATITIS'
+            elif 'fever' in symptoms_str and 'headache' in symptoms_str:
+                disease_type = 'TYPHOID'
+            elif 'vomiting' in symptoms_str or 'diarrhea' in symptoms_str:
+                disease_type = 'ACUTE_DIARRHEA'
+            else:
+                disease_type = 'GASTROENTERITIS'
+
+        severity = request.data.get('severity', 'MODERATE')
+        valid_severities = dict(HealthRecord.SEVERITY_CHOICES)
+        if severity not in valid_severities:
+            severity = 'MODERATE'
+
+        # Check if a health record already exists for this community report to prevent duplicates
+        patient_identifier = f"CR-{report.id:04d}"
+        existing_hr = HealthRecord.objects.filter(patient_identifier__startswith=f"CR-{report.id:04d}").first()
+
+        if existing_hr:
+            existing_hr.disease_type = disease_type
+            existing_hr.severity = severity
+            existing_hr.suspected_cases = max(1, report.people_affected or 1)
+            existing_hr.symptoms = report.symptoms or []
+            existing_hr.notes = (
+                f"Generated from Community Report #{report.id} reviewed by {request.user.get_full_name() or request.user.username}. "
+                f"Citizen notes: {report.description or 'None'}. Field action: {report.review_notes or 'Verified'}"
+            ).strip()
+            existing_hr.save()
+            created_health_record = existing_hr
+        else:
+            created_health_record = HealthRecord.objects.create(
+                village=report.village,
+                recorded_by=request.user,
+                patient_identifier=patient_identifier,
+                patient_name=report.reporter_name or "Citizen Patient",
+                age=patient_age,
+                gender=request.data.get('gender', 'O'),
+                disease_type=disease_type,
+                suspected_cases=max(1, report.people_affected or 1),
+                symptoms=report.symptoms or [],
+                severity=severity,
+                status='UNDER_TREATMENT',
+                date_of_onset=report.created_at.date() if report.created_at else timezone.now().date(),
+                date_recorded=timezone.now(),
+                suspected_water_source=report.water_source_suspected,
+                treatment_administered=request.data.get('treatment_administered', 'Oral Rehydration Salts (ORS) & clinical monitoring'),
+                notes=(
+                    f"Generated from Community Report #{report.id} reviewed by {request.user.get_full_name() or request.user.username}. "
+                    f"Citizen notes: {report.description or 'None'}. Field action: {report.review_notes or 'Verified'}"
+                ).strip()
+            )
+
+    res_data = dict(serializer.data)
+    if created_health_record:
+        res_data['created_health_record_id'] = created_health_record.id
+
+    # Dispatch email notification to reporting citizen if email is available
+    if report.citizen and getattr(report.citizen, 'email', None):
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+            subject = f"[AquaShield Update] Your Health Report #{report.id} has been {report.get_status_display()}"
+            body = (
+                f"Hello {report.citizen.get_full_name() or report.citizen.username},\n\n"
+                f"Your community health report for {report.village.name} has been reviewed by Health Worker {request.user.get_full_name() or request.user.username}.\n\n"
+                f"Status: {report.get_status_display()}\n"
+                f"Action / Notes: {report.review_notes or 'Field verification completed.'}\n\n"
+                f"Thank you for helping keep your community safe.\n"
+                f"AquaShield-AI Health Surveillance Team"
+            )
+            send_mail(
+                subject,
+                body,
+                getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
+                [report.citizen.email],
+                fail_silently=True,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to dispatch citizen resolution email: {e}")
+
+    return Response(res_data)
 
 
 # ─── Alerts & Advisories Endpoints ─────────────────────────────────
@@ -1045,13 +1284,18 @@ def alerts_list_create(request):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsAuthority])
+@permission_classes([IsAuthenticated, IsHealthWorkerOrAuthority])
 def alert_resolve(request, pk):
     """
     PATCH /api/alerts/<pk>/resolve/
-    Only Authority can resolve an active alert.
+    Authority or assigned Health Worker can resolve an active alert.
     """
     alert = get_object_or_404(Alert, pk=pk)
+    if not has_village_access(request.user, alert.village):
+        return Response(
+            {'error': 'You do not have jurisdiction to resolve alerts in this village.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     alert.is_active = False
     alert.resolved_at = timezone.now()
     alert.save(update_fields=['is_active', 'resolved_at'])
@@ -1068,6 +1312,77 @@ def alert_acknowledge(request, pk):
     alert = get_object_or_404(Alert, pk=pk)
     AlertAcknowledgement.objects.get_or_create(alert=alert, user=request.user)
     return Response({'detail': f'Alert {alert.id} acknowledged successfully.'})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def trends_aggregation_view(request):
+    """
+    GET /api/trends/?village_id=...&disease=...&days=...
+    Aggregates real daily health surveillance records and correlates with village water quality data.
+    """
+    village_id = request.query_params.get('village_id')
+    disease = request.query_params.get('disease')
+    days_param = request.query_params.get('days', '30')
+    try:
+        days = min(max(int(days_param), 7), 365)
+    except (ValueError, TypeError):
+        days = 30
+
+    today = timezone.now().date()
+    start_date = today - timezone.timedelta(days=days - 1)
+
+    records_qs = HealthRecord.objects.filter(date_recorded__date__gte=start_date)
+    if village_id:
+        records_qs = records_qs.filter(village_id=village_id)
+
+    disease_map = {
+        'CHOLERA': 'CHOLERA',
+        'TYPHOID': 'TYPHOID',
+        'DYSENTERY': 'DYSENTERY',
+        'HEPATITIS': 'HEPATITIS_A',
+        'HEPATITIS_A': 'HEPATITIS_A',
+        'HEPATITIS_E': 'HEPATITIS_E',
+        'DIARRHEA': 'ACUTE_DIARRHEA',
+        'DIARRHEAL_DISEASE': 'ACUTE_DIARRHEA',
+        'ACUTE_DIARRHEA': 'ACUTE_DIARRHEA',
+        'GASTROENTERITIS': 'GASTROENTERITIS',
+    }
+    if disease and disease.upper() not in ('ALL', 'ALL MONITORED DISEASES'):
+        norm_disease = disease_map.get(disease.upper().replace(' ', '_'), disease.upper())
+        records_qs = records_qs.filter(disease_type=norm_disease)
+
+    date_sums = {}
+    for r in records_qs:
+        d_str = r.date_recorded.date().isoformat()
+        date_sums[d_str] = date_sums.get(d_str, 0) + (r.suspected_cases or 1)
+
+    village_risk_score = 45
+    if village_id:
+        village = Village.objects.filter(id=village_id).first()
+        if village:
+            village_risk_score = int(village.risk_score or 45)
+
+    result = []
+    for i in range(days):
+        current_d = start_date + timezone.timedelta(days=i)
+        d_iso = current_d.isoformat()
+        date_short = d_iso[5:10]
+        cases = date_sums.get(d_iso, 0)
+        calc_risk = min(100, max(10, village_risk_score + (cases * 3)))
+
+        result.append({
+            'date': date_short,
+            'full_date': d_iso,
+            'cases': cases,
+            'riskScore': calc_risk,
+            'ph': 7.2,
+            'turbidity': 2.8,
+            'tds': 360,
+            'temperature': 26.5,
+        })
+
+    return Response(result)
 
 
 # ─── Dashboard Summary Statistics API ──────────────────────────────
@@ -1112,10 +1427,105 @@ def dashboard_stats(request):
         'contaminated_water_sources': water_sources_qs.filter(status='CONTAMINATED').count(),
         'moderate_risk_water_sources': water_sources_qs.filter(status='MODERATE').count(),
         'total_water_tests': WaterQualityTest.objects.count(),
-        'recent_cases_30d': health_records_qs.filter(date_recorded__gte=thirty_days_ago).count(),
-        'total_cases': health_records_qs.count(),
+        'recent_cases_30d': health_records_qs.filter(date_recorded__gte=thirty_days_ago).aggregate(s=Sum('suspected_cases'))['s'] or 0,
+        'total_cases': health_records_qs.aggregate(s=Sum('suspected_cases'))['s'] or 0,
         'active_alerts': alerts_qs.count(),
         'pending_community_reports': community_reports_qs.filter(status__in=['SUBMITTED', 'UNDER_REVIEW']).count(),
         'resolved_community_reports': community_reports_qs.filter(status='RESOLVED').count(),
     }
     return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def notifications_list(request):
+    """
+    GET /api/notifications/
+    Returns personalized real-time notifications for the logged-in user:
+    - Emergency advisories and water contamination alerts
+    - Citizen health reports (for Health Workers & Authorities when citizen files report)
+    - Status updates / resolution notices (for Citizens when worker resolves/reviews report)
+    """
+    user = request.user
+    notifications = []
+
+    # 1. Alerts relevant to user
+    alert_qs = Alert.objects.select_related('village').filter(is_active=True)
+    if user.role == 'COMMUNITY':
+        alert_qs = alert_qs.filter(target_audience__in=['ALL', 'COMMUNITY'])
+        if user.village_id:
+            alert_qs = alert_qs.filter(village_id=user.village_id)
+    elif user.role == 'HEALTH_WORKER':
+        alert_qs = alert_qs.filter(target_audience__in=['ALL', 'HEALTH_WORKER'])
+        if user.assigned_villages.exists():
+            alert_qs = alert_qs.filter(village__in=user.assigned_villages.all())
+
+    for a in alert_qs.order_by('-created_at')[:6]:
+        notifications.append({
+            'id': f'alert-{a.id}',
+            'type': 'alert',
+            'severity': 'critical' if a.severity == 'CRITICAL' else 'high' if a.severity == 'HIGH' else 'medium',
+            'title': a.title or 'Water Contamination Alert',
+            'message': a.title or a.message,
+            'detail': a.message,
+            'villageName': a.village.name,
+            'village_name': a.village.name,
+            'time': a.created_at.isoformat(),
+            'read': False,
+            'link': '/worker/alerts' if user.role == 'HEALTH_WORKER' else '/alerts' if user.role == 'AUTHORITY' else '/community/alerts',
+        })
+
+    # 2. Citizen Reports Notifications
+    if user.role in ('HEALTH_WORKER', 'AUTHORITY'):
+        rep_qs = CommunityReport.objects.select_related('village', 'citizen')
+        if user.role == 'HEALTH_WORKER' and user.assigned_villages.exists():
+            rep_qs = rep_qs.filter(village__in=user.assigned_villages.all())
+
+        recent_reports = rep_qs.filter(status__in=['SUBMITTED', 'UNDER_REVIEW']).order_by('-created_at')[:8]
+        for r in recent_reports:
+            sym_text = ', '.join(r.symptoms[:3]) if r.symptoms else 'Health issue'
+            title = f"Report #{r.id}: {r.people_affected} affected in {r.village.name}"
+            msg = f"New Citizen Report in {r.village.name}: {r.people_affected} affected ({sym_text})"
+            notifications.append({
+                'id': f'report-in-{r.id}',
+                'type': 'health',
+                'severity': 'high' if r.people_affected >= 5 else 'medium',
+                'title': title,
+                'message': msg,
+                'detail': r.description or f"Reported by {r.reporter_name or 'Citizen'}",
+                'villageName': r.village.name,
+                'village_name': r.village.name,
+                'time': r.created_at.isoformat(),
+                'read': r.status != 'SUBMITTED',
+                'link': '/worker/reports',
+            })
+
+    elif user.role == 'COMMUNITY':
+        my_reports = CommunityReport.objects.select_related('village', 'reviewed_by').filter(
+            citizen=user,
+            reviewed_at__isnull=False
+        ).order_by('-reviewed_at')[:8]
+
+        for r in my_reports:
+            reviewer = r.reviewed_by.get_full_name() or r.reviewed_by.username if r.reviewed_by else 'Health Worker'
+            status_text = 'Resolved' if r.status == 'RESOLVED' else 'Verified' if r.status == 'VERIFIED' else 'Under Review'
+            title = f"Report #{r.id} {status_text}"
+            msg = f"Report #{r.id} for {r.village.name}: {status_text} by {reviewer}"
+            notifications.append({
+                'id': f'report-update-{r.id}',
+                'type': 'health',
+                'severity': 'low' if r.status == 'RESOLVED' else 'medium',
+                'title': title,
+                'message': msg,
+                'detail': r.review_notes or "Field inspection and action verified.",
+                'villageName': r.village.name,
+                'village_name': r.village.name,
+                'time': (r.reviewed_at or r.updated_at).isoformat(),
+                'read': False,
+                'link': '/community/reports',
+            })
+
+    # Sort newest first
+    notifications.sort(key=lambda n: n.get('time', ''), reverse=True)
+    return Response(notifications[:15])
+

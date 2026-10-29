@@ -250,7 +250,34 @@
         "prevent": "How can I prevent water-borne diseases?",
         "symptoms": "I have diarrhea and vomiting"
       },
-      "reportAction": "Report Symptoms to Health Center"
+      "reportAction": "Report Symptoms to Health Center",
+      "voice": {
+        "startVoice": "Voice Input",
+        "speakQuestion": "Speak your question (Hindi or English)",
+        "stopVoice": "Done",
+        "cancelVoice": "Cancel",
+        "listening": "Listening...",
+        "listeningPrompt": "Speak now into your microphone...",
+        "speakingLang": "Language",
+        "switchLang": "Change Language",
+        "langHindi": "Hindi",
+        "langEnglish": "English",
+        "noSpeech": "No speech detected. Please click the microphone and speak again.",
+        "permissionDenied": "Microphone permission was denied. Please allow microphone access in your browser settings to use voice input.",
+        "notSupported": "Voice recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.",
+        "networkError": "Network error occurred during speech recognition. Please check your connection and try again.",
+        "genericError": "Could not recognize speech. Please try again.",
+        "listen": "Listen",
+        "listenAnswer": "Listen to Answer",
+        "playing": "Reading aloud...",
+        "paused": "Paused",
+        "pause": "Pause",
+        "resume": "Resume",
+        "stop": "Stop",
+        "ttsNotSupported": "Voice playback is not supported on this browser.",
+        "ttsVoiceUnavailable": "No suitable voice found for audio playback.",
+        "reviewBeforeSending": "Speech recognized! You can review or edit your message before sending."
+      }
     },
     "alertsPage": {
       "title": "Community Alerts",

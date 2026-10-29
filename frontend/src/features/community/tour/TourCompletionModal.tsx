@@ -1,5 +1,8 @@
+import { useMemo, useEffect } from 'react';
 import { Trophy, CheckCircle2, ArrowRight, RotateCcw, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+import { VoiceMessagePlayer } from '@/features/community/components/VoiceMessagePlayer';
 
 interface TourCompletionModalProps {
   open: boolean;
@@ -8,21 +11,59 @@ interface TourCompletionModalProps {
 }
 
 export function TourCompletionModal({ open, onClose, onReplay }: TourCompletionModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const {
+    speakingMessageId,
+    isPlaying,
+    isPaused,
+    speak,
+    pause,
+    resume,
+    stop,
+  } = useSpeechSynthesis();
+
+  // Stop speech if modal is closed
+  useEffect(() => {
+    if (!open) {
+      stop();
+    }
+  }, [open, stop]);
+
+  const completionNarrationText = useMemo(() => {
+    return [
+      t('tour.completionModal.title'),
+      t('tour.completionModal.desc'),
+      t('tour.completionModal.achievement1'),
+      t('tour.completionModal.achievement2'),
+      t('tour.completionModal.achievement3'),
+    ].join('. ');
+  }, [t]);
+
   if (!open) return null;
+
+  const handleClose = () => {
+    stop();
+    onClose();
+  };
+
+  const handleReplay = () => {
+    stop();
+    onReplay();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal card */}
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200">
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors z-20"
           aria-label={t('common.close')}
         >
@@ -38,9 +79,23 @@ export function TourCompletionModal({ open, onClose, onReplay }: TourCompletionM
             </span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200/80 mb-2">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-            <span>{t('tour.completionModal.badge')}</span>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200/80">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              <span>{t('tour.completionModal.badge')}</span>
+            </div>
+
+            <VoiceMessagePlayer
+              messageId="tour-completion-modal"
+              content={completionNarrationText}
+              speakingMessageId={speakingMessageId}
+              isPlaying={isPlaying}
+              isPaused={isPaused}
+              onSpeak={(id, text) => speak(id, text, i18n.language)}
+              onPause={pause}
+              onResume={resume}
+              onStop={stop}
+            />
           </div>
 
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
@@ -81,14 +136,14 @@ export function TourCompletionModal({ open, onClose, onReplay }: TourCompletionM
           {/* Action buttons */}
           <div className="mt-5 flex flex-col sm:flex-row items-center justify-end gap-2.5">
             <button
-              onClick={onReplay}
+              onClick={handleReplay}
               className="btn-secondary w-full sm:w-auto text-xs flex items-center justify-center gap-1.5 py-2"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>{t('tour.completionModal.replay')}</span>
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="btn-primary w-full sm:w-auto text-xs flex items-center justify-center gap-1.5 px-4 py-2 shadow-sm"
             >
               <span>{t('tour.completionModal.explore')}</span>

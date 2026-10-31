@@ -234,6 +234,8 @@
       "boilBannerDesc": "Boil all drinking and cooking water vigorously for at least 1 minute before consumption.",
       "diseasePredictionsTitle": "Regional Disease Outbreak Estimates",
       "noTests": "No water quality field tests recorded yet for this village. Health workers will monitor shortly.",
+      "dataUnavailable": "Water Quality Data Unavailable",
+      "dataUnavailableDesc": "No water quality field tests have been recorded yet for this village. Health workers will monitor shortly.",
       "contributingFactors": "Contributing Indicators"
     },
     "chatbot": {

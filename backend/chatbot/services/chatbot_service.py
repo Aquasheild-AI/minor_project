@@ -95,12 +95,71 @@ def process_message(user_message, history):
     # Append current message
     gemini_history.append({"role": "user", "content": user_message})
     
-    # 4. Get Gemini Response
+    # 4. Get Gemini Response (with Knowledge Base fallback)
     try:
         gemini_text = generate_chat_response(gemini_history, SYSTEM_INSTRUCTION, context)
     except Exception as e:
-        print(f"Gemini API error: {e}")
-        gemini_text = "I'm having trouble connecting to the AI assistant right now. Please try again."
+        print(f"Gemini API unavailable ({e}), using local knowledge base response.")
+        if has_warning:
+            gemini_text = (
+                "Notice: The AI Assistant is operating in safe offline mode. "
+                "Because automated systems cannot diagnose health conditions, and you have mentioned severe or warning symptoms:\n\n"
+                "Please seek immediate medical care at your nearest Primary Health Centre (PHC), Community Health Centre, or hospital.\n"
+                "You should also contact your village ASHA or ANM health worker right away for assistance.\n\n"
+                "Important Precautions:\n"
+                "- Keep the person hydrated with clean, boiled water or Oral Rehydration Salts (ORS) in small, frequent sips.\n"
+                "- Do not take unprescribed antibiotics or prescription medicines without a doctor's examination."
+                "\n---FOLLOW_UPS---\n"
+                '[{"type": "topic", "label": "When to visit a PHC immediately?", "value": "When should I go to a PHC or hospital immediately?"}, '
+                '{"type": "topic", "label": "How to contact an ASHA worker?", "value": "How do I reach my local ASHA or ANM health worker?"}]'
+            )
+        elif intent == "symptom_guidance":
+            gemini_text = (
+                "Notice: The AI Assistant is operating in safe offline mode. "
+                "To protect your health, this assistant does not provide automated disease diagnoses or specific medication advice.\n\n"
+                "Recommended Actions:\n"
+                "1. If you or a family member are unwell, please consult your local ASHA/ANM health worker or visit the nearest Primary Health Centre (PHC) for a clinical evaluation.\n"
+                "2. Ensure all drinking water is boiled vigorously for at least 10 minutes.\n"
+                "3. Stay hydrated by sipping clean, safe drinking water or ORS if advised by a health professional.\n"
+                "4. Seek emergency care immediately if you notice severe weakness, blood in stool, persistent vomiting, or high fever."
+                "\n---FOLLOW_UPS---\n"
+                '[{"type": "topic", "label": "Safe Drinking Water Steps", "value": "How can I ensure my drinking water is safe?"}, '
+                '{"type": "topic", "label": "When to visit a health worker?", "value": "When should I consult a local health worker or visit a PHC?"}]'
+            )
+        elif intent == "prevention":
+            gemini_text = (
+                "General Drinking Water & Hygiene Guidelines:\n"
+                "1. Boil drinking water vigorously for at least 10 minutes before consumption.\n"
+                "2. Store drinking water in clean, covered containers with a narrow neck, tap, or clean ladle.\n"
+                "3. Wash hands with soap and safe water before meals and after using the sanitation facility.\n"
+                "4. Keep food covered and avoid consuming unwashed raw produce or uncovered street food.\n"
+                "5. Report discolored, foul-smelling, or contaminated public water sources to your local health worker or village committee."
+                "\n---FOLLOW_UPS---\n"
+                '[{"type": "topic", "label": "Safe Drinking Water Steps", "value": "How can I ensure my drinking water is safe?"}, '
+                '{"type": "topic", "label": "How to prepare safe ORS?", "value": "How do I safely prepare ORS at home?"}]'
+            )
+        elif intent == "disease_information":
+            gemini_text = (
+                "Notice: The AI Assistant is operating in safe educational mode.\n\n"
+                "Water-related infections generally spread through drinking water or food contaminated by biological or environmental agents. "
+                "Common symptoms may include diarrhea, abdominal pain, nausea, and fever.\n\n"
+                "Health Guidance:\n"
+                "- Symptoms require proper clinical examination by a trained medical professional or field health worker.\n"
+                "- Do not attempt self-treatment or unverified remedies.\n"
+                "- Always boil drinking water and consult your local Primary Health Centre (PHC) if someone feels ill."
+                "\n---FOLLOW_UPS---\n"
+                '[{"type": "topic", "label": "Safe Drinking Water Steps", "value": "What are safe drinking water steps?"}, '
+                '{"type": "topic", "label": "When to see a health worker?", "value": "When should I consult a local health worker or visit a PHC?"}]'
+            )
+        else:
+            gemini_text = (
+                "Hello! I am your AquaShield Community Health Assistant operating in safe offline mode.\n\n"
+                "I can provide educational information on safe drinking water, household hygiene, and when to consult a health worker.\n"
+                "If you or someone in your community is feeling unwell, please contact your local ASHA/ANM worker or visit the nearest Primary Health Centre (PHC)."
+                "\n---FOLLOW_UPS---\n"
+                '[{"type": "topic", "label": "Safe Drinking Water Steps", "value": "How can I ensure my drinking water is safe?"}, '
+                '{"type": "topic", "label": "When to see a health worker?", "value": "When should I consult a local health worker or visit a PHC?"}]'
+            )
 
     # 5. Safety Validation (Post-processing)
     unsafe_phrases = ["you have cholera", "you have typhoid", "this confirms", "you definitely have", "take antibiotics"]

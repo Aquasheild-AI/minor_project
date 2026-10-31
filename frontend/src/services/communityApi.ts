@@ -23,8 +23,9 @@ export interface CommunityWaterQualitySummary {
   turbidity: number;
   tds: number;
   temperature: number;
-  status: 'safe' | 'moderate' | 'unsafe';
+  status: 'safe' | 'moderate' | 'unsafe' | 'unavailable';
   date: string;
+  lastUpdated: string;
   villageName?: string;
 }
 
@@ -133,22 +134,22 @@ export const communityApi = {
 
   getNotifications: (): Promise<Notification[]> => api.getNotifications(),
 
-  getWaterQuality: async (): Promise<CommunityWaterQualitySummary> => {
+  getWaterQuality: async (): Promise<CommunityWaterQualitySummary | null> => {
     try {
       const me = await authGet<any>('/api/auth/me/');
       const villageId = me.village ? String(me.village) : undefined;
       const list = await api.getWaterQuality(villageId ? { village_id: villageId } : undefined);
-      if (list.length > 0) return list[0];
-    } catch {}
-    return {
-      ph: 7.2,
-      turbidity: 3.4,
-      tds: 380,
-      temperature: 26.5,
-      status: 'safe',
-      date: new Date().toISOString().split('T')[0],
-      villageName: 'Local Village',
-    };
+      if (list && list.length > 0) {
+        const item = list[0];
+        return {
+          ...item,
+          lastUpdated: item.date,
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   },
 
   getRiskFactors: async () => [

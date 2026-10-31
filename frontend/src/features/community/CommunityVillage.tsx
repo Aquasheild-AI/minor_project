@@ -4,7 +4,7 @@ import { MapPin, Users, Activity, Calendar, TrendingUp, Droplets } from 'lucide-
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
 import { ChartCard } from '@/components/ui/ChartCard';
-import { communityApi } from '@/services/communityApi';
+import { communityApi, type CommunityWaterQualitySummary } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { Village, TrendPoint } from '@/types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -14,14 +14,16 @@ export function CommunityVillage() {
   const navigate = useNavigate();
   const [village, setVillage] = useState<Village | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [waterSummary, setWaterSummary] = useState<CommunityWaterQualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const { t, i18n } = useTranslation();
   const isHi = i18n.language?.startsWith('hi');
 
   useEffect(() => {
-    Promise.all([communityApi.getUserVillage(), communityApi.getTrends(30)]).then(([v, t]) => {
+    Promise.all([communityApi.getUserVillage(), communityApi.getTrends(30), communityApi.getWaterQuality()]).then(([v, t, w]) => {
       setVillage(v);
       setTrend(t);
+      setWaterSummary(w);
       setLoading(false);
     });
   }, []);
@@ -86,12 +88,40 @@ export function CommunityVillage() {
       {/* Water Quality Summary */}
       <div className="card mt-6 p-5">
         <h3 className="mb-4 text-sm font-semibold text-slate-900">{isHi ? 'जल गुणवत्ता सारांश' : 'Water Quality Summary'}</h3>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <WaterSummary label={t('community.waterQuality.ph')} value="6.1" status={t('common.riskLevels.attention')} statusColor="text-risk-medium" />
-          <WaterSummary label={t('community.waterQuality.turbidity')} value="10.2 NTU" status={t('common.riskLevels.elevated')} statusColor="text-risk-critical" />
-          <WaterSummary label={t('community.waterQuality.tds')} value="820 ppm" status={t('common.riskLevels.elevated')} statusColor="text-risk-medium" />
-          <WaterSummary label={t('community.waterQuality.temperature')} value="29°C" status={t('common.riskLevels.normal')} statusColor="text-risk-low" />
-        </div>
+        {waterSummary ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <WaterSummary
+              label={t('community.waterQuality.ph')}
+              value={waterSummary.ph.toFixed(1)}
+              status={waterSummary.ph < 6.5 || waterSummary.ph > 8.5 ? t('common.riskLevels.attention') : t('common.riskLevels.normal')}
+              statusColor={waterSummary.ph < 6.5 || waterSummary.ph > 8.5 ? 'text-risk-medium' : 'text-risk-low'}
+            />
+            <WaterSummary
+              label={t('community.waterQuality.turbidity')}
+              value={`${waterSummary.turbidity} NTU`}
+              status={waterSummary.turbidity > 5 ? t('common.riskLevels.elevated') : t('common.riskLevels.normal')}
+              statusColor={waterSummary.turbidity > 5 ? 'text-risk-critical' : 'text-risk-low'}
+            />
+            <WaterSummary
+              label={t('community.waterQuality.tds')}
+              value={`${waterSummary.tds} ppm`}
+              status={waterSummary.tds > 500 ? t('common.riskLevels.elevated') : t('common.riskLevels.normal')}
+              statusColor={waterSummary.tds > 500 ? 'text-risk-medium' : 'text-risk-low'}
+            />
+            <WaterSummary
+              label={t('community.waterQuality.temperature')}
+              value={`${waterSummary.temperature}°C`}
+              status={t('common.riskLevels.normal')}
+              statusColor="text-risk-low"
+            />
+          </div>
+        ) : (
+          <div className="rounded-lg bg-slate-50 p-4 text-center">
+            <p className="text-xs text-slate-500">
+              {isHi ? 'इस गाँव के लिए कोई जल परीक्षण दर्ज नहीं है।' : 'No water quality field tests recorded yet for this village.'}
+            </p>
+          </div>
+        )}
         <Link to="/community/water-quality" className="btn-secondary mt-4 w-full text-sm">
           <Droplets className="h-4 w-4" /> {isHi ? 'पूर्ण जल गुणवत्ता देखें' : 'View Full Water Quality'}
         </Link>

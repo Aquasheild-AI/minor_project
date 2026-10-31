@@ -61,6 +61,8 @@ export interface HealthRecord {
   ageGroup: AgeGroup;
   riskLevel: RiskLevel;
   reportedBy: string;
+  treatment?: string;
+  notes?: string;
 }
 
 export interface WaterQualityRecord {

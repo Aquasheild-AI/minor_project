@@ -10,10 +10,14 @@ import { api } from '@/services/api';
 import type { DatasetRecord } from '@/features/water-quality/WaterQualityPage';
 import { WaterReadingRiskCard } from '@/components/risk/WaterReadingRiskCard';
 
-const statusVariant: Record<string, 'low' | 'medium' | 'critical'> = {
+const statusVariant: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
   safe: 'low',
+  low: 'low',
   warning: 'medium',
-  unsafe: 'critical',
+  medium: 'medium',
+  moderate: 'medium',
+  unsafe: 'high',
+  high: 'high',
   critical: 'critical',
 };
 
@@ -99,11 +103,11 @@ export function WorkerWaterQualityPage() {
             />
           </div>
           <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="input">
-            <option value="">All Statuses</option>
-            <option value="safe">Safe (WQI ≥ 70)</option>
-            <option value="warning">Warning (WQI 50-69)</option>
-            <option value="unsafe">Unsafe (WQI 25-49)</option>
-            <option value="critical">Critical (WQI &lt; 25)</option>
+            <option value="">All Risk Levels</option>
+            <option value="safe">Safe (Low Risk)</option>
+            <option value="warning">Warning (Medium Risk)</option>
+            <option value="unsafe">Unsafe (High Risk)</option>
+            <option value="critical">Critical (Critical Risk)</option>
           </select>
           <input 
               type="text" 
@@ -201,10 +205,17 @@ export function WorkerWaterQualityPage() {
              </div>
 
              <div className="border-t border-slate-100 pt-4">
-                <h4 className="text-sm font-semibold text-slate-500 mb-2">Quality &amp; Environment</h4>
+                <h4 className="text-sm font-semibold text-slate-500 mb-2">Quality &amp; AI Risk Classification</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-slate-500">AI Risk Status:</div>
+                    <div className="font-semibold text-slate-900 capitalize">
+                      {selectedRecord.status} ({selectedRecord.mlRiskLevel || 'ML Evaluated'})
+                    </div>
+                    <div className="text-slate-500">ML Risk Score:</div>
+                    <div className="font-medium text-slate-900">
+                      {selectedRecord.mlRiskScore !== undefined ? `${selectedRecord.mlRiskScore.toFixed(1)}%` : 'Evaluated'}
+                    </div>
                     <div className="text-slate-500">WQI:</div><div className="font-medium text-slate-900">{selectedRecord.waterQualityIndex?.toFixed(2)}</div>
-                    <div className="text-slate-500">Status:</div><div className="font-medium text-slate-900 capitalize">{selectedRecord.status}</div>
                     <div className="text-slate-500">Temperature:</div><div className="font-medium text-slate-900">{selectedRecord.temperature?.toFixed(1)} °C</div>
                     <div className="text-slate-500">Rainfall:</div><div className="font-medium text-slate-900">{selectedRecord.rainfall?.toFixed(1)} mm</div>
                     <div className="text-slate-500">Humidity:</div><div className="font-medium text-slate-900">{selectedRecord.humidity?.toFixed(1)}%</div>

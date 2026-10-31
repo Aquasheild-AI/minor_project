@@ -279,7 +279,7 @@ export function WorkerReportsPage() {
                 },
               ]}
               data={paged}
-              rowKey={(r) => r.id}
+              rowKey={(r) => String(r.id)}
             />
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           </>

@@ -1,7 +1,7 @@
 {
   "model": "OutbreakRisk-HGB-v1",
-  "trained_at": "2026-10-25T14:30:36+00:00",
-  "sklearn_version": "1.9.0",
+  "trained_at": "2026-10-29T17:04:17+00:00",
+  "sklearn_version": "1.9.1",
   "data": {
     "outbreaks": "EpiClim (Zenodo record 14580510, CC-BY-4.0), IDSP weekly outbreak reports 2009-2022",
     "climate": "NASA POWER daily T2M, PRECTOTCORR, RH2M aggregated to ISO weeks",
@@ -15,190 +15,190 @@
   "rolling_validation": {
     "gbm_full": {
       "mean": {
-        "roc_auc": 0.7637,
-        "pr_auc": 0.0777,
-        "top10pct_capture": 0.3758
+        "roc_auc": 0.7644,
+        "pr_auc": 0.0776,
+        "top10pct_capture": 0.3754
       },
       "per_year": {
         "2014": {
           "n": 38064,
           "positives": 677,
           "base_rate": 0.01779,
-          "roc_auc": 0.7659,
-          "pr_auc": 0.0733,
-          "brier": 0.0175,
-          "top10pct_capture": 0.3914
+          "roc_auc": 0.7681,
+          "pr_auc": 0.0725,
+          "brier": 0.01748,
+          "top10pct_capture": 0.3973
         },
         "2015": {
           "n": 38064,
           "positives": 847,
           "base_rate": 0.02225,
-          "roc_auc": 0.77,
-          "pr_auc": 0.087,
-          "brier": 0.02122,
-          "top10pct_capture": 0.3766
+          "roc_auc": 0.7747,
+          "pr_auc": 0.0877,
+          "brier": 0.0212,
+          "top10pct_capture": 0.3778
         },
         "2016": {
           "n": 38064,
           "positives": 1335,
           "base_rate": 0.03507,
-          "roc_auc": 0.8031,
-          "pr_auc": 0.1388,
-          "brier": 0.03212,
-          "top10pct_capture": 0.3985
+          "roc_auc": 0.8044,
+          "pr_auc": 0.1399,
+          "brier": 0.03209,
+          "top10pct_capture": 0.4037
         },
         "2017": {
           "n": 38064,
           "positives": 697,
           "base_rate": 0.01831,
-          "roc_auc": 0.7537,
-          "pr_auc": 0.0613,
-          "brier": 0.01825,
-          "top10pct_capture": 0.373
+          "roc_auc": 0.757,
+          "pr_auc": 0.0621,
+          "brier": 0.01821,
+          "top10pct_capture": 0.3745
         },
         "2018": {
           "n": 38796,
           "positives": 669,
           "base_rate": 0.01724,
-          "roc_auc": 0.7589,
-          "pr_auc": 0.053,
-          "brier": 0.01715,
-          "top10pct_capture": 0.3692
+          "roc_auc": 0.7553,
+          "pr_auc": 0.0522,
+          "brier": 0.01719,
+          "top10pct_capture": 0.3632
         },
         "2019": {
           "n": 38064,
           "positives": 667,
           "base_rate": 0.01752,
-          "roc_auc": 0.7307,
-          "pr_auc": 0.053,
-          "brier": 0.01725,
-          "top10pct_capture": 0.3463
+          "roc_auc": 0.7271,
+          "pr_auc": 0.0509,
+          "brier": 0.0173,
+          "top10pct_capture": 0.3358
         }
       }
     },
     "gbm_history_season_only": {
       "mean": {
-        "roc_auc": 0.7637,
-        "pr_auc": 0.0778,
-        "top10pct_capture": 0.3659
+        "roc_auc": 0.7657,
+        "pr_auc": 0.0786,
+        "top10pct_capture": 0.3707
       },
       "per_year": {
         "2014": {
           "n": 38064,
           "positives": 677,
           "base_rate": 0.01779,
-          "roc_auc": 0.7727,
-          "pr_auc": 0.0817,
-          "brier": 0.01739,
-          "top10pct_capture": 0.3944
+          "roc_auc": 0.7759,
+          "pr_auc": 0.0825,
+          "brier": 0.01737,
+          "top10pct_capture": 0.4032
         },
         "2015": {
           "n": 38064,
           "positives": 847,
           "base_rate": 0.02225,
-          "roc_auc": 0.7698,
-          "pr_auc": 0.0859,
-          "brier": 0.02119,
-          "top10pct_capture": 0.3766
+          "roc_auc": 0.7685,
+          "pr_auc": 0.087,
+          "brier": 0.02118,
+          "top10pct_capture": 0.3813
         },
         "2016": {
           "n": 38064,
           "positives": 1335,
           "base_rate": 0.03507,
-          "roc_auc": 0.799,
-          "pr_auc": 0.135,
-          "brier": 0.03222,
-          "top10pct_capture": 0.3843
+          "roc_auc": 0.7996,
+          "pr_auc": 0.1371,
+          "brier": 0.0322,
+          "top10pct_capture": 0.3948
         },
         "2017": {
           "n": 38064,
           "positives": 697,
           "base_rate": 0.01831,
-          "roc_auc": 0.7618,
-          "pr_auc": 0.0631,
-          "brier": 0.01819,
-          "top10pct_capture": 0.3544
+          "roc_auc": 0.766,
+          "pr_auc": 0.0639,
+          "brier": 0.01818,
+          "top10pct_capture": 0.3429
         },
         "2018": {
           "n": 38796,
           "positives": 669,
           "base_rate": 0.01724,
-          "roc_auc": 0.7494,
-          "pr_auc": 0.0491,
-          "brier": 0.01729,
-          "top10pct_capture": 0.3513
+          "roc_auc": 0.7521,
+          "pr_auc": 0.0495,
+          "brier": 0.01728,
+          "top10pct_capture": 0.3572
         },
         "2019": {
           "n": 38064,
           "positives": 667,
           "base_rate": 0.01752,
-          "roc_auc": 0.7298,
-          "pr_auc": 0.0518,
-          "brier": 0.01732,
-          "top10pct_capture": 0.3343
+          "roc_auc": 0.7322,
+          "pr_auc": 0.0515,
+          "brier": 0.01736,
+          "top10pct_capture": 0.3448
         }
       }
     },
     "gbm_climate_season_only": {
       "mean": {
         "roc_auc": 0.748,
-        "pr_auc": 0.0722,
-        "top10pct_capture": 0.3563
+        "pr_auc": 0.0726,
+        "top10pct_capture": 0.3549
       },
       "per_year": {
         "2014": {
           "n": 38064,
           "positives": 677,
           "base_rate": 0.01779,
-          "roc_auc": 0.7406,
-          "pr_auc": 0.0609,
-          "brier": 0.0172,
-          "top10pct_capture": 0.3634
+          "roc_auc": 0.744,
+          "pr_auc": 0.0631,
+          "brier": 0.01717,
+          "top10pct_capture": 0.3663
         },
         "2015": {
           "n": 38064,
           "positives": 847,
           "base_rate": 0.02225,
-          "roc_auc": 0.7537,
-          "pr_auc": 0.0793,
-          "brier": 0.02118,
-          "top10pct_capture": 0.3636
+          "roc_auc": 0.7545,
+          "pr_auc": 0.079,
+          "brier": 0.02119,
+          "top10pct_capture": 0.3601
         },
         "2016": {
           "n": 38064,
           "positives": 1335,
           "base_rate": 0.03507,
-          "roc_auc": 0.7918,
-          "pr_auc": 0.1347,
-          "brier": 0.03234,
-          "top10pct_capture": 0.3858
+          "roc_auc": 0.7914,
+          "pr_auc": 0.1371,
+          "brier": 0.03232,
+          "top10pct_capture": 0.3948
         },
         "2017": {
           "n": 38064,
           "positives": 697,
           "base_rate": 0.01831,
-          "roc_auc": 0.7324,
-          "pr_auc": 0.0599,
-          "brier": 0.01786,
-          "top10pct_capture": 0.3515
+          "roc_auc": 0.7328,
+          "pr_auc": 0.0597,
+          "brier": 0.01788,
+          "top10pct_capture": 0.3558
         },
         "2018": {
           "n": 38796,
           "positives": 669,
           "base_rate": 0.01724,
-          "roc_auc": 0.7432,
-          "pr_auc": 0.0487,
-          "brier": 0.01692,
-          "top10pct_capture": 0.3468
+          "roc_auc": 0.7431,
+          "pr_auc": 0.0488,
+          "brier": 0.01691,
+          "top10pct_capture": 0.3333
         },
         "2019": {
           "n": 38064,
           "positives": 667,
           "base_rate": 0.01752,
-          "roc_auc": 0.7266,
-          "pr_auc": 0.0497,
-          "brier": 0.01708,
-          "top10pct_capture": 0.3268
+          "roc_auc": 0.722,
+          "pr_auc": 0.0481,
+          "brier": 0.0171,
+          "top10pct_capture": 0.3193
         }
       }
     },
@@ -271,151 +271,151 @@
       "n": 38064,
       "positives": 148,
       "base_rate": 0.00389,
-      "roc_auc": 0.638,
+      "roc_auc": 0.643,
       "pr_auc": 0.0057,
-      "brier": 0.00541,
+      "brier": 0.00538,
       "top10pct_capture": 0.1351
     },
     "2021": {
       "n": 38064,
       "positives": 364,
       "base_rate": 0.00956,
-      "roc_auc": 0.7492,
-      "pr_auc": 0.0385,
-      "brier": 0.01022,
-      "top10pct_capture": 0.3544
+      "roc_auc": 0.7447,
+      "pr_auc": 0.0394,
+      "brier": 0.0102,
+      "top10pct_capture": 0.3599
     },
     "2022": {
       "n": 37332,
       "positives": 262,
       "base_rate": 0.00702,
-      "roc_auc": 0.7149,
-      "pr_auc": 0.0143,
-      "brier": 0.00797,
-      "top10pct_capture": 0.2519
+      "roc_auc": 0.7137,
+      "pr_auc": 0.0147,
+      "brier": 0.00794,
+      "top10pct_capture": 0.2786
     }
   },
   "reliability_2014_2019": [
     {
       "bin": 0,
-      "mean_predicted": 0.00166,
-      "observed_rate": 0.00275,
+      "mean_predicted": 0.00167,
+      "observed_rate": 0.00284,
       "n": 22912
     },
     {
       "bin": 1,
-      "mean_predicted": 0.00308,
-      "observed_rate": 0.00467,
+      "mean_predicted": 0.00307,
+      "observed_rate": 0.00393,
       "n": 22912
     },
     {
       "bin": 2,
-      "mean_predicted": 0.00471,
-      "observed_rate": 0.00607,
+      "mean_predicted": 0.00468,
+      "observed_rate": 0.00633,
       "n": 22911
     },
     {
       "bin": 3,
-      "mean_predicted": 0.00683,
-      "observed_rate": 0.00825,
+      "mean_predicted": 0.00682,
+      "observed_rate": 0.00794,
       "n": 22912
     },
     {
       "bin": 4,
-      "mean_predicted": 0.00992,
-      "observed_rate": 0.00973,
+      "mean_predicted": 0.00994,
+      "observed_rate": 0.01008,
       "n": 22911
     },
     {
       "bin": 5,
-      "mean_predicted": 0.01457,
-      "observed_rate": 0.01314,
+      "mean_predicted": 0.01459,
+      "observed_rate": 0.01414,
       "n": 22912
     },
     {
       "bin": 6,
-      "mean_predicted": 0.02131,
-      "observed_rate": 0.02086,
+      "mean_predicted": 0.02136,
+      "observed_rate": 0.01864,
       "n": 22911
     },
     {
       "bin": 7,
       "mean_predicted": 0.03131,
-      "observed_rate": 0.02697,
+      "observed_rate": 0.02937,
       "n": 22912
     },
     {
       "bin": 8,
-      "mean_predicted": 0.0491,
-      "observed_rate": 0.04094,
+      "mean_predicted": 0.04904,
+      "observed_rate": 0.03985,
       "n": 22911
     },
     {
       "bin": 9,
       "mean_predicted": 0.11625,
-      "observed_rate": 0.08013,
+      "observed_rate": 0.08039,
       "n": 22912
     }
   ],
   "reliability_2014_2019_after_isotonic_in_sample": [
     {
       "bin": 0,
-      "mean_predicted": 0.00261,
-      "observed_rate": 0.00275,
+      "mean_predicted": 0.00278,
+      "observed_rate": 0.00314,
       "n": 22912
     },
     {
       "bin": 1,
-      "mean_predicted": 0.00442,
-      "observed_rate": 0.00393,
+      "mean_predicted": 0.00376,
+      "observed_rate": 0.00336,
       "n": 22912
     },
     {
       "bin": 2,
-      "mean_predicted": 0.00622,
-      "observed_rate": 0.00677,
+      "mean_predicted": 0.00625,
+      "observed_rate": 0.00624,
       "n": 22911
     },
     {
       "bin": 3,
-      "mean_predicted": 0.0083,
-      "observed_rate": 0.00821,
+      "mean_predicted": 0.00808,
+      "observed_rate": 0.00781,
       "n": 22912
     },
     {
       "bin": 4,
-      "mean_predicted": 0.00968,
-      "observed_rate": 0.00973,
+      "mean_predicted": 0.01,
+      "observed_rate": 0.01065,
       "n": 22911
     },
     {
       "bin": 5,
-      "mean_predicted": 0.01295,
-      "observed_rate": 0.01266,
+      "mean_predicted": 0.01415,
+      "observed_rate": 0.01366,
       "n": 22912
     },
     {
       "bin": 6,
-      "mean_predicted": 0.02088,
-      "observed_rate": 0.02174,
+      "mean_predicted": 0.01859,
+      "observed_rate": 0.01846,
       "n": 22911
     },
     {
       "bin": 7,
-      "mean_predicted": 0.02704,
-      "observed_rate": 0.02641,
+      "mean_predicted": 0.02851,
+      "observed_rate": 0.02837,
       "n": 22912
     },
     {
       "bin": 8,
-      "mean_predicted": 0.04105,
-      "observed_rate": 0.04173,
+      "mean_predicted": 0.04061,
+      "observed_rate": 0.04068,
       "n": 22911
     },
     {
       "bin": 9,
-      "mean_predicted": 0.08038,
-      "observed_rate": 0.07961,
+      "mean_predicted": 0.08079,
+      "observed_rate": 0.08114,
       "n": 22912
     }
   ],

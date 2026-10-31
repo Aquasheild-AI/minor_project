@@ -9,8 +9,10 @@ import {
   MapPin,
   Activity,
   Flame,
+  HelpCircle,
 } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
+import { Badge } from '@/components/ui/Badge';
 import { LoadingState } from '@/components/ui/States';
 import { useAuth } from '@/hooks/useAuth';
 import { riskApi, toRiskLevel } from '@/services/riskApi';
@@ -73,9 +75,10 @@ export function CommunityRiskStatus() {
       });
   }, [selectedVillageId, villages]);
 
+  const hasWaterData = Boolean(waterPrediction);
   const waterLevel = waterPrediction ? toRiskLevel(waterPrediction.risk_level) : 'low';
-  const isCriticalOrHigh = waterLevel === 'high' || waterLevel === 'critical';
-  const labEColi = waterPrediction?.contributing_factors?.lab_confirmed_e_coli;
+  const isCriticalOrHigh = hasWaterData && (waterLevel === 'high' || waterLevel === 'critical');
+  const labEColi = hasWaterData && waterPrediction?.contributing_factors?.lab_confirmed_e_coli;
 
   if (loading && !waterPrediction && villages.length === 0) {
     return <LoadingState message={t('common.states.loading')} />;
@@ -112,7 +115,13 @@ export function CommunityRiskStatus() {
 
       {/* Main Status Hero Card */}
       <div
-        className={`card overflow-hidden border-2 ${isCriticalOrHigh ? 'border-red-300' : 'border-slate-200'}`}
+        className={`card overflow-hidden border-2 ${
+          !hasWaterData
+            ? 'border-slate-200'
+            : isCriticalOrHigh
+            ? 'border-red-300'
+            : 'border-slate-200'
+        }`}
         data-tour="risk-advisory-section"
       >
         <div className="p-6 text-center">
@@ -120,14 +129,18 @@ export function CommunityRiskStatus() {
           <div className="mt-2 flex justify-center">
             <div
               className={`h-20 w-20 rounded-full flex items-center justify-center ${
-                labEColi
+                !hasWaterData
+                  ? 'bg-slate-100 text-slate-500'
+                  : labEColi
                   ? 'bg-red-100 text-red-700 animate-pulse'
                   : isCriticalOrHigh
                   ? 'bg-amber-100 text-amber-700'
                   : 'bg-emerald-100 text-emerald-700'
               }`}
             >
-              {labEColi ? (
+              {!hasWaterData ? (
+                <HelpCircle className="h-10 w-10 text-slate-400" />
+              ) : labEColi ? (
                 <ShieldAlert className="h-10 w-10 text-red-600" />
               ) : isCriticalOrHigh ? (
                 <AlertTriangle className="h-10 w-10 text-amber-600" />
@@ -142,7 +155,9 @@ export function CommunityRiskStatus() {
           </p>
 
           <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
-            {labEColi
+            {!hasWaterData
+              ? t('community.riskStatus.dataUnavailable', { defaultValue: 'Water Quality Data Unavailable' })
+              : labEColi
               ? t('community.riskStatus.boilAdvisory')
               : waterLevel === 'critical'
               ? t('community.riskStatus.criticalRisk')
@@ -154,17 +169,21 @@ export function CommunityRiskStatus() {
           </h2>
 
           <div className="mt-3 flex justify-center">
-            <RiskBadge level={waterLevel} />
+            {hasWaterData ? (
+              <RiskBadge level={waterLevel} />
+            ) : (
+              <Badge variant="neutral">{t('common.states.unavailable', { defaultValue: 'Data Unavailable' })}</Badge>
+            )}
           </div>
 
           <p className="mt-3 text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
-            {waterPrediction
+            {hasWaterData && waterPrediction
               ? waterPrediction.plain_language_explanation
               : t('community.riskStatus.noTests')}
           </p>
 
           {/* Boil Water Action Banner for Citizens */}
-          {(isCriticalOrHigh || labEColi) && (
+          {hasWaterData && (isCriticalOrHigh || labEColi) && (
             <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4 max-w-lg mx-auto flex items-center gap-3 text-left">
               <Flame className="h-6 w-6 text-amber-600 flex-shrink-0" />
               <div>
@@ -178,20 +197,28 @@ export function CommunityRiskStatus() {
         </div>
 
         {/* Level Indicator Bar */}
-        <div className="border-t border-slate-100 px-6 py-4 bg-slate-50">
-          <div className="flex h-2.5 overflow-hidden rounded-full">
-            <div className={`flex-1 ${waterLevel === 'low' ? 'bg-risk-low' : 'bg-slate-200'}`} />
-            <div className={`flex-1 ${waterLevel === 'medium' ? 'bg-risk-medium' : 'bg-slate-200'}`} />
-            <div className={`flex-1 ${waterLevel === 'high' ? 'bg-risk-high' : 'bg-slate-200'}`} />
-            <div className={`flex-1 ${waterLevel === 'critical' ? 'bg-risk-critical' : 'bg-slate-200'}`} />
+        {hasWaterData ? (
+          <div className="border-t border-slate-100 px-6 py-4 bg-slate-50">
+            <div className="flex h-2.5 overflow-hidden rounded-full">
+              <div className={`flex-1 ${waterLevel === 'low' ? 'bg-risk-low' : 'bg-slate-200'}`} />
+              <div className={`flex-1 ${waterLevel === 'medium' ? 'bg-risk-medium' : 'bg-slate-200'}`} />
+              <div className={`flex-1 ${waterLevel === 'high' ? 'bg-risk-high' : 'bg-slate-200'}`} />
+              <div className={`flex-1 ${waterLevel === 'critical' ? 'bg-risk-critical' : 'bg-slate-200'}`} />
+            </div>
+            <div className="mt-1.5 flex justify-between text-2xs font-semibold text-slate-500">
+              <span className={waterLevel === 'low' ? 'text-risk-low' : ''}>{t('common.riskLevels.low')}</span>
+              <span className={waterLevel === 'medium' ? 'text-risk-medium' : ''}>{t('common.riskLevels.medium')}</span>
+              <span className={waterLevel === 'high' ? 'text-risk-high' : ''}>{t('common.riskLevels.high')}</span>
+              <span className={waterLevel === 'critical' ? 'text-risk-critical' : ''}>{t('common.riskLevels.critical')}</span>
+            </div>
           </div>
-          <div className="mt-1.5 flex justify-between text-2xs font-semibold text-slate-500">
-            <span className={waterLevel === 'low' ? 'text-risk-low' : ''}>{t('common.riskLevels.low')}</span>
-            <span className={waterLevel === 'medium' ? 'text-risk-medium' : ''}>{t('common.riskLevels.medium')}</span>
-            <span className={waterLevel === 'high' ? 'text-risk-high' : ''}>{t('common.riskLevels.high')}</span>
-            <span className={waterLevel === 'critical' ? 'text-risk-critical' : ''}>{t('common.riskLevels.critical')}</span>
+        ) : (
+          <div className="border-t border-slate-100 px-6 py-3 bg-slate-50/50 text-center">
+            <p className="text-xs text-slate-500">
+              Field water testing pending for this village. Health workers will conduct routine testing shortly.
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Household Safety Guidelines */}

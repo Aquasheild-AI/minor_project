@@ -17,8 +17,8 @@ def generate_chat_response(messages, system_instruction, context=""):
     """
     client = get_gemini_client()
     
-    # We use gemini-3.6-flash for fast and cost-effective chatbot interactions
-    model_name = "gemini-3.6-flash"
+    # We use gemini-1.5-flash for fast and cost-effective chatbot interactions
+    model_name = "gemini-1.5-flash"
     
     # Prepend context to the last user message if context is provided
     formatted_messages = []

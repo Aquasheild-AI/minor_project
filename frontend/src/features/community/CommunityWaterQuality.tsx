@@ -32,27 +32,76 @@ export function CommunityWaterQuality() {
     });
   }, [period]);
 
-  if (loading) return <LoadingState message={t('common.states.loading')} />;
-
-  const phStatus = wq!.ph < 6.5 || wq!.ph > 8.5
-    ? { label: t('common.riskLevels.attention'), variant: 'medium' as const }
-    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
-  const turbStatus = wq!.turbidity > 5
-    ? { label: t('common.riskLevels.elevated'), variant: 'critical' as const }
-    : wq!.turbidity > 3
-    ? { label: t('common.riskLevels.moderate'), variant: 'medium' as const }
-    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
-  const tdsStatus = wq!.tds > 500
-    ? { label: t('common.riskLevels.elevated'), variant: 'medium' as const }
-    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
-  const tempStatus = { label: t('common.riskLevels.normal'), variant: 'low' as const };
-
   const explanations = [
     { param: t('community.waterQuality.ph'), icon: Beaker, explanation: t('community.waterQuality.phDesc') },
     { param: t('community.waterQuality.turbidity'), icon: Droplets, explanation: t('community.waterQuality.turbidityDesc') },
     { param: t('community.waterQuality.tds'), icon: Activity, explanation: t('community.waterQuality.tdsDesc') },
     { param: t('community.waterQuality.temperature'), icon: Thermometer, explanation: t('community.waterQuality.temperatureDesc') },
   ];
+
+  if (loading) return <LoadingState message={t('common.states.loading')} />;
+
+  if (!wq || wq.status === 'unavailable') {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <h1 className="mb-1 text-2xl font-bold text-slate-900">{t('community.waterQuality.title')}</h1>
+          <p className="text-sm text-slate-500">{t('community.waterQuality.subtitle')}</p>
+        </div>
+
+        {/* Data Unavailable Hero Card */}
+        <div className="card p-8 text-center border border-slate-200">
+          <div className="mx-auto h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+            <Droplets className="h-8 w-8 text-slate-400" />
+          </div>
+          <Badge variant="neutral" className="mb-3">
+            {t('common.states.unavailable', { defaultValue: 'Data Unavailable' })}
+          </Badge>
+          <h2 className="text-lg font-bold text-slate-800">
+            {t('community.riskStatus.dataUnavailable', { defaultValue: 'No Water Quality Tests Recorded' })}
+          </h2>
+          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+            {t('community.riskStatus.noTests', {
+              defaultValue: 'No water quality field tests have been recorded yet for this village. Health workers will monitor and record samples shortly.',
+            })}
+          </p>
+          <div className="mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 text-xs text-blue-700 font-medium">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            <span>Precaution: Always boil drinking water for at least 10 minutes before consumption.</span>
+          </div>
+        </div>
+
+        {/* Parameter Explanations */}
+        <div className="card p-5">
+          <h3 className="mb-4 text-sm font-semibold text-slate-900">{t('community.waterQuality.aboutParams')}</h3>
+          <div className="space-y-3">
+            {explanations.map((exp) => (
+              <div key={exp.param} className="flex items-start gap-3 rounded-lg border border-slate-100 p-3">
+                <exp.icon className="mt-0.5 h-4 w-4 text-primary-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">{exp.param}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{exp.explanation}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const phStatus = wq.ph < 6.5 || wq.ph > 8.5
+    ? { label: t('common.riskLevels.attention'), variant: 'medium' as const }
+    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
+  const turbStatus = wq.turbidity > 5
+    ? { label: t('common.riskLevels.elevated'), variant: 'critical' as const }
+    : wq.turbidity > 3
+    ? { label: t('common.riskLevels.moderate'), variant: 'medium' as const }
+    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
+  const tdsStatus = wq.tds > 500
+    ? { label: t('common.riskLevels.elevated'), variant: 'medium' as const }
+    : { label: t('common.riskLevels.normal'), variant: 'low' as const };
+  const tempStatus = { label: t('common.riskLevels.normal'), variant: 'low' as const };
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -67,7 +116,7 @@ export function CommunityWaterQuality() {
         <WQCard icon={Thermometer} label={t('community.waterQuality.temperature')} value={`${wq!.temperature}°C`} status={tempStatus.label} variant={tempStatus.variant} />
       </div>
 
-      <p className="mt-3 text-xs text-slate-400">{t('common.lastUpdated')} {timeAgo(wq!.lastUpdated)}</p>
+      <p className="mt-3 text-xs text-slate-400">{t('common.lastUpdated')} {timeAgo(wq!.lastUpdated || wq!.date)}</p>
 
       {/* Water Quality Trends */}
       <div className="card mt-6 p-5">

@@ -4,10 +4,10 @@ import { ArrowLeft, Droplets, Activity, TrendingUp, MapPin } from 'lucide-react'
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { ChartCard } from '@/components/ui/ChartCard';
-import { communityApi } from '@/services/communityApi';
+import { communityApi, type CommunityWaterQualitySummary } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
 import type { Village, TrendPoint } from '@/types';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityVillageDetails() {
@@ -15,14 +15,20 @@ export function CommunityVillageDetails() {
   const navigate = useNavigate();
   const [village, setVillage] = useState<Village | null | undefined>(undefined);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [waterSummary, setWaterSummary] = useState<CommunityWaterQualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const { t, i18n } = useTranslation();
   const isHi = i18n.language?.startsWith('hi');
 
   useEffect(() => {
-    Promise.all([communityApi.getVillage(id!), communityApi.getTrends(30)]).then(([v, t]) => {
+    Promise.all([
+      communityApi.getVillage(id!),
+      communityApi.getTrends(30),
+      communityApi.getWaterQuality(),
+    ]).then(([v, t, w]) => {
       setVillage(v || null);
       setTrend(t);
+      setWaterSummary(w);
       setLoading(false);
     });
   }, [id]);
@@ -46,36 +52,54 @@ export function CommunityVillageDetails() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <button onClick={() => navigate('/community/risk-map')} className="btn-secondary mb-4 text-sm">
-        <ArrowLeft className="h-4 w-4" /> {isHi ? 'मानचित्र पर वापस जाएं' : 'Back to Map'}
+      {/* Back button */}
+      <button onClick={() => navigate(-1)} className="btn-ghost mb-4 text-xs">
+        <ArrowLeft className="h-4 w-4" /> {isHi ? 'वापस' : 'Back'}
       </button>
 
       {/* Header */}
-      <div className="card mb-6 p-5">
-        <div className="flex items-center justify-between">
+      <div className="card mb-6 p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{village.name} {t('common.village')}</h1>
-            <p className="text-sm text-slate-500">{village.district}, {village.state}</p>
+            <p className="mt-1 text-sm text-slate-500">{village.district}, {village.state}</p>
           </div>
           <RiskBadge level={village.riskLevel} />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <InfoItem label={t('common.riskScore')} value={`${village.riskScore}%`} />
-          <InfoItem label={isHi ? 'हाल के मामले' : 'Recent Cases'} value={String(village.suspectedCases)} />
-          <InfoItem label={t('common.lastUpdated')} value={timeAgo(village.lastUpdated)} />
+
+        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-6 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-slate-500">{isHi ? 'जनसंख्या' : 'Population'}</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{village.population.toLocaleString('en-IN')}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">{t('common.riskScore')}</p>
+            <p className="mt-1 text-lg font-bold" style={{ color: cfg.hex }}>{village.riskScore}%</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">{isHi ? 'संदिग्ध मामले' : 'Suspected Cases'}</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{village.suspectedCases}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">{t('common.lastUpdated')}</p>
+            <p className="mt-1 text-sm font-medium text-slate-700">{timeAgo(village.lastUpdated)}</p>
+          </div>
         </div>
       </div>
 
-      {/* Health Status */}
+      {/* Overview Cards */}
       <div className="card mb-6 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary-600" />
-          <h3 className="text-sm font-semibold text-slate-900">{isHi ? 'स्वास्थ्य स्थिति' : 'Health Status'}</h3>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <h3 className="mb-4 text-sm font-semibold text-slate-900">{isHi ? 'त्वरित सारांश' : 'Quick Summary'}</h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">{isHi ? 'हाल ही में दर्ज मामले' : 'Recent reported cases'}</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{village.suspectedCases}</p>
+            <p className="text-xs text-slate-500">{isHi ? 'सक्रिय चेतावनी' : 'Active alerts'}</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{village.riskLevel === 'critical' ? '2' : village.riskLevel === 'high' ? '1' : '0'}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-4">
+            <p className="text-xs text-slate-500">{isHi ? 'जल स्थिति' : 'Water Status'}</p>
+            <p className="mt-1 text-sm font-bold capitalize text-slate-900">
+              {waterSummary ? waterSummary.status : village.waterStatus}
+            </p>
           </div>
           <div className="rounded-lg bg-slate-50 p-4">
             <p className="text-xs text-slate-500">{isHi ? 'मामलों का रुझान' : 'Case trend'}</p>
@@ -94,12 +118,40 @@ export function CommunityVillageDetails() {
           <Droplets className="h-4 w-4 text-primary-600" />
           <h3 className="text-sm font-semibold text-slate-900">{isHi ? 'जल स्थिति' : 'Water Status'}</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <WaterItem label="pH" value="6.1" status={isHi ? 'ध्यान देने योग्य' : 'Needs Attention'} statusColor="text-risk-medium" />
-          <WaterItem label={t('community.waterQuality.turbidity')} value="10.2 NTU" status={isHi ? 'उच्च' : 'Elevated'} statusColor="text-risk-critical" />
-          <WaterItem label="TDS" value="820 ppm" status={isHi ? 'उच्च' : 'Elevated'} statusColor="text-risk-medium" />
-          <WaterItem label={t('community.waterQuality.temperature')} value="29°C" status={isHi ? 'सामान्य' : 'Normal'} statusColor="text-risk-low" />
-        </div>
+        {waterSummary ? (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <WaterItem
+              label="pH"
+              value={waterSummary.ph.toFixed(1)}
+              status={waterSummary.ph < 6.5 || waterSummary.ph > 8.5 ? (isHi ? 'ध्यान देने योग्य' : 'Needs Attention') : (isHi ? 'सामान्य' : 'Normal')}
+              statusColor={waterSummary.ph < 6.5 || waterSummary.ph > 8.5 ? 'text-risk-medium' : 'text-risk-low'}
+            />
+            <WaterItem
+              label={t('community.waterQuality.turbidity')}
+              value={`${waterSummary.turbidity} NTU`}
+              status={waterSummary.turbidity > 5 ? (isHi ? 'उच्च' : 'Elevated') : (isHi ? 'सामान्य' : 'Normal')}
+              statusColor={waterSummary.turbidity > 5 ? 'text-risk-critical' : 'text-risk-low'}
+            />
+            <WaterItem
+              label="TDS"
+              value={`${waterSummary.tds} ppm`}
+              status={waterSummary.tds > 500 ? (isHi ? 'उच्च' : 'Elevated') : (isHi ? 'सामान्य' : 'Normal')}
+              statusColor={waterSummary.tds > 500 ? 'text-risk-medium' : 'text-risk-low'}
+            />
+            <WaterItem
+              label={t('community.waterQuality.temperature')}
+              value={`${waterSummary.temperature}°C`}
+              status={isHi ? 'सामान्य' : 'Normal'}
+              statusColor="text-risk-low"
+            />
+          </div>
+        ) : (
+          <div className="rounded-lg bg-slate-50 p-4 text-center">
+            <p className="text-xs text-slate-500">
+              {isHi ? 'इस गाँव के लिए कोई नया जल परीक्षण दर्ज नहीं है।' : 'No water quality field tests recorded yet for this village.'}
+            </p>
+          </div>
+        )}
         <Link to="/community/water-quality" className="btn-secondary mt-4 w-full text-sm">
           {isHi ? 'पूर्ण जल गुणवत्ता देखें' : 'View Full Water Quality'}
         </Link>
@@ -114,34 +166,15 @@ export function CommunityVillageDetails() {
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={trend}>
             <defs>
-              <linearGradient id="riskGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#ea580c" stopOpacity={0} />
+              <linearGradient id="villageRiskGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={cfg.hex} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={cfg.hex} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
-            <Area type="monotone" dataKey="riskScore" stroke="#ea580c" strokeWidth={2} fill="url(#riskGrad)" />
+            <Area type="monotone" dataKey="riskScore" stroke={cfg.hex} fill="url(#villageRiskGradient)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
       </ChartCard>
-
-      {/* Quick actions */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Link to="/community/risk" className="btn-secondary flex-1">{t('nav.riskStatus')}</Link>
-        <Link to="/community/report" className="btn-primary flex-1">{t('community.quickActionsItems.report')}</Link>
-      </div>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }

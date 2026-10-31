@@ -1,7 +1,7 @@
 {
   "model": "WaterContamination-HGB-v1",
-  "trained_at": "2026-10-26T11:34:01+00:00",
-  "sklearn_version": "1.7.1",
+  "trained_at": "2026-10-29T16:25:52+00:00",
+  "sklearn_version": "1.9.1",
   "data": {
     "source": "CPCB National Water Quality Monitoring Programme (NWMP) 2016-2024, cpcb.nic.in",
     "station_years": 18198,
@@ -27,58 +27,58 @@
   "validation": "GroupKFold(5) by monitoring station; forward-in-time holdout on a held-out 20% of stations",
   "cross_validation": {
     "gbm": {
-      "macro_f1": 0.5719,
-      "balanced_accuracy": 0.5738,
-      "log_loss": 1.0655,
-      "auc_ovr_macro": 0.8173,
-      "auc_fc_over_100": 0.8645,
-      "within_one_band": 0.8509
+      "macro_f1": 0.5753,
+      "balanced_accuracy": 0.5772,
+      "log_loss": 1.0631,
+      "auc_ovr_macro": 0.8193,
+      "auc_fc_over_100": 0.8653,
+      "within_one_band": 0.8501
     },
     "ablation_unconstrained": {
-      "macro_f1": 0.6259,
-      "balanced_accuracy": 0.6267,
-      "log_loss": 0.8566,
-      "auc_ovr_macro": 0.8573,
-      "auc_fc_over_100": 0.8989,
-      "within_one_band": 0.88
+      "macro_f1": 0.6283,
+      "balanced_accuracy": 0.6289,
+      "log_loss": 0.8507,
+      "auc_ovr_macro": 0.8592,
+      "auc_fc_over_100": 0.8994,
+      "within_one_band": 0.8791
     },
     "ablation_with_state": {
-      "macro_f1": 0.7284,
-      "balanced_accuracy": 0.7264,
-      "log_loss": 0.7165,
-      "auc_ovr_macro": 0.9198,
-      "auc_fc_over_100": 0.9536,
-      "within_one_band": 0.9537
+      "macro_f1": 0.7327,
+      "balanced_accuracy": 0.7305,
+      "log_loss": 0.6947,
+      "auc_ovr_macro": 0.9214,
+      "auc_fc_over_100": 0.9541,
+      "within_one_band": 0.9531
     },
     "logreg": {
-      "macro_f1": 0.4034,
-      "balanced_accuracy": 0.4559,
-      "log_loss": 1.1074,
-      "auc_ovr_macro": 0.7224,
-      "auc_fc_over_100": 0.7748,
-      "within_one_band": 0.7546
+      "macro_f1": 0.4032,
+      "balanced_accuracy": 0.4553,
+      "log_loss": 1.107,
+      "auc_ovr_macro": 0.7229,
+      "auc_fc_over_100": 0.7759,
+      "within_one_band": 0.7539
     },
     "body_prior": {
       "macro_f1": 0.3228,
       "balanced_accuracy": 0.4309,
-      "log_loss": 1.1237,
-      "auc_ovr_macro": 0.6808,
-      "auc_fc_over_100": 0.7247,
+      "log_loss": 1.1234,
+      "auc_ovr_macro": 0.6823,
+      "auc_fc_over_100": 0.7271,
       "within_one_band": 0.705
     }
   },
   "per_water_body_cv": {
     "GROUNDWATER": {
       "n": 5550,
-      "macro_f1": 0.2711
+      "macro_f1": 0.2765
     },
     "LAKE_POND": {
       "n": 3514,
-      "macro_f1": 0.5221
+      "macro_f1": 0.5248
     },
     "RIVER": {
       "n": 9134,
-      "macro_f1": 0.4715
+      "macro_f1": 0.4742
     }
   },
   "confusion_matrix_cv": {
@@ -90,102 +90,102 @@
     ],
     "matrix": [
       [
-        4904,
-        416,
-        248,
-        444
+        4889,
+        423,
+        245,
+        455
       ],
       [
         905,
-        1876,
-        575,
-        761
+        1895,
+        555,
+        762
       ],
       [
-        405,
-        746,
-        1333,
-        1026
+        402,
+        741,
+        1331,
+        1036
       ],
       [
-        230,
-        625,
-        768,
-        2936
+        245,
+        618,
+        704,
+        2992
       ]
     ]
   },
   "temporal_holdout": {
     "train_2016_2022_test_2023_2024": {
-      "macro_f1": 0.503,
-      "balanced_accuracy": 0.5008,
-      "log_loss": 1.2054,
-      "auc_ovr_macro": 0.758,
-      "auc_fc_over_100": 0.7835,
-      "within_one_band": 0.8303,
+      "macro_f1": 0.5039,
+      "balanced_accuracy": 0.5021,
+      "log_loss": 1.3622,
+      "auc_ovr_macro": 0.7542,
+      "auc_fc_over_100": 0.7833,
+      "within_one_band": 0.8285,
       "n_train": 10028,
       "n_test": 1143
     },
     "rolling_one_year_ahead": {
       "2020": {
-        "macro_f1": 0.5086,
-        "balanced_accuracy": 0.5188,
-        "log_loss": 1.5813,
-        "auc_ovr_macro": 0.7573,
-        "auc_fc_over_100": 0.7862,
+        "macro_f1": 0.5161,
+        "balanced_accuracy": 0.5283,
+        "log_loss": 1.5836,
+        "auc_ovr_macro": 0.7566,
+        "auc_fc_over_100": 0.7871,
         "within_one_band": 0.8216,
         "n_train": 3228,
         "n_test": 482
       },
       "2021": {
-        "macro_f1": 0.5098,
-        "balanced_accuracy": 0.5261,
-        "log_loss": 1.2336,
-        "auc_ovr_macro": 0.7748,
-        "auc_fc_over_100": 0.8087,
-        "within_one_band": 0.8204,
+        "macro_f1": 0.5042,
+        "balanced_accuracy": 0.5203,
+        "log_loss": 1.2843,
+        "auc_ovr_macro": 0.7733,
+        "auc_fc_over_100": 0.8068,
+        "within_one_band": 0.8187,
         "n_train": 5226,
         "n_test": 568
       },
       "2022": {
-        "macro_f1": 0.5255,
-        "balanced_accuracy": 0.5464,
-        "log_loss": 1.4093,
-        "auc_ovr_macro": 0.7794,
-        "auc_fc_over_100": 0.8022,
-        "within_one_band": 0.8202,
+        "macro_f1": 0.5224,
+        "balanced_accuracy": 0.5413,
+        "log_loss": 1.364,
+        "auc_ovr_macro": 0.7775,
+        "auc_fc_over_100": 0.8028,
+        "within_one_band": 0.825,
         "n_train": 7547,
         "n_test": 623
       },
       "2023": {
-        "macro_f1": 0.4097,
-        "balanced_accuracy": 0.4101,
-        "log_loss": 1.2303,
-        "auc_ovr_macro": 0.7289,
-        "auc_fc_over_100": 0.7298,
-        "within_one_band": 0.8025,
+        "macro_f1": 0.398,
+        "balanced_accuracy": 0.399,
+        "log_loss": 1.2487,
+        "auc_ovr_macro": 0.724,
+        "auc_fc_over_100": 0.7289,
+        "within_one_band": 0.7983,
         "n_train": 10028,
         "n_test": 476
       },
       "2024": {
-        "macro_f1": 0.5288,
-        "balanced_accuracy": 0.533,
-        "log_loss": 1.212,
-        "auc_ovr_macro": 0.7724,
-        "auc_fc_over_100": 0.8239,
-        "within_one_band": 0.8501,
+        "macro_f1": 0.5223,
+        "balanced_accuracy": 0.5251,
+        "log_loss": 1.2253,
+        "auc_ovr_macro": 0.7712,
+        "auc_fc_over_100": 0.8271,
+        "within_one_band": 0.8516,
         "n_train": 11898,
         "n_test": 667
       }
     }
   },
   "permutation_importance": {
-    "water_body": 0.8713,
-    "ec_us_cm": 0.3803,
-    "do_mg_l": 0.2845,
-    "temp_c": 0.2767,
-    "ph": 0.2004,
-    "nitrate_n_mg_l": 0.0921
+    "water_body": 0.8922,
+    "ec_us_cm": 0.3717,
+    "do_mg_l": 0.3395,
+    "temp_c": 0.2732,
+    "ph": 0.1948,
+    "nitrate_n_mg_l": 0.0951
   },
   "tds_to_ec_ratio": 0.63,
   "limitations": [

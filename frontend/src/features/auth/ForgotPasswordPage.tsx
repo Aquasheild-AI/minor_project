@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { getApiUrl } from '@/services/apiConfig';
 
 type Step = 'REQUEST' | 'VERIFY_AND_RESET' | 'SUCCESS';
 
@@ -75,7 +76,7 @@ export function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/password-reset/request/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/request/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail }),
@@ -105,7 +106,7 @@ export function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/password-reset/request/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/request/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
@@ -152,7 +153,7 @@ export function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/password-reset/confirm/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/confirm/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

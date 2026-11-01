@@ -3,9 +3,19 @@
  * Automatically attaches the stored auth token to requests.
  */
 
+import { getApiUrl, API_BASE_URL } from './apiConfig';
+
+export { getApiUrl, API_BASE_URL };
+
 const TOKEN_KEY = 'aquashield_auth_token';
 
 function extractErrorMessage(data: any, status: number): string {
+  if (status === 502 || status === 503 || status === 504) {
+    return 'Backend server is waking up from sleep. Please wait 15-30 seconds and try again.';
+  }
+  if (status === 401) {
+    return 'Session expired or invalid credentials. Please sign in again.';
+  }
   if (data?.error && typeof data.error === 'string') return data.error;
   if (data?.detail && typeof data.detail === 'string') return data.detail;
   if (data?.message && typeof data.message === 'string') return data.message;
@@ -24,6 +34,7 @@ function extractErrorMessage(data: any, status: number): string {
 }
 
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const fullUrl = getApiUrl(url);
   const token = localStorage.getItem(TOKEN_KEY);
   const headers = new Headers(options.headers);
 
@@ -35,7 +46,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json');
   }
 
-  return fetch(url, { ...options, headers });
+  return fetch(fullUrl, { ...options, headers });
 }
 
 /** Convenience: GET with auth */

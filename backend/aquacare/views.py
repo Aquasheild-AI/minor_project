@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.db.models import Q, Sum
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from .email_service import send_transactional_email, EmailServiceError
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -246,7 +246,7 @@ def change_password_view(request):
     )
 
 
-# ─── Forgot Password / Password Reset Endpoints (SMTP) ────────────
+# ─── Forgot Password / Password Reset Endpoints (Brevo API) ────────
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -368,19 +368,17 @@ AquaShield AI Surveillance Team
 """
 
     try:
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', 'noreply@aquashield.org')
-        send_mail(
+        send_transactional_email(
+            to=user.email,
             subject=subject,
-            message=plain_message,
-            from_email=from_email,
-            recipient_list=[user.email],
-            html_message=html_message,
+            html_content=html_message,
+            text_content=plain_message,
             fail_silently=False,
         )
     except Exception as e:
         logger.error(f"Failed to send password reset email to {user.email}: {e}")
         return Response(
-            {'error': f'Failed to send email via SMTP ({str(e)}). Please check server SMTP configuration.'},
+            {'error': 'Unable to send password reset verification code. Please try again later.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -1055,8 +1053,6 @@ def community_reports_list_create(request):
             ).exclude(email='')
             recipient_list = [w.email for w in assigned_workers if w.email]
             if recipient_list:
-                from django.core.mail import send_mail
-                from django.conf import settings
                 subject = f"[AquaShield Alert] New Citizen Report in {report.village.name}"
                 body = (
                     f"A new community health issue has been reported in {report.village.name}.\n\n"
@@ -1066,11 +1062,10 @@ def community_reports_list_create(request):
                     f"Notes: {report.description or 'None provided'}\n\n"
                     f"Please log in to AquaShield-AI to review and verify this report."
                 )
-                send_mail(
-                    subject,
-                    body,
-                    getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
-                    recipient_list,
+                send_transactional_email(
+                    to=recipient_list,
+                    subject=subject,
+                    text_content=body,
                     fail_silently=True,
                 )
         except Exception as e:
@@ -1208,8 +1203,6 @@ def community_report_review(request, pk):
     # Dispatch email notification to reporting citizen if email is available
     if report.citizen and getattr(report.citizen, 'email', None):
         try:
-            from django.core.mail import send_mail
-            from django.conf import settings
             subject = f"[AquaShield Update] Your Health Report #{report.id} has been {report.get_status_display()}"
             body = (
                 f"Hello {report.citizen.get_full_name() or report.citizen.username},\n\n"
@@ -1219,11 +1212,10 @@ def community_report_review(request, pk):
                 f"Thank you for helping keep your community safe.\n"
                 f"AquaShield-AI Health Surveillance Team"
             )
-            send_mail(
-                subject,
-                body,
-                getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
-                [report.citizen.email],
+            send_transactional_email(
+                to=report.citizen.email,
+                subject=subject,
+                text_content=body,
                 fail_silently=True,
             )
         except Exception as e:

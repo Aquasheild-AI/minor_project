@@ -198,7 +198,7 @@ export function ForgotPasswordPage() {
           <p className="text-base text-slate-300 leading-relaxed">
             {t('auth.forgotPasswordHeroDesc', {
               defaultValue:
-                'Whether you are a Community Citizen, Health Worker, or Administrative Authority, your account is protected with SMTP multi-factor verification.',
+                'Whether you are a Community Citizen, Health Worker, or Administrative Authority, your account is protected with secure multi-factor verification.',
             })}
           </p>
 

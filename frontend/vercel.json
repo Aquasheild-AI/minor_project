@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://aquashield-backend-vuub.onrender.com/api/:path*"
+      "destination": "https://aquashield-backend-vuvb.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
@@ -10,4 +10,3 @@
     }
   ]
 }
-

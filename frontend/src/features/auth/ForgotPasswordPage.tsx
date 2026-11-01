@@ -81,7 +81,7 @@ export function ForgotPasswordPage() {
         body: JSON.stringify({ email: trimmedEmail }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || 'Failed to send verification code.');
       }
@@ -111,7 +111,7 @@ export function ForgotPasswordPage() {
         body: JSON.stringify({ email: email.trim() }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to resend verification code.');
 
       setSuccessMessage(data.message || 'A new verification code has been sent.');
@@ -162,7 +162,7 @@ export function ForgotPasswordPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to reset password.');
 
       setStep('SUCCESS');

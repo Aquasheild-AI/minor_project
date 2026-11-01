@@ -99,8 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ username, password }),
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 502 || res.status === 504) {
+        throw new Error('Backend server is waking up from sleep. Please try again in 15-30 seconds.');
+      }
+      throw new Error(data.error || `Login failed (${res.status})`);
+    }
 
     localStorage.setItem(TOKEN_KEY, data.token);
     setUser(transformUser(data.user));
@@ -114,8 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify(regData),
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 502 || res.status === 504) {
+        throw new Error('Backend server is waking up from sleep. Please try again in 15-30 seconds.');
+      }
+      throw new Error(data.error || `Registration failed (${res.status})`);
+    }
 
     localStorage.setItem(TOKEN_KEY, data.token);
     setUser(transformUser(data.user));

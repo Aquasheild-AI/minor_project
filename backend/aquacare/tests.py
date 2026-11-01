@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -390,14 +391,17 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res.data['email'], 'sunita.worker@health.gov.in')
 
-    def test_forgot_password_otp_flow(self):
+    @patch('aquacare.views.send_transactional_email')
+    def test_forgot_password_otp_flow(self, mock_send_email):
         """Test complete password reset flow: request OTP -> verify OTP -> confirm new password -> login."""
-        from django.core import mail
+        mock_send_email.return_value = {'success': True, 'message_id': 'test-msg-id', 'status_code': 201}
         from aquacare.models import PasswordResetOTP
 
         # 1. Request OTP
         res = self.client.post('/api/auth/password-reset/request/', {'email': self.citizen.email}, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+        mock_send_email.assert_called_once()
+        self.assertEqual(mock_send_email.call_args[1]['to'], self.citizen.email)
 
         # Verify OTP was created in database
         otp_record = PasswordResetOTP.objects.filter(email=self.citizen.email, is_used=False).first()

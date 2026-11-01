@@ -4,6 +4,7 @@ django-cors-headers==4.9.0
 google-genai==2.23.0
 python-dotenv==1.2.3
 duckdb==1.5.5
+requests>=2.28.0
 # ML risk models (ml/models/*.joblib must be loaded with the scikit-learn version they were trained with)
 scikit-learn==1.9.0
 pandas>=2.2

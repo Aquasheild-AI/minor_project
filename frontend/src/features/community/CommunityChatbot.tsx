@@ -143,6 +143,7 @@ export function CommunityChatbot() {
       const response = await authPost<any>('/api/chatbot/chat/', {
         message: text.trim(),
         conversation_id: conversationId,
+        language: i18n.language?.startsWith('hi') ? 'hi' : 'en',
       });
 
       if (response.conversation_id) {

@@ -742,7 +742,11 @@ def get_villages_for_gis_map(request):
     Allows Authorities to register a new village.
     """
     if request.method == 'GET':
-        villages = Village.objects.all()
+        villages = Village.objects.prefetch_related(
+            'water_risk_predictions',
+            'alerts',
+            'health_records',
+        ).all()
         serializer = VillageSerializer(villages, many=True)
         return Response(serializer.data)
     elif request.method == 'POST':
@@ -1351,9 +1355,9 @@ def trends_aggregation_view(request):
 
     village_risk_score = 45
     if village_id:
-        village = Village.objects.filter(id=village_id).first()
-        if village:
-            village_risk_score = int(village.risk_score or 45)
+        pred = WaterRiskPrediction.objects.filter(village_id=village_id, is_latest=True).first()
+        if pred and pred.risk_score is not None:
+            village_risk_score = int(pred.risk_score)
 
     result = []
     for i in range(days):

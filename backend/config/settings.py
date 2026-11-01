@@ -193,3 +193,7 @@ AUTH_USER_MODEL = 'aquacare.User'
 
 # Shared ML package and trained models (<repo>/ml). See ml/README.md.
 ML_ROOT = Path(os.environ.get('AQUASHIELD_ML_ROOT', BASE_DIR.parent / 'ml'))
+
+# Gemini AI Configuration
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL_NAME = os.environ.get('GEMINI_MODEL_NAME', 'gemini-3.5-flash-lite')

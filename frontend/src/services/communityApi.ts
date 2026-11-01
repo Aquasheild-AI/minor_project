@@ -138,7 +138,10 @@ export const communityApi = {
     try {
       const me = await authGet<any>('/api/auth/me/');
       const villageId = me.village ? String(me.village) : undefined;
-      const list = await api.getWaterQuality(villageId ? { village_id: villageId } : undefined);
+      let list = await api.getWaterQuality(villageId ? { village_id: villageId } : undefined);
+      if ((!list || list.length === 0) && villageId) {
+        list = await api.getWaterQuality();
+      }
       if (list && list.length > 0) {
         const item = list[0];
         return {

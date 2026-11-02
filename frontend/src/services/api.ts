@@ -511,22 +511,66 @@ export const api = {
         return res;
       }
     } catch (e) {
-      console.warn('API getDatasetWaterQuality failed, using fallback dataset:', e);
+      console.warn('API getDatasetWaterQuality failed or timed out, using fallback dataset:', e);
     }
+
     const page = Number(params.page || 1);
-    const limit = Number(params.limit || 15);
-    const mockList = mockWaterQualityRecords.map((w, idx) => ({
-      id: idx + 1,
-      village_name: w.villageName,
-      ph: w.ph,
-      turbidity: w.turbidity,
-      tds: w.tds,
-      temperature: w.temperature,
-      status: w.status.toUpperCase(),
-      wqi: w.status === 'safe' ? 82.5 : w.status === 'moderate' ? 54.0 : 28.5,
-      sample_date: w.date,
-      water_source_name: 'Main PHC Supply',
-    }));
+    const limit = Number(params.limit || 10);
+    let mockList = mockWaterQualityRecords.map((w, idx) => {
+      const v = mockVillages.find((vil) => vil.id === w.villageId || vil.name === w.villageName);
+      const dist = v?.district || (idx % 3 === 0 ? 'Varanasi' : idx % 3 === 1 ? 'Chandauli' : 'Ghazipur');
+      const wqi = w.status === 'safe' ? 84.5 : w.status === 'moderate' ? 58.0 : 26.5;
+      const statusLower = w.status === 'safe' ? 'safe' : w.status === 'moderate' ? 'warning' : 'unsafe';
+      const dateObj = new Date(w.date || '2026-08-15');
+      const monthStr = dateObj.toLocaleString('en-US', { month: 'long' }) || 'August';
+      return {
+        id: `dataset-rec-${w.id || idx + 1}`,
+        state: 'Uttar Pradesh',
+        district: dist,
+        region: w.villageName,
+        latitude: v?.lat || 25.3176,
+        longitude: v?.lng || 82.9739,
+        waterSource: `${w.villageName} Primary Supply`,
+        waterTreatment: w.status === 'safe' ? 'Chlorinated' : 'Untreated',
+        waterQualityIndex: wqi,
+        ph: Number(w.ph || 7.2),
+        turbidity: Number(w.turbidity || 2.5),
+        dissolvedOxygen: 6.8,
+        bod: 2.1,
+        fecalColiform: w.status === 'unsafe' ? 14 : 0,
+        totalColiform: w.status === 'unsafe' ? 28 : 0,
+        tds: Number(w.tds || 340),
+        nitrate: 14.5,
+        fluoride: 0.8,
+        arsenic: 2.1,
+        month: monthStr,
+        temperature: Number(w.temperature || 26.0),
+        rainfall: 45.0,
+        humidity: 68.0,
+        flooding: 'No',
+        status: statusLower,
+        mlRiskLevel: w.status === 'safe' ? 'LOW' : w.status === 'moderate' ? 'MEDIUM' : 'HIGH',
+        mlRiskScore: Math.round(100 - wqi),
+      };
+    });
+
+    if (params.district) {
+      const d = String(params.district).toLowerCase();
+      mockList = mockList.filter((r) => r.district.toLowerCase().includes(d) || r.region.toLowerCase().includes(d));
+    }
+    if (params.status) {
+      const s = String(params.status).toLowerCase();
+      mockList = mockList.filter((r) => r.status.toLowerCase() === s || r.mlRiskLevel.toLowerCase() === s);
+    }
+    if (params.month) {
+      const m = String(params.month).toLowerCase();
+      mockList = mockList.filter((r) => r.month.toLowerCase().includes(m));
+    }
+    if (params.water_source) {
+      const ws = String(params.water_source).toLowerCase();
+      mockList = mockList.filter((r) => r.waterSource.toLowerCase().includes(ws));
+    }
+
     return {
       data: mockList.slice((page - 1) * limit, page * limit),
       total: mockList.length,
@@ -537,9 +581,18 @@ export const api = {
 
   // POST /api/water-quality/
   createWaterQuality: async (record: any): Promise<WaterQualityRecord> => {
+    const parseId = (val: any) => {
+      if (typeof val === 'number') return val;
+      const digits = String(val || '').replace(/\D/g, '');
+      return digits ? parseInt(digits, 10) : 1;
+    };
+
+    const villageIdNum = parseId(record.villageId || record.village);
+    const waterSourceIdNum = parseId(record.waterSourceId || record.water_source);
+
     const payload = {
-      village: Number(record.villageId || record.village),
-      water_source: Number(record.waterSourceId || record.water_source || 1),
+      village: villageIdNum,
+      water_source: waterSourceIdNum,
       sample_date: record.date || new Date().toISOString().split('T')[0],
       ph: Number(record.ph),
       turbidity: Number(record.turbidity),
@@ -549,22 +602,30 @@ export const api = {
       dissolved_oxygen: Number(record.dissolvedOxygen || 6.5),
       notes: record.notes || '',
     };
+
+    let newRec: WaterQualityRecord;
     try {
       const created = await authPost<any>('/api/water-quality/', payload);
-      return normalizeWaterQualityRecord(created);
-    } catch {
-      return {
+      newRec = normalizeWaterQualityRecord(created);
+    } catch (e) {
+      console.warn('API createWaterQuality backend call failed, falling back to local dataset:', e);
+      const villageObj = mockVillages.find((v) => v.id === record.villageId || String(v.id) === String(record.villageId) || String(v.id) === `v${String(villageIdNum).padStart(2, '0')}`);
+      newRec = {
         id: `wq-${Date.now()}`,
-        villageId: String(record.villageId),
-        villageName: record.villageName || `Village #${record.villageId}`,
+        villageId: String(record.villageId || `v${String(villageIdNum).padStart(2, '0')}`),
+        villageName: villageObj?.name || record.villageName || `Village #${villageIdNum}`,
         date: record.date || new Date().toISOString().split('T')[0],
         ph: Number(record.ph || 7.0),
         turbidity: Number(record.turbidity || 2.5),
         temperature: Number(record.temperature || 25),
         tds: Number(record.tds || 350),
-        status: Number(record.turbidity || 0) > 5 ? 'unsafe' : 'safe',
+        status: Number(record.turbidity || 0) > 5 || Number(record.ph || 7) < 6.5 || Number(record.ph || 7) > 8.5 ? 'unsafe' : 'safe',
       };
     }
+
+    // Add to top of mock dataset so WorkerWaterQualityPage immediately reflects the new record!
+    mockWaterQualityRecords.unshift(newRec);
+    return newRec;
   },
 
   // GET /api/water-sources/

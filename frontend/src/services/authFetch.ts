@@ -46,7 +46,19 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json');
   }
 
-  return fetch(fullUrl, { ...options, headers });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5500);
+
+  try {
+    const res = await fetch(fullUrl, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
+    return res;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /** Convenience: GET with auth */

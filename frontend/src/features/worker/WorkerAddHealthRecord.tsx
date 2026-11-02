@@ -6,6 +6,7 @@ import { Toast } from '@/components/ui/Toast';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { evaluateHealthRiskLevel } from '@/utils/risk';
 import { workerApi } from '@/services/workerApi';
+import { useAuth } from '@/hooks/useAuth';
 import type { DiseaseCategory, Symptom, AgeGroup, Village } from '@/types';
 
 const diseases: DiseaseCategory[] = ['Cholera', 'Typhoid', 'Dysentery', 'Hepatitis', 'Diarrheal Disease', 'Other'];
@@ -14,7 +15,9 @@ const ageGroups: AgeGroup[] = ['Under 5', '5-14', '15-30', '31-50', '51-65', '65
 
 export function WorkerAddHealthRecord() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [villageList, setVillageList] = useState<Village[]>([]);
+  const [loadingVillages, setLoadingVillages] = useState(true);
   const [form, setForm] = useState({
     villageId: '',
     reportingDate: new Date().toISOString().split('T')[0],
@@ -37,12 +40,19 @@ export function WorkerAddHealthRecord() {
   const [toast, setToast] = useState(false);
 
   useEffect(() => {
-    workerApi.getVillages().then((v) => {
-      setVillageList(v);
-      if (v.length > 0) {
-        setForm((prev) => ({ ...prev, villageId: v[0].id }));
-      }
-    });
+    workerApi
+      .getAssignedVillages()
+      .then((v) => {
+        setVillageList(v);
+        if (v.length > 0) {
+          setForm((prev) => ({ ...prev, villageId: v[0].id }));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load assigned villages:', err);
+        setVillageList([]);
+      })
+      .finally(() => setLoadingVillages(false));
   }, []);
 
   const update = (key: string, value: string) => {
@@ -57,7 +67,11 @@ export function WorkerAddHealthRecord() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.villageId) e.villageId = 'Please select an assigned village';
+    if (!form.villageId) {
+      e.villageId = villageList.length === 0
+        ? 'No assigned villages available. Contact your Health Authority.'
+        : 'Please select an assigned village';
+    }
     if (!form.reportingDate) e.reportingDate = 'Please select a date';
     if (!form.diseaseCategory) e.diseaseCategory = 'Please select a disease';
     if (!form.suspectedCases) e.suspectedCases = 'Please enter number of cases';
@@ -71,6 +85,11 @@ export function WorkerAddHealthRecord() {
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!validate()) return;
+    if (villageList.length === 0) {
+      setServerError('You do not have jurisdiction to log health records without assigned villages.');
+      return;
+    }
+
     setSaving(true);
     setServerError(null);
 
@@ -95,13 +114,19 @@ export function WorkerAddHealthRecord() {
     }
   };
 
+  const hasNoAssignedVillages = !loadingVillages && villageList.length === 0;
+
   return (
     <div>
       <PageHeader
         title="Add Health Record"
-        subtitle="Record suspected water-borne disease cases from your assigned village."
+        subtitle="Record suspected water-borne disease cases from your assigned village jurisdiction."
         breadcrumb={['Home', 'Health Records', 'Add Record']}
-        actions={<button onClick={() => navigate('/worker/health')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back</button>}
+        actions={
+          <button onClick={() => navigate('/worker/health')} className="btn-secondary">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        }
       />
 
       <Toast message="Health record saved successfully to surveillance registry." show={toast} onClose={() => setToast(false)} />
@@ -113,25 +138,63 @@ export function WorkerAddHealthRecord() {
         </div>
       )}
 
+      {hasNoAssignedVillages && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+          <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600 mt-0.5" />
+          <div>
+            <p className="font-semibold">No Assigned Villages Mapped</p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              You do not have any villages currently assigned to your account. Health workers can only log and update records for villages assigned to them by a Health Authority. Please contact your Health Authority administrator to assign your jurisdiction.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
         {/* Section 1: Location */}
         <div className="card p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-slate-900">Jurisdiction Location</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary-600" />
+              <h3 className="text-sm font-semibold text-slate-900">Jurisdiction Location</h3>
+            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              {villageList.length} {villageList.length === 1 ? 'village' : 'villages'} in your jurisdiction
+            </span>
           </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Assigned Village *</label>
-              <select value={form.villageId} onChange={(e) => update('villageId', e.target.value)} className={`input ${errors.villageId ? 'input-error' : ''}`}>
-                <option value="">Select village</option>
-                {villageList.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.district})</option>)}
+              <select
+                value={form.villageId}
+                onChange={(e) => update('villageId', e.target.value)}
+                disabled={hasNoAssignedVillages}
+                className={`input ${errors.villageId ? 'input-error' : ''}`}
+              >
+                {hasNoAssignedVillages ? (
+                  <option value="">No assigned villages available</option>
+                ) : (
+                  <>
+                    <option value="">Select assigned village</option>
+                    {villageList.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.district})
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
               {errors.villageId && <p className="mt-1 text-xs text-risk-critical">{errors.villageId}</p>}
             </div>
             <div>
               <label className="label">Reporting Date *</label>
-              <input type="date" value={form.reportingDate} onChange={(e) => update('reportingDate', e.target.value)} className={`input ${errors.reportingDate ? 'input-error' : ''}`} />
+              <input
+                type="date"
+                value={form.reportingDate}
+                onChange={(e) => update('reportingDate', e.target.value)}
+                className={`input ${errors.reportingDate ? 'input-error' : ''}`}
+              />
               {errors.reportingDate && <p className="mt-1 text-xs text-risk-critical">{errors.reportingDate}</p>}
             </div>
           </div>
@@ -146,22 +209,45 @@ export function WorkerAddHealthRecord() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="label">Disease Category *</label>
-              <select value={form.diseaseCategory} onChange={(e) => update('diseaseCategory', e.target.value)} className={`input ${errors.diseaseCategory ? 'input-error' : ''}`}>
+              <select
+                value={form.diseaseCategory}
+                onChange={(e) => update('diseaseCategory', e.target.value)}
+                className={`input ${errors.diseaseCategory ? 'input-error' : ''}`}
+              >
                 <option value="">Select disease</option>
-                {diseases.map((d) => <option key={d} value={d}>{d}</option>)}
+                {diseases.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
               </select>
               {errors.diseaseCategory && <p className="mt-1 text-xs text-risk-critical">{errors.diseaseCategory}</p>}
             </div>
             <div>
               <label className="label">Suspected Cases *</label>
-              <input type="number" min="1" value={form.suspectedCases} onChange={(e) => update('suspectedCases', e.target.value)} placeholder="0" className={`input ${errors.suspectedCases ? 'input-error' : ''}`} />
+              <input
+                type="number"
+                min="1"
+                value={form.suspectedCases}
+                onChange={(e) => update('suspectedCases', e.target.value)}
+                placeholder="0"
+                className={`input ${errors.suspectedCases ? 'input-error' : ''}`}
+              />
               {errors.suspectedCases && <p className="mt-1 text-xs text-risk-critical">{errors.suspectedCases}</p>}
             </div>
             <div>
               <label className="label">Age Group *</label>
-              <select value={form.ageGroup} onChange={(e) => update('ageGroup', e.target.value)} className={`input ${errors.ageGroup ? 'input-error' : ''}`}>
+              <select
+                value={form.ageGroup}
+                onChange={(e) => update('ageGroup', e.target.value)}
+                className={`input ${errors.ageGroup ? 'input-error' : ''}`}
+              >
                 <option value="">Select age group</option>
-                {ageGroups.map((a) => <option key={a} value={a}>{a}</option>)}
+                {ageGroups.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
               </select>
               {errors.ageGroup && <p className="mt-1 text-xs text-risk-critical">{errors.ageGroup}</p>}
             </div>
@@ -222,8 +308,17 @@ export function WorkerAddHealthRecord() {
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={() => navigate('/worker/health')} className="btn-secondary">Cancel</button>
-          <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving...' : 'Save Record'}</button>
+          <button type="button" onClick={() => navigate('/worker/health')} className="btn-secondary">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving || hasNoAssignedVillages}
+            className="btn-primary"
+            title={hasNoAssignedVillages ? 'Cannot submit without assigned villages' : undefined}
+          >
+            {saving ? 'Saving...' : 'Save Record'}
+          </button>
         </div>
       </form>
     </div>

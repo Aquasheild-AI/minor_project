@@ -3,7 +3,13 @@ import { getApiUrl } from '@/services/apiConfig';
 
 export type UserRole = 'admin' | 'worker' | 'community';
 
-interface AuthUser {
+export interface AssignedVillageInfo {
+  id: number;
+  name: string;
+  district: string;
+}
+
+export interface AuthUser {
   id: number;
   username: string;
   name: string;
@@ -14,8 +20,10 @@ interface AuthUser {
   /** Home village (community users). */
   villageId?: number;
   villageName?: string;
-  /** Villages a health worker is assigned to. */
+  /** Villages a health worker is assigned to (IDs). */
   assignedVillageIds?: number[];
+  /** Detailed list of assigned villages with id, name, district. */
+  assignedVillagesList?: AssignedVillageInfo[];
 }
 
 interface AuthContextValue {
@@ -25,6 +33,7 @@ interface AuthContextValue {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: any) => Promise<void>;
+  refreshUser: () => Promise<AuthUser | null>;
 }
 
 export interface RegisterData {
@@ -65,7 +74,8 @@ const transformUser = (raw: any): AuthUser => ({
   organization: raw.organization ?? undefined,
   villageId: raw.village ?? undefined,
   villageName: raw.village_name ?? undefined,
-  assignedVillageIds: raw.assigned_villages ?? undefined,
+  assignedVillageIds: Array.isArray(raw.assigned_villages) ? raw.assigned_villages : [],
+  assignedVillagesList: Array.isArray(raw.assigned_villages_list) ? raw.assigned_villages_list : [],
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -90,6 +100,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data) => setUser(transformUser(data)))
       .catch(() => localStorage.removeItem(TOKEN_KEY))
       .finally(() => setLoading(false));
+  }, []);
+
+  // ── Refresh User Profile from Backend ─────────────────────────
+  const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+
+    try {
+      const res = await fetch(getApiUrl('/api/auth/me/'), {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!res.ok) throw new Error('Token expired');
+      const data = await res.json();
+      const updated = transformUser(data);
+      setUser(updated);
+      return updated;
+    } catch {
+      return null;
+    }
   }, []);
 
   // ── Login ─────────────────────────────────────────────────────
@@ -188,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

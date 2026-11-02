@@ -43,8 +43,8 @@ def has_village_access(user, village):
     Determines if a user has jurisdiction / editing permission for a specific village:
     - AUTHORITY: Full jurisdiction across all villages.
     - HEALTH_WORKER:
-        - If assigned to specific villages: must be in assigned_villages.
-        - If no assigned villages yet: general field jurisdiction.
+        - Must be assigned to the specific village by a Health Authority.
+        - If not assigned to this village or has no assignments: NO jurisdiction.
     - COMMUNITY: Read access for their own village only; no clinical edit access.
     """
     if not user or not user.is_authenticated:
@@ -54,8 +54,10 @@ def has_village_access(user, village):
         return True
 
     if user.role == 'HEALTH_WORKER':
+        if not village:
+            return False
         if not user.assigned_villages.exists():
-            return True
+            return False
         return user.assigned_villages.filter(id=village.id).exists()
 
     return False

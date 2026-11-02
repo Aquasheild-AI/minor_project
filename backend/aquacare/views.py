@@ -894,9 +894,23 @@ def water_quality_list_create(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        if target_village:
+            if not water_source or water_source.village_id != target_village.id:
+                water_source = WaterSource.objects.filter(village=target_village).first()
+                if not water_source:
+                    water_source = WaterSource.objects.create(
+                        village=target_village,
+                        name=f"{target_village.name} Primary Water Source",
+                        source_type='HANDPUMP',
+                        latitude=target_village.latitude,
+                        longitude=target_village.longitude,
+                        is_functional=True,
+                    )
+
         test = serializer.save(
             tested_by=request.user,
             village=target_village,
+            water_source=water_source,
         )
         data = dict(WaterQualityTestSerializer(test).data)
         # Re-score the village's water contamination risk. A model failure must

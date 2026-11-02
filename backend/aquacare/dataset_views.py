@@ -146,26 +146,10 @@ def _get_evaluated_dataset():
     }
 
     for idx, row_dict in enumerate(raw_rows):
-        wqi = row_dict.get('water_quality_index', 0)
-
-        # Real-time evaluation using Module A CPCB Machine Learning Model
-        try:
-            eval_res = ml_service.evaluate_water_reading(
-                ph=float(row_dict.get('ph')) if row_dict.get('ph') is not None else 7.2,
-                temperature=float(row_dict.get('avg_temperature_c')) if row_dict.get('avg_temperature_c') is not None else 25.0,
-                tds=float(row_dict.get('tds_mg_l')) if row_dict.get('tds_mg_l') is not None else 300.0,
-                dissolved_oxygen=float(row_dict.get('dissolved_oxygen_mg_l')) if row_dict.get('dissolved_oxygen_mg_l') is not None else 6.0,
-                nitrate=float(row_dict.get('nitrate_mg_l')) if row_dict.get('nitrate_mg_l') is not None else 10.0,
-                source_type=row_dict.get('water_source', 'HANDPUMP'),
-                fecal_coliform=float(row_dict.get('fecal_coliform_per_100ml')) if row_dict.get('fecal_coliform_per_100ml') is not None else None,
-            )
-            ml_risk_level = eval_res.get('risk_level', 'LOW')
-            ml_risk_score = eval_res.get('risk_score', 0.0)
-            status_val = ml_status_map.get(ml_risk_level, 'safe')
-        except Exception:
-            status_val = get_status_from_wqi(wqi).lower()
-            ml_risk_level = 'LOW' if wqi >= 70 else ('MEDIUM' if wqi >= 50 else ('HIGH' if wqi >= 25 else 'CRITICAL'))
-            ml_risk_score = 100.0 - float(wqi)
+        wqi = float(row_dict.get('water_quality_index', 0) or 0)
+        status_val = get_status_from_wqi(wqi).lower()
+        ml_risk_level = 'LOW' if wqi >= 70 else ('MEDIUM' if wqi >= 50 else ('HIGH' if wqi >= 25 else 'CRITICAL'))
+        ml_risk_score = round(max(0.0, min(100.0, 100.0 - wqi)), 1)
 
         records.append({
             'id': f'dataset-rec-{idx + 1}',

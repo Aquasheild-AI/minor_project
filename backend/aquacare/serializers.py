@@ -112,13 +112,15 @@ class WaterSourceSerializer(serializers.ModelSerializer):
 class WaterQualityTestSerializer(serializers.ModelSerializer):
     water_source_name = serializers.CharField(source='water_source.name', read_only=True)
     village_name = serializers.CharField(source='village.name', read_only=True)
+    district = serializers.CharField(source='village.district', read_only=True)
     tested_by_name = serializers.CharField(source='tested_by.get_full_name', read_only=True)
     village = serializers.PrimaryKeyRelatedField(queryset=Village.objects.all(), required=False)
+    water_source = serializers.PrimaryKeyRelatedField(queryset=WaterSource.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = WaterQualityTest
         fields = [
-            'id', 'water_source', 'water_source_name', 'village', 'village_name',
+            'id', 'water_source', 'water_source_name', 'village', 'village_name', 'district',
             'tested_by', 'tested_by_name', 'sample_date',
             'ph', 'turbidity', 'tds', 'temperature',
             'coliform_bacteria', 'e_coli_detected', 'chlorine_residual',

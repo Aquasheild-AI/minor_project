@@ -537,9 +537,18 @@ export const api = {
 
   // POST /api/water-quality/
   createWaterQuality: async (record: any): Promise<WaterQualityRecord> => {
+    const parseId = (val: any) => {
+      if (typeof val === 'number') return val;
+      const digits = String(val || '').replace(/\D/g, '');
+      return digits ? parseInt(digits, 10) : 1;
+    };
+
+    const villageIdNum = parseId(record.villageId || record.village);
+    const waterSourceIdNum = parseId(record.waterSourceId || record.water_source);
+
     const payload = {
-      village: Number(record.villageId || record.village),
-      water_source: Number(record.waterSourceId || record.water_source || 1),
+      village: villageIdNum,
+      water_source: waterSourceIdNum,
       sample_date: record.date || new Date().toISOString().split('T')[0],
       ph: Number(record.ph),
       turbidity: Number(record.turbidity),

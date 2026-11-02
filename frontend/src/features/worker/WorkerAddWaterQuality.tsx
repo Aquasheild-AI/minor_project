@@ -45,7 +45,7 @@ export function WorkerAddWaterQuality() {
       if (sources.length > 0) {
         setForm((prev) => ({ ...prev, waterSourceId: String(sources[0].id) }));
       } else {
-        setForm((prev) => ({ ...prev, waterSourceId: '1' }));
+        setForm((prev) => ({ ...prev, waterSourceId: '' }));
       }
     } catch {
       setWaterSources([]);
@@ -84,7 +84,7 @@ export function WorkerAddWaterQuality() {
     try {
       await workerApi.createWaterQuality({
         villageId: form.villageId,
-        waterSourceId: form.waterSourceId || (waterSources[0]?.id ? String(waterSources[0].id) : '1'),
+        waterSourceId: form.waterSourceId || (waterSources[0]?.id ? String(waterSources[0].id) : ''),
         date: form.date,
         ph: parseFloat(form.ph),
         turbidity: parseFloat(form.turbidity),

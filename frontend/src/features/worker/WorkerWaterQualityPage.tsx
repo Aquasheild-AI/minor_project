@@ -135,7 +135,17 @@ export function WorkerWaterQualityPage() {
           <>
             <Table
               columns={[
-                { key: 'district', header: 'DISTRICT', render: (r: DatasetRecord) => <span className="font-medium text-slate-900">{r.district}</span> },
+                { key: 'district', header: 'DISTRICT', render: (r: DatasetRecord) => <span className="font-semibold text-slate-900">{r.district}</span> },
+                {
+                  key: 'village',
+                  header: 'VILLAGE / SOURCE',
+                  render: (r: DatasetRecord) => (
+                    <div>
+                      <div className="font-medium text-slate-800">{r.region || 'Rural Village'}</div>
+                      <div className="text-xs text-slate-500 truncate max-w-[160px]">{r.waterSource || 'Primary Source'}</div>
+                    </div>
+                  ),
+                },
                 { key: 'month', header: 'MONTH' },
                 { key: 'ph', header: 'pH', render: (r: DatasetRecord) => <span className={r.ph < 6.5 || r.ph > 8.5 ? 'font-medium text-risk-medium' : ''}>{r.ph?.toFixed(2)}</span> },
                 { key: 'turbidity', header: 'TURBIDITY (NTU)', render: (r: DatasetRecord) => <span className={r.turbidity > 5 ? 'font-medium text-risk-critical' : ''}>{r.turbidity?.toFixed(2)}</span> },

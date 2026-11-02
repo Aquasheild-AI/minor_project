@@ -29,7 +29,7 @@ export function WorkerAddWaterQuality() {
   const [toast, setToast] = useState(false);
 
   useEffect(() => {
-    workerApi.getVillages().then((v) => {
+    workerApi.getAssignedVillages().then((v) => {
       setVillageList(v);
       if (v.length > 0) {
         setForm((prev) => ({ ...prev, villageId: v[0].id }));

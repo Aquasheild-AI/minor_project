@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, MapPin, Calendar, HeartPulse, Users, Activity, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Pencil, MapPin, Calendar, HeartPulse, Users, Activity, User as UserIcon, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Badge } from '@/components/ui/Badge';
@@ -57,8 +57,19 @@ export function WorkerHealthRecordDetails() {
     loadRecord();
   }, [id]);
 
+  // Check if current worker has jurisdiction to edit this record
+  const assignedIds = user?.assignedVillageIds || [];
+  const canEditRecord =
+    user?.role === 'admin' ||
+    (record && assignedIds.includes(Number(record.villageId)));
+
   const handleSaveEdit = async () => {
     if (!record) return;
+    if (!canEditRecord) {
+      setEditError('You do not have jurisdiction to edit records for this village. Health workers can only update records for their assigned villages.');
+      return;
+    }
+
     setSavingEdit(true);
     setEditError(null);
     try {
@@ -72,7 +83,7 @@ export function WorkerHealthRecordDetails() {
       setRecord(updated);
       setShowEdit(false);
     } catch (err: any) {
-      setEditError(err.message || 'Failed to update record.');
+      setEditError(err.message || 'Failed to update record. Ensure you have jurisdiction for this village.');
     } finally {
       setSavingEdit(false);
     }
@@ -89,9 +100,23 @@ export function WorkerHealthRecordDetails() {
         title="Health Record Details"
         breadcrumb={['Home', 'Health Records', 'Record Details']}
         actions={
-          <div className="flex gap-2">
-            <button onClick={() => navigate('/worker/health')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back to Health Records</button>
-            <button onClick={() => setShowEdit(true)} className="btn-secondary"><Pencil className="h-4 w-4" /> Edit Record</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/worker/health')} className="btn-secondary">
+              <ArrowLeft className="h-4 w-4" /> Back to Health Records
+            </button>
+            {canEditRecord ? (
+              <button onClick={() => setShowEdit(true)} className="btn-secondary">
+                <Pencil className="h-4 w-4" /> Edit Record
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800"
+                title="Only health workers assigned to this village by a Health Authority can modify this record."
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                View Only (Outside Jurisdiction)
+              </span>
+            )}
           </div>
         }
       />
@@ -132,7 +157,9 @@ export function WorkerHealthRecordDetails() {
             <InfoRow icon={UserIcon} label="Reported By" value={reporterName} />
             <div>
               <p className="text-xs text-slate-500">Jurisdiction Scoping</p>
-              <p className="text-sm font-medium text-slate-900">Assigned Community</p>
+              <p className="text-sm font-medium text-slate-900">
+                {canEditRecord ? 'Assigned Jurisdiction' : 'Read-Only Jurisdiction'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Recorded At</p>

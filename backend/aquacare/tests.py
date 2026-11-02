@@ -657,5 +657,127 @@ class AquaCareRBACTestCase(TestCase):
         res_citizen = self.client.post('/api/dispatches/', payload, format='json')
         self.assertEqual(res_citizen.status_code, status.HTTP_403_FORBIDDEN)
 
+    # ─── 6. Worker Village Assignment & Record Update Restrictions ───
+
+    def test_worker_assigned_villages_in_me_and_cannot_self_assign(self):
+        """Worker profile includes assigned_villages_list, and worker cannot modify own assignments."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+
+        # 1. GET /api/auth/me/
+        res_me = self.client.get('/api/auth/me/')
+        self.assertEqual(res_me.status_code, status.HTTP_200_OK)
+        self.assertIn('assigned_villages', res_me.data)
+        self.assertIn('assigned_villages_list', res_me.data)
+        self.assertEqual(res_me.data['assigned_villages'], [self.village_a.id])
+        self.assertEqual(len(res_me.data['assigned_villages_list']), 1)
+        self.assertEqual(res_me.data['assigned_villages_list'][0]['name'], self.village_a.name)
+
+        # 2. Worker attempts to self-assign Village B via PATCH /api/auth/me/
+        res_patch = self.client.patch('/api/auth/me/', {
+            'assigned_villages': [self.village_b.id],
+            'first_name': 'Anita Updated',
+        }, format='json')
+        self.assertEqual(res_patch.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_patch.data['first_name'], 'Anita Updated')
+        # Village assignment must NOT change
+        self.worker.refresh_from_db()
+        self.assertEqual(list(self.worker.assigned_villages.values_list('id', flat=True)), [self.village_a.id])
+
+    def test_authority_manages_worker_villages(self):
+        """Authority assigns and updates worker jurisdiction villages."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+
+        # Authority updates worker to have both Village A and Village B
+        res_assign = self.client.patch(f'/api/manage/users/{self.worker.id}/', {
+            'assigned_villages': [self.village_a.id, self.village_b.id],
+        }, format='json')
+        self.assertEqual(res_assign.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_assign.data['assigned_villages']), 2)
+        self.assertEqual(len(res_assign.data['assigned_villages_list']), 2)
+
+        # Verify worker now sees both in /api/auth/me/
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        res_worker_me = self.client.get('/api/auth/me/')
+        self.assertEqual(len(res_worker_me.data['assigned_villages']), 2)
+
+    def test_worker_can_only_update_record_of_assigned_village(self):
+        """Health worker can update records in assigned village, but is forbidden in unassigned villages."""
+        rec_a = HealthRecord.objects.create(
+            village=self.village_a,
+            recorded_by=self.worker,
+            patient_name='Patient A',
+            age=30,
+            gender='M',
+            disease_type='CHOLERA',
+            date_of_onset='2026-09-01',
+            suspected_cases=1,
+            severity='MILD',
+        )
+        rec_b = HealthRecord.objects.create(
+            village=self.village_b,
+            recorded_by=self.authority,
+            patient_name='Patient B',
+            age=40,
+            gender='F',
+            disease_type='TYPHOID',
+            date_of_onset='2026-09-02',
+            suspected_cases=1,
+            severity='MILD',
+        )
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+
+        # 1. Update in assigned village succeeds
+        res_update_a = self.client.patch(f'/api/health-records/{rec_a.id}/', {
+            'suspected_cases': 3,
+            'treatment_administered': 'ORS + Zinc',
+        }, format='json')
+        self.assertEqual(res_update_a.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_update_a.data['suspected_cases'], 3)
+
+        # 2. Update in unassigned village is forbidden (403)
+        res_update_b = self.client.patch(f'/api/health-records/{rec_b.id}/', {
+            'suspected_cases': 5,
+        }, format='json')
+        self.assertEqual(res_update_b.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Attempt to transfer record from Village A to unassigned Village B is forbidden (403)
+        res_transfer = self.client.patch(f'/api/health-records/{rec_a.id}/', {
+            'village': self.village_b.id,
+        }, format='json')
+        self.assertEqual(res_transfer.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unassigned_worker_cannot_log_or_update_records(self):
+        """Worker with no assigned villages cannot log or update records in any village."""
+        unassigned_worker = User.objects.create_user(
+            username="worker_unassigned",
+            email="unassigned@phc.gov.in",
+            password="pass1234Secure",
+            role="HEALTH_WORKER",
+            first_name="New",
+            last_name="Worker",
+        )
+        token_unassigned = Token.objects.create(user=unassigned_worker).key
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token_unassigned}')
+
+        # Attempt to create record in Village A fails with 403
+        res = self.client.post('/api/health-records/', {
+            'village': self.village_a.id,
+            'patient_name': 'Test Patient',
+            'age': 25,
+            'gender': 'M',
+            'disease_type': 'CHOLERA',
+            'date_of_onset': '2026-09-01',
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_villages_assigned_only_endpoint(self):
+        """GET /api/villages/?assigned_only=true returns only worker's assigned villages."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        res = self.client.get('/api/villages/?assigned_only=true')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]['name'], self.village_a.name)
+
 
 

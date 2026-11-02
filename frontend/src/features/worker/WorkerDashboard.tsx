@@ -42,7 +42,7 @@ export function WorkerDashboard() {
     async function loadWorkerDashboard() {
       try {
         const [v, a, hr, wq, s] = await Promise.all([
-          workerApi.getVillages(),
+          workerApi.getAssignedVillages(),
           workerApi.getAlerts(),
           workerApi.getHealthRecords(),
           workerApi.getWaterQuality(),

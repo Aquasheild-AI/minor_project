@@ -192,7 +192,12 @@ def me_view(request):
         return Response(serializer.data)
     elif request.method == 'PATCH':
         user = request.user
-        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True, context={'request': request})
+        patch_data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if user.role != 'AUTHORITY':
+            patch_data.pop('assigned_villages', None)
+            patch_data.pop('is_active', None)
+            patch_data.pop('role', None)
+        serializer = ProfileUpdateSerializer(user, data=patch_data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -753,6 +758,12 @@ def get_villages_for_gis_map(request):
             'alerts',
             'health_records',
         ).all()
+        assigned_only = request.query_params.get('assigned_only', '').lower() in ('true', '1')
+        if assigned_only and request.user and request.user.is_authenticated and request.user.role == 'HEALTH_WORKER':
+            if request.user.assigned_villages.exists():
+                villages = villages.filter(id__in=request.user.assigned_villages.all())
+            else:
+                villages = villages.none()
         serializer = VillageSerializer(villages, many=True)
         return Response(serializer.data)
     elif request.method == 'POST':
@@ -915,8 +926,12 @@ def health_records_list_create(request):
         qs = HealthRecord.objects.select_related('village', 'recorded_by').all()
 
         # RBAC: Health workers only see records for their assigned villages
-        if request.user.role == 'HEALTH_WORKER' and request.user.assigned_villages.exists():
-            qs = qs.filter(village__in=request.user.assigned_villages.all())
+        if request.user.role == 'HEALTH_WORKER':
+            if request.user.assigned_villages.exists():
+                qs = qs.filter(village__in=request.user.assigned_villages.all())
+            else:
+                qs = qs.none()
+
 
         village_id = request.query_params.get('village_id')
         disease_type = request.query_params.get('disease_type')
@@ -995,12 +1010,24 @@ def health_record_detail(request, pk):
 
     elif request.method in ('PATCH', 'PUT'):
         serializer = HealthRecordSerializer(record, data=request.data, partial=True)
+        if serializer.is_valid():
+            new_vil = serializer.validated_data.get('village')
+            if new_vil and not has_village_access(request.user, new_vil):
+                return Response(
+                    {'error': 'You do not have jurisdiction to transfer health records to this village.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         return Response(HealthRecordSerializer(record).data)
 
     elif request.method == 'DELETE':
+        if request.user.role != 'AUTHORITY':
+            return Response(
+                {'error': 'Only Health Authorities can delete health surveillance records.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         record.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1023,8 +1050,12 @@ def community_reports_list_create(request):
             if request.user.village:
                 q_filter |= Q(village=request.user.village)
             qs = qs.filter(q_filter)
-        elif request.user.role == 'HEALTH_WORKER' and request.user.assigned_villages.exists():
-            qs = qs.filter(village__in=request.user.assigned_villages.all())
+        elif request.user.role == 'HEALTH_WORKER':
+            if request.user.assigned_villages.exists():
+                qs = qs.filter(village__in=request.user.assigned_villages.all())
+            else:
+                qs = qs.none()
+
 
         village_id = request.query_params.get('village_id')
         status_filter = request.query_params.get('status')

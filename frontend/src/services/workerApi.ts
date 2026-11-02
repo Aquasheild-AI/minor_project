@@ -8,7 +8,8 @@ import type { Village, HealthRecord, WaterQualityRecord, Alert, Notification, Us
  */
 export const workerApi = {
   getDashboardStats: () => api.getDashboardStats(),
-  getVillages: (): Promise<Village[]> => api.getVillages(),
+  getVillages: (params?: { assignedOnly?: boolean }): Promise<Village[]> => api.getVillages(params),
+  getAssignedVillages: (): Promise<Village[]> => api.getVillages({ assignedOnly: true }),
   getVillage: (id: string): Promise<Village | undefined> => api.getVillage(id),
 
   getHealthRecords: (): Promise<HealthRecord[]> => api.getHealthRecords(),

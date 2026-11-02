@@ -26,7 +26,7 @@ export function WorkerHealthRecordsPage() {
   const pageSize = 10;
 
   useEffect(() => {
-    Promise.all([workerApi.getHealthRecords(), workerApi.getVillages()]).then(([r, v]) => {
+    Promise.all([workerApi.getHealthRecords(), workerApi.getAssignedVillages()]).then(([r, v]) => {
       setRecords(r);
       setVillageList(v);
       setLoading(false);

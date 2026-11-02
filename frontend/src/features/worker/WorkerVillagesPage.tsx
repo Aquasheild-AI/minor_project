@@ -26,7 +26,7 @@ export function WorkerVillagesPage() {
   const pageSize = 10;
 
   useEffect(() => {
-    workerApi.getVillages().then((v) => {
+    workerApi.getAssignedVillages().then((v) => {
       setVillages(v);
       setLoading(false);
     });
@@ -67,7 +67,11 @@ export function WorkerVillagesPage() {
         {loading ? (
           <LoadingState />
         ) : paged.length === 0 ? (
-          <EmptyState icon={MapPin} title="No villages found" message="No villages match your search. Try a different search term." />
+          <EmptyState
+            icon={MapPin}
+            title={villages.length === 0 ? "No Assigned Villages" : "No villages found"}
+            message={villages.length === 0 ? "No villages have been assigned to your jurisdiction yet. Please contact your Health Authority administrator." : "No villages match your search. Try a different search term."}
+          />
         ) : (
           <>
             <Table

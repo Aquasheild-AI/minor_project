@@ -108,7 +108,12 @@ export function normalizeHealthRecord(r: any): HealthRecord {
 export function normalizeWaterQualityRecord(w: any): WaterQualityRecord {
   const statusMap: Record<string, 'safe' | 'moderate' | 'unsafe'> = {
     SAFE: 'safe',
+    EXCELLENT: 'safe',
+    GOOD: 'safe',
+    POOR: 'moderate',
     MODERATE: 'moderate',
+    VERY_POOR: 'unsafe',
+    UNSAFE: 'unsafe',
     CONTAMINATED: 'unsafe',
     safe: 'safe',
     moderate: 'moderate',

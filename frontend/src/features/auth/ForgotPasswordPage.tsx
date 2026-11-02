@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { getApiUrl } from '@/services/apiConfig';
 
 type Step = 'REQUEST' | 'VERIFY_AND_RESET' | 'SUCCESS';
 
@@ -75,13 +76,13 @@ export function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/password-reset/request/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/request/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || 'Failed to send verification code.');
       }
@@ -105,13 +106,13 @@ export function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/password-reset/request/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/request/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to resend verification code.');
 
       setSuccessMessage(data.message || 'A new verification code has been sent.');
@@ -152,7 +153,7 @@ export function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/password-reset/confirm/', {
+      const res = await fetch(getApiUrl('/api/auth/password-reset/confirm/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -162,7 +163,7 @@ export function ForgotPasswordPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to reset password.');
 
       setStep('SUCCESS');
@@ -198,7 +199,7 @@ export function ForgotPasswordPage() {
           <p className="text-base text-slate-300 leading-relaxed">
             {t('auth.forgotPasswordHeroDesc', {
               defaultValue:
-                'Whether you are a Community Citizen, Health Worker, or Administrative Authority, your account is protected with SMTP multi-factor verification.',
+                'Whether you are a Community Citizen, Health Worker, or Administrative Authority, your account is protected with secure multi-factor verification.',
             })}
           </p>
 

@@ -61,7 +61,32 @@
         "inability to drink or keep fluids down",
         "fainting or marked weakness"
       ],
-      "chatbot_guidance": "Do not tell the user they have cholera from symptoms alone. Explain that acute watery diarrhoea and dehydration can have several causes and recommend prompt medical evaluation when symptoms are severe or worsening."
+      "chatbot_guidance": "Do not tell the user they have cholera from symptoms alone. Explain that acute watery diarrhoea and dehydration can have several causes and recommend prompt medical evaluation when symptoms are severe or worsening.",
+      "hindi_name": "हैजा (Cholera)",
+      "aliases": [
+        "cholera",
+        "हैजा",
+        "चावल के पानी जैसे दस्त",
+        "watery diarrhea"
+      ],
+      "hindi_symptoms": [
+        "अचानक तेज पानी जैसे पतले दस्त",
+        "उल्टी",
+        "प्यास लगना",
+        "मांसपेशियों में ऐंठन",
+        "गंभीर निर्जलीकरण"
+      ],
+      "hindi_prevention": [
+        "केवल उबला या क्लोरीनेटेड पानी पिएं",
+        "शौच के बाद और भोजन से पहले साबुन से हाथ धोएं",
+        "तुरंत ओआरएस घोल पीना शुरू करें"
+      ],
+      "hindi_warning_signs": [
+        "आंखें धंसना",
+        "पेशाब न आना",
+        "अत्यधिक कमजोरी",
+        "लगातार उल्टी"
+      ]
     },
     {
       "id": "typhoid_fever",
@@ -93,7 +118,35 @@
         "severe weakness",
         "worsening symptoms"
       ],
-      "chatbot_guidance": "Fever and gastrointestinal symptoms can occur in many illnesses. The chatbot should describe typhoid as one possible association rather than diagnosing it."
+      "chatbot_guidance": "Fever and gastrointestinal symptoms can occur in many illnesses. The chatbot should describe typhoid as one possible association rather than diagnosing it.",
+      "hindi_name": "टाइफाइड / मियादी बुखार (Typhoid Fever)",
+      "aliases": [
+        "typhoid",
+        "enteric fever",
+        "टाइफाइड",
+        "मियादी बुखार",
+        "मोतीझरा",
+        "साल्मोनेला"
+      ],
+      "hindi_symptoms": [
+        "लगातार तेज बुखार जो धीरे-धीरे बढ़ता है",
+        "तेज सिरदर्द और बदन दर्द",
+        "पेट दर्द और भूख न लगना",
+        "दस्त या कब्ज",
+        "अत्यधिक कमजोरी"
+      ],
+      "hindi_prevention": [
+        "पीने के पानी को कम से कम 10 मिनट उबालकर पिएं",
+        "शौच के बाद और खाने से पहले साबुन से हाथ धोएं",
+        "कच्ची या खुली खाद्य सामग्री से बचें",
+        "स्वास्थ्य केंद्र से जांच कराएं"
+      ],
+      "hindi_warning_signs": [
+        "लगातार 3 दिन से अधिक तेज बुखार",
+        "अत्यधिक सुस्ती या बेहोशी",
+        "पेट में असहनीय दर्द",
+        "मल में खून"
+      ]
     },
     {
       "id": "hepatitis_a",
@@ -128,7 +181,33 @@
         "marked worsening illness",
         "symptoms suggesting severe liver illness"
       ],
-      "chatbot_guidance": "Jaundice and digestive symptoms require proper medical assessment. Do not infer hepatitis A solely from symptoms."
+      "chatbot_guidance": "Jaundice and digestive symptoms require proper medical assessment. Do not infer hepatitis A solely from symptoms.",
+      "hindi_name": "हेपेटाइटिस ए / पीलिया (Hepatitis A)",
+      "aliases": [
+        "hepatitis a",
+        "hepatitis",
+        "jaundice",
+        "हेपेटाइटिस",
+        "पीलिया",
+        "पीला पेशाब"
+      ],
+      "hindi_symptoms": [
+        "आंखों और त्वचा का पीला होना",
+        "गहरे पीले रंग का पेशाब",
+        "भूख न लगना और जी मिचलाना",
+        "हल्का बुखार और थकान",
+        "पेट के ऊपरी दाहिने हिस्से में दर्द"
+      ],
+      "hindi_prevention": [
+        "सुरक्षित और उबला हुआ पानी पिएं",
+        "साफ-सफाई का विशेष ध्यान रखें",
+        "व्यक्तिगत स्वच्छता रखें"
+      ],
+      "hindi_warning_signs": [
+        "गंभीर पीलिया",
+        "लगातार उल्टियां",
+        "अत्यधिक मानसिक भ्रम या सुस्ती"
+      ]
     },
     {
       "id": "hepatitis_e",
@@ -163,7 +242,25 @@
         "severe or rapidly worsening symptoms",
         "pregnancy with suspected hepatitis E symptoms"
       ],
-      "chatbot_guidance": "Symptoms can overlap with other liver and infectious diseases. The chatbot must not diagnose hepatitis E. Suspected cases need professional assessment, with particular caution during pregnancy."
+      "chatbot_guidance": "Symptoms can overlap with other liver and infectious diseases. The chatbot must not diagnose hepatitis E. Suspected cases need professional assessment, with particular caution during pregnancy.",
+      "hindi_name": "हेपेटाइटिस ई (Hepatitis E)",
+      "aliases": [
+        "hepatitis e",
+        "हेपेटाइटिस ई"
+      ],
+      "hindi_symptoms": [
+        "पीलिया (पीली आंखें/त्वचा)",
+        "गहरा पेशाब",
+        "भूख न लगना",
+        "थकान और हल्का बुखार"
+      ],
+      "hindi_prevention": [
+        "दूषित पानी से बचें",
+        "गर्भवती महिलाओं को विशेष सावधानी बरतनी चाहिए"
+      ],
+      "hindi_warning_signs": [
+        "गर्भावस्था के दौरान पीलिया होना तुरंत अस्पताल ले जाने का संकेत है"
+      ]
     },
     {
       "id": "acute_diarrhoeal_disease",
@@ -197,7 +294,35 @@
         "severe or worsening illness",
         "inability to drink enough fluids"
       ],
-      "chatbot_guidance": "Do not map diarrhoea directly to one disease. Ask about duration, severity, fever, blood in stool, vomiting, hydration and possible contaminated-water exposure."
+      "chatbot_guidance": "Do not map diarrhoea directly to one disease. Ask about duration, severity, fever, blood in stool, vomiting, hydration and possible contaminated-water exposure.",
+      "hindi_name": "अतिसार / डायरिया (Acute Diarrheal Disease)",
+      "aliases": [
+        "diarrhea",
+        "diarrhoea",
+        "loose motion",
+        "दस्त",
+        "डायरिया",
+        "पतले दस्त",
+        "अतिसार"
+      ],
+      "hindi_symptoms": [
+        "दिन में 3 या अधिक बार पतले दस्त",
+        "पेट में मरोड़",
+        "हल्का बुखार",
+        "निर्जलीकरण"
+      ],
+      "hindi_prevention": [
+        "तुरंत ओआरएस (ORS) घोल शुरू करें",
+        "उबला पानी पिएं",
+        "साबुन से हाथ धोएं",
+        "बच्चों को जिंक की गोली दें"
+      ],
+      "hindi_warning_signs": [
+        "मल में खून आना",
+        "पानी न पी पाना",
+        "लगातार उल्टी",
+        "6 घंटे से पेशाब न होना"
+      ]
     },
     {
       "id": "giardiasis",
@@ -228,7 +353,28 @@
         "persistent diarrhoea",
         "worsening illness"
       ],
-      "chatbot_guidance": "Diarrhoea has many possible causes. Giardia should be presented only as one possible cause when exposure history is compatible. A healthcare provider may use stool testing for diagnosis."
+      "chatbot_guidance": "Diarrhoea has many possible causes. Giardia should be presented only as one possible cause when exposure history is compatible. A healthcare provider may use stool testing for diagnosis.",
+      "hindi_name": "गियार्डियासिस (Giardiasis)",
+      "aliases": [
+        "giardiasis",
+        "giardia",
+        "गियार्डिया",
+        "पेट में गैस और दस्त"
+      ],
+      "hindi_symptoms": [
+        "पानी जैसे या चिकने बदबूदार दस्त",
+        "पेट फूलना और गैस",
+        "पेट में ऐंठन",
+        "वजन घटना"
+      ],
+      "hindi_prevention": [
+        "अशोधित कुएं या हैंडपंप का पानी सीधे न पिएं",
+        "पानी को उबालकर या फिल्टर करके ही पिएं"
+      ],
+      "hindi_warning_signs": [
+        "लगातार कई हफ्तों तक दस्त रहना",
+        "अत्यधिक वजन घटना"
+      ]
     }
   ],
   "symptom_matching_rules": {
@@ -291,5 +437,56 @@
     "For emergency symptoms, advise immediate emergency medical care.",
     "Do not recommend prescription medicines or antibiotics without a qualified clinician.",
     "Keep medical education separate from the project's outbreak-risk score."
-  ]
+  ],
+  "ors_guidance": {
+    "title": "Oral Rehydration Salts (ORS) Preparation & Usage",
+    "en": {
+      "packet_method": [
+        "Wash hands thoroughly with soap and clean water.",
+        "Take exactly 1 litre of clean drinking water (boiled and cooled).",
+        "Pour the entire contents of 1 packet of WHO-standard ORS into the water.",
+        "Stir well until the powder is completely dissolved.",
+        "Do NOT add extra sugar, salt, milk, or juice.",
+        "Use within 24 hours. Discard any remaining solution after 24 hours."
+      ],
+      "home_method": [
+        "1 litre of clean, boiled and cooled drinking water.",
+        "6 level teaspoons of sugar.",
+        "1/2 level teaspoon of salt.",
+        "Stir until fully dissolved. The taste should be no saltier than tears."
+      ],
+      "dosage": "Give small, frequent sips after every loose stool. Continue regular breastfeeding and fluids."
+    },
+    "hi": {
+      "packet_method": [
+        "हाथों को साबुन और साफ पानी से अच्छी तरह धोएं।",
+        "एक साफ बर्तन में ठीक 1 लीटर साफ, उबला और ठंडा किया हुआ पानी लें।",
+        "ओआरएस का पूरा पैकेट पानी में डालें।",
+        "चम्मच से तब तक अच्छी तरह घोलें जब तक पाउडर पूरी तरह घुल न जाए।",
+        "इसमें अलग से कोई चीनी, नमक, दूध या जूस न मिलाएं।",
+        "घोल को ढककर रखें और 24 घंटे के भीतर इस्तेमाल करें। 24 घंटे बाद बचा हुआ घोल फेंक दें।"
+      ],
+      "home_method": [
+        "1 लीटर साफ, उबला और ठंडा पानी।",
+        "6 छोटी चम्मच चीनी।",
+        "आधा (1/2) छोटा चम्मच नमक।",
+        "अच्छी तरह घोलें जब तक चीनी और नमक घुल न जाएं।"
+      ],
+      "dosage": "हर बार पतले दस्त के बाद छोटे-छोटे घूंट में पिलाएं। यदि उल्टी हो तो 10 मिनट रुककर धीरे-धीरे दें।"
+    }
+  },
+  "water_quality_guidance": {
+    "title": "Water Quality Testing & Contamination Awareness",
+    "parameters": {
+      "pH": "6.5 to 8.5 (ideal safe range)",
+      "turbidity": "< 1 NTU desired (cloudiness indicates contamination)",
+      "free_residual_chlorine": "0.2 to 0.5 mg/L at distribution point",
+      "total_dissolved_solids": "< 500 mg/L desired"
+    },
+    "contamination_indicators": [
+      "Cloudy, discolored, or muddy appearance",
+      "Unusual chemical, foul, or rotten-egg odor",
+      "Water sources within 15 meters of open drains or pit latrines"
+    ]
+  }
 }

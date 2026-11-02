@@ -40,8 +40,19 @@ export function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    if (!form.username || !form.password || !form.email.trim()) {
-      setError(t('auth.errors.allRequired', { defaultValue: 'Username, password, and email are required.' }));
+    if (
+      !form.first_name.trim() ||
+      !form.last_name.trim() ||
+      !form.username.trim() ||
+      !form.email.trim() ||
+      !form.phone.trim() ||
+      !form.password
+    ) {
+      setError(
+        t('auth.errors.allRequired', {
+          defaultValue: 'All fields (First Name, Last Name, Username, Email, Phone, and Password) are required.',
+        })
+      );
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

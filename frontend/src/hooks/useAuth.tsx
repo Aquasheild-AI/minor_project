@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { getApiUrl } from '@/services/apiConfig';
 
 export type UserRole = 'admin' | 'worker' | 'community';
 
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    fetch('/api/auth/me/', {
+    fetch(getApiUrl('/api/auth/me/'), {
       headers: { Authorization: `Token ${token}` },
     })
       .then((res) => {
@@ -93,14 +94,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Login ─────────────────────────────────────────────────────
   const login = useCallback(async (username: string, password: string) => {
-    const res = await fetch('/api/auth/login/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(getApiUrl('/api/auth/login/'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+    } catch (err: any) {
+      throw new Error(
+        err?.message?.includes('fetch')
+          ? 'Unable to connect to the backend server. Please wait 15-30 seconds if it is waking up and try again.'
+          : err?.message || 'Network connection failed.'
+      );
+    }
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('Backend server is waking up from sleep. Please try again in 15-30 seconds.');
+      }
+      throw new Error(data.error || `Login failed (${res.status})`);
+    }
 
     localStorage.setItem(TOKEN_KEY, data.token);
     setUser(transformUser(data.user));
@@ -108,14 +123,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Register ──────────────────────────────────────────────────
   const register = useCallback(async (regData: RegisterData) => {
-    const res = await fetch('/api/auth/register/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(regData),
-    });
+    let res: Response;
+    try {
+      res = await fetch(getApiUrl('/api/auth/register/'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regData),
+      });
+    } catch (err: any) {
+      throw new Error(
+        err?.message?.includes('fetch')
+          ? 'Unable to connect to the backend server. Please wait 15-30 seconds if it is waking up and try again.'
+          : err?.message || 'Network connection failed.'
+      );
+    }
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('Backend server is waking up from sleep. Please try again in 15-30 seconds.');
+      }
+      throw new Error(data.error || `Registration failed (${res.status})`);
+    }
 
     localStorage.setItem(TOKEN_KEY, data.token);
     setUser(transformUser(data.user));
@@ -126,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
       try {
-        await fetch('/api/auth/logout/', {
+        await fetch(getApiUrl('/api/auth/logout/'), {
           method: 'POST',
           headers: { Authorization: `Token ${token}` },
         });
@@ -143,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) throw new Error('Not authenticated');
 
-    const res = await fetch('/api/auth/me/', {
+    const res = await fetch(getApiUrl('/api/auth/me/'), {
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
@@ -152,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify(updateData),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Update failed');
 
     setUser(transformUser(data));

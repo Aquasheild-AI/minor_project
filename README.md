@@ -43,6 +43,9 @@ Create a `.env` file in the `backend/` directory with the following variables:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=your_verified_sender_email@example.com
+BREVO_SENDER_NAME=AquaShield
 ```
 
 Run migrations and create a superuser:
@@ -132,6 +135,25 @@ The AI Health Assistant is available for community members at `/community/chat`.
 - `frontend/`: React application with Tailwind CSS.
 - `ml/`: data, training scripts, trained models and the shared `aquashield_ml` package used by the backend. See `ml/README.md`.
 - `CHATBOT_ARCHITECTURE.md`: Detailed documentation of the chatbot system.
+
+## Transactional Email (Brevo REST API)
+
+AquaShield uses the **Brevo (formerly Sendinblue) Transactional Email HTTPS REST API** (`POST https://api.brevo.com/v3/smtp/email`) to dispatch critical emails without legacy SMTP overhead:
+- **Password Reset**: Sends 6-digit OTP codes directly to user emails.
+- **Health Worker Alerts**: Dispatches real-time alerts to assigned health workers when citizens submit new health reports.
+- **Citizen Report Status**: Informs reporting citizens when health workers review and update report status.
+
+### Production Environment Variables (Render / Cloud Deployment)
+
+| Variable | Required | Description |
+|---|---|---|
+| `BREVO_API_KEY` | **Yes** | Brevo v3 API Key (starts with `xkeysib-`) |
+| `BREVO_SENDER_EMAIL` | **Yes** | Sender email address verified in your Brevo account |
+| `BREVO_SENDER_NAME` | No | Sender display name (defaults to `AquaShield`) |
+| `BREVO_API_URL` | No | Brevo endpoint (defaults to `https://api.brevo.com/v3/smtp/email`) |
+| `GEMINI_API_KEY` | **Yes** | Google Gemini API key for AI chat and symptom analysis |
+| `SECRET_KEY` | **Yes** | Django secret key for session/token security |
+| `ALLOWED_HOSTS` | **Yes** | Comma-separated hostnames (e.g. `your-app.onrender.com`) |
 
 ## Notes
 

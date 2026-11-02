@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, HeartPulse, Activity, Check, ArrowLeft, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { RiskBadge } from '@/components/ui/RiskBadge';
+import { evaluateHealthRiskLevel } from '@/utils/risk';
 import { api } from '@/services/api';
 import type { DiseaseCategory, Symptom, AgeGroup, Village } from '@/types';
 
@@ -26,6 +28,13 @@ export function AddHealthRecordPage() {
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const previewRisk = evaluateHealthRiskLevel({
+    diseaseCategory: form.diseaseCategory,
+    suspectedCases: parseInt(form.suspectedCases) || 1,
+    symptoms,
+    ageGroup: form.ageGroup,
+  });
 
   useEffect(() => {
     api.getVillages().then((v) => {
@@ -208,6 +217,17 @@ export function AddHealthRecordPage() {
             ))}
           </div>
           {errors.symptoms && <p className="mt-2 text-xs text-risk-critical">{errors.symptoms}</p>}
+        </div>
+
+        {/* Dynamic Risk Assessment Preview */}
+        <div className="card p-4 bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-700">Calculated Epidemiological Risk:</span>
+            <RiskBadge level={previewRisk} />
+          </div>
+          <span className="text-xs text-slate-500">
+            Real-time assessment based on disease, cluster volume ({form.suspectedCases || 1} cases), and symptoms.
+          </span>
         </div>
 
         {/* Section 4: Notes */}

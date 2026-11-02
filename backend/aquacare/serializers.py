@@ -17,21 +17,25 @@ from .models import (
 # 1. User & Auth Serializer
 class UserSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
+    assigned_villages_list = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'phone', 'organization', 'village', 'village_name',
-            'assigned_villages', 'preferred_language', 'notification_alerts', 'is_active'
+            'assigned_villages', 'assigned_villages_list', 'preferred_language', 'notification_alerts', 'is_active'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'assigned_villages_list']
+
+    def get_assigned_villages_list(self, obj):
+        return [{'id': v.id, 'name': v.name, 'district': v.district} for v in obj.assigned_villages.all()]
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'phone', 'organization', 'password', 'assigned_villages']
+        fields = ['first_name', 'last_name', 'email', 'phone', 'organization', 'password', 'assigned_villages', 'is_active']
         extra_kwargs = {
             'password': {'write_only': True, 'required': False},
             'email': {'required': False},
@@ -40,6 +44,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             'phone': {'required': False},
             'organization': {'required': False},
             'assigned_villages': {'required': False},
+            'is_active': {'required': False},
         }
 
     def validate_email(self, value):
@@ -127,6 +132,7 @@ class HealthRecordSerializer(serializers.ModelSerializer):
     village_name = serializers.CharField(source='village.name', read_only=True)
     disease_type_display = serializers.CharField(source='get_disease_type_display', read_only=True)
     recorded_by_name = serializers.CharField(source='recorded_by.get_full_name', read_only=True)
+    risk_level = serializers.CharField(source='calculate_risk_level', read_only=True)
 
     class Meta:
         model = HealthRecord
@@ -135,9 +141,10 @@ class HealthRecordSerializer(serializers.ModelSerializer):
             'patient_identifier', 'patient_name', 'age', 'gender',
             'disease_type', 'disease_type_display', 'symptoms', 'severity',
             'suspected_cases', 'status', 'date_of_onset', 'date_recorded',
-            'suspected_water_source', 'treatment_administered', 'notes'
+            'suspected_water_source', 'treatment_administered', 'notes',
+            'risk_level'
         ]
-        read_only_fields = ['recorded_by', 'date_recorded']
+        read_only_fields = ['recorded_by', 'date_recorded', 'risk_level']
 
 
 # 6. Community Report Serializer (Citizen Issue Submissions)

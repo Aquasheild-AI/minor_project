@@ -1,4 +1,5 @@
 import { authFetch, authGet, authPost, authPatch } from './authFetch';
+import { evaluateHealthRiskLevel } from '@/utils/risk';
 import type {
   Village,
   HealthRecord,
@@ -100,7 +101,15 @@ export function normalizeHealthRecord(r: any): HealthRecord {
     suspectedCases: Number(r.suspected_cases ?? r.suspectedCases ?? 1),
     symptoms: Array.isArray(r.symptoms) ? r.symptoms : [],
     ageGroup: r.age != null ? ageToGroup(Number(r.age)) : (r.ageGroup || '19-40'),
-    riskLevel: severityToRisk[r.severity] || (r.riskLevel as RiskLevel) || 'medium',
+    riskLevel: evaluateHealthRiskLevel({
+      diseaseCategory: diseaseMap[r.disease_type] || r.diseaseCategory,
+      suspectedCases: Number(r.suspected_cases ?? r.suspectedCases ?? 1),
+      symptoms: Array.isArray(r.symptoms) ? r.symptoms : [],
+      ageGroup: r.age != null ? ageToGroup(Number(r.age)) : (r.ageGroup || '19-40'),
+      age: r.age != null ? Number(r.age) : undefined,
+      severity: r.severity,
+      risk_level: r.risk_level,
+    }),
     reportedBy: r.recorded_by_name || r.reportedBy || 'Staff Worker',
   };
 }
@@ -350,8 +359,15 @@ export const api = {
       MODERATE: 'MODERATE',
       SEVERE: 'SEVERE',
     };
-    const rawSeverity = String(record.severity || record.riskLevel || 'MODERATE').toUpperCase();
-    const severity = severityMap[rawSeverity] || 'MODERATE';
+    const calculatedRisk = evaluateHealthRiskLevel({
+      diseaseCategory: diseaseType,
+      suspectedCases: Number(record.suspectedCases || record.suspected_cases || 1),
+      symptoms: Array.isArray(record.symptoms) ? record.symptoms : [],
+      ageGroup: record.ageGroup,
+      age: Number(record.age || ageMap[record.ageGroup] || 25),
+    });
+    const rawSeverity = String(record.severity || record.riskLevel || '').toUpperCase();
+    const severity = severityMap[rawSeverity] || (calculatedRisk === 'critical' ? 'CRITICAL' : calculatedRisk === 'high' ? 'SEVERE' : calculatedRisk === 'medium' ? 'MODERATE' : 'MILD');
 
     const payload = {
       village: Number(record.villageId || record.village),

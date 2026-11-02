@@ -856,3 +856,91 @@ class PasswordResetOTP(models.Model):
     def __str__(self):
         status = 'USED' if self.is_used else ('EXPIRED' if timezone.now() >= self.expires_at else 'VALID')
         return f"OTP {self.otp} for {self.email} [{status}]"
+
+
+class EmergencyDispatch(models.Model):
+    """
+    Emergency response interventions dispatched by Health Authorities, including
+    Ambulance medical evacuations, Rapid Response Teams (RRT), and Mobile Water Treatment units.
+    """
+    DISPATCH_TYPE_CHOICES = (
+        ('AMBULANCE', 'Emergency Ambulance / Medical Evacuation'),
+        ('RAPID_RESPONSE_TEAM', 'District Rapid Response Team (RRT)'),
+        ('WATER_CHLORINATION_UNIT', 'Mobile Water Testing & Chlorination Unit'),
+        ('MEDICAL_RELIEF_CAMP', 'Temporary Medical Relief Camp'),
+    )
+
+    PRIORITY_CHOICES = (
+        ('STANDARD', 'Standard Deployment'),
+        ('HIGH', 'High Priority'),
+        ('CRITICAL', 'Critical Code-Red Emergency'),
+    )
+
+    STATUS_CHOICES = (
+        ('DISPATCHED', 'Dispatched / En Route'),
+        ('ON_SITE', 'On Site / Operating'),
+        ('RESOLVED', 'Completed / Resolved'),
+        ('CANCELLED', 'Cancelled'),
+    )
+
+    village = models.ForeignKey(
+        Village,
+        on_delete=models.CASCADE,
+        related_name='emergency_dispatches',
+        help_text="Target village where team/ambulance is deployed"
+    )
+    dispatch_type = models.CharField(
+        max_length=30,
+        choices=DISPATCH_TYPE_CHOICES,
+        default='AMBULANCE'
+    )
+    priority = models.CharField(
+        max_length=15,
+        choices=PRIORITY_CHOICES,
+        default='CRITICAL'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='DISPATCHED'
+    )
+    vehicle_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Ambulance or Unit vehicle number (e.g. UP-65-AMB-108)"
+    )
+    team_lead_name = models.CharField(
+        max_length=150,
+        help_text="Lead doctor, paramedic, or RRT coordinator name"
+    )
+    team_lead_phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="Emergency contact number of team lead / driver"
+    )
+    reason = models.TextField(
+        help_text="Medical reason, symptom description, or contamination threat justifying dispatch"
+    )
+    estimated_arrival_minutes = models.PositiveIntegerField(
+        default=30,
+        help_text="Estimated arrival time in minutes"
+    )
+    dispatched_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='dispatched_emergencies'
+    )
+    dispatched_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Emergency Dispatch'
+        verbose_name_plural = 'Emergency Dispatches'
+        ordering = ['-dispatched_at']
+
+    def __str__(self):
+        return f"[{self.get_priority_display()}] {self.get_dispatch_type_display()} -> {self.village.name} ({self.get_status_display()})"

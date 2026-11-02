@@ -14,6 +14,7 @@ from .models import (
     CommunityReport,
     Alert,
     AlertAcknowledgement,
+    EmergencyDispatch,
 )
 
 
@@ -209,6 +210,28 @@ class AquaCareRBACTestCase(TestCase):
         res_resolve = self.client.patch(f'/api/alerts/{alert_id}/resolve/')
         self.assertEqual(res_resolve.status_code, status.HTTP_200_OK)
         self.assertFalse(res_resolve.data['is_active'])
+
+    def test_alert_email_dispatch_to_authority(self):
+        """Creating an alert dispatches an email notification to active Authority users."""
+        from django.core import mail
+        mail.outbox.clear()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        payload = {
+            'village': self.village_a.id,
+            'title': 'Emergency Boil Water Notice',
+            'message': 'Severe bacterial contamination detected in handpump.',
+            'severity': 'CRITICAL',
+            'alert_type': 'BOIL_WATER_ADVISORY',
+            'target_audience': 'ALL',
+            'action_required': 'Boil all drinking water for at least 3 minutes.',
+        }
+        res = self.client.post('/api/alerts/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(len(mail.outbox) >= 1)
+        alert_email = mail.outbox[-1]
+        self.assertIn('Emergency Boil Water Notice', alert_email.subject)
+        self.assertIn(self.authority.email, alert_email.to)
 
     # ─── 3. Water Quality & Automatic WQI Calculation ────────────────
 
@@ -588,6 +611,50 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(res_resolve.status_code, status.HTTP_200_OK)
         self.assertEqual(res_resolve.data['is_active'], False)
         self.assertIsNotNone(res_resolve.data['resolved_at'])
+
+    def test_emergency_dispatch_workflow_by_authority(self):
+        """Authority can deploy ambulances/teams and update operational status."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        payload = {
+            'village': self.village_a.id,
+            'dispatch_type': 'AMBULANCE',
+            'priority': 'CRITICAL',
+            'vehicle_number': 'DL-01-AMB-99',
+            'team_lead_name': 'Dr. Sharma',
+            'team_lead_phone': '+91 99999 88888',
+            'reason': 'Cholera cluster evacuation',
+            'estimated_arrival_minutes': 20,
+            'notes': 'High priority deployment',
+        }
+        res = self.client.post('/api/dispatches/', payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        dispatch_id = res.data['id']
+        self.assertEqual(res.data['status'], 'DISPATCHED')
+        self.assertEqual(res.data['village_name'], self.village_a.name)
+
+        # Update status to ON_SITE
+        res_update = self.client.patch(
+            f'/api/dispatches/{dispatch_id}/status/',
+            {'status': 'ON_SITE', 'notes': 'Arrived at primary clinic.'},
+            format='json'
+        )
+        self.assertEqual(res_update.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_update.data['status'], 'ON_SITE')
+
+        # Update status to RESOLVED
+        res_resolved = self.client.patch(
+            f'/api/dispatches/{dispatch_id}/status/',
+            {'status': 'RESOLVED', 'notes': 'All patients transported safely.'},
+            format='json'
+        )
+        self.assertEqual(res_resolved.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_resolved.data['status'], 'RESOLVED')
+        self.assertIsNotNone(res_resolved.data['resolved_at'])
+
+        # Regular citizen cannot create dispatch
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_citizen}')
+        res_citizen = self.client.post('/api/dispatches/', payload, format='json')
+        self.assertEqual(res_citizen.status_code, status.HTTP_403_FORBIDDEN)
 
 
 

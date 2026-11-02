@@ -45,6 +45,10 @@ urlpatterns = [
     path('alerts/<int:pk>/resolve/', views.alert_resolve, name='alert-resolve'),
     path('alerts/<int:pk>/acknowledge/', views.alert_acknowledge, name='alert-acknowledge'),
 
+    # Emergency Response Dispatches (Ambulances, Rapid Response Teams)
+    path('dispatches/', views.emergency_dispatches_list_create, name='dispatches-list-create'),
+    path('dispatches/<int:pk>/status/', views.emergency_dispatch_update_status, name='dispatch-update-status'),
+
     # ML Risk Predictions (Module A: village water contamination, Module B: district outbreak)
     path('risk/water/', risk_views.water_risk_list, name='risk-water-list'),
     path('risk/water/<int:village_id>/history/', risk_views.water_risk_history, name='risk-water-history'),

@@ -1,15 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Users, Activity, Droplets, Beaker, Thermometer, AlertTriangle, Bell, Calendar } from 'lucide-react';
+import {
+  ArrowLeft,
+  Users,
+  Activity,
+  Droplets,
+  Beaker,
+  Thermometer,
+  AlertTriangle,
+  Bell,
+  Calendar,
+  Siren,
+  Truck,
+} from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState, ErrorState } from '@/components/ui/States';
 import { ChartCard } from '@/components/ui/ChartCard';
+import { DispatchModal } from '@/components/emergency/DispatchModal';
 import { api } from '@/services/api';
 import { riskConfig, timeAgo, formatDate } from '@/utils/risk';
-import type { Village, Alert, TrendPoint, HealthRecord, WaterQualityRecord } from '@/types';
+import type { Village, Alert, TrendPoint, HealthRecord, WaterQualityRecord, EmergencyDispatch } from '@/types';
 
 const diseaseColors: Record<string, string> = {
   Cholera: '#2563eb',
@@ -31,6 +44,10 @@ export function VillageDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // Emergency Dispatch Modal State
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [villageDispatches, setVillageDispatches] = useState<EmergencyDispatch[]>([]);
+
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -39,21 +56,25 @@ export function VillageDetailsPage() {
       api.getTrends(id, 30),
       api.getHealthRecords({ village_id: id }),
       api.getWaterQuality({ village_id: id }),
-    ]).then(([v, a, t, recs, wq]) => {
-      if (v) {
-        setVillage(v);
-        setAlerts(a);
-        setTrend(t);
-        setRecords(recs);
-        if (wq && wq.length > 0) setWaterSample(wq[0]);
-      } else {
+      api.getDispatches({ village_id: id }).catch(() => [] as EmergencyDispatch[]),
+    ])
+      .then(([v, a, t, recs, wq, dList]) => {
+        if (v) {
+          setVillage(v);
+          setAlerts(a);
+          setTrend(t);
+          setRecords(recs);
+          setVillageDispatches(dList || []);
+          if (wq && wq.length > 0) setWaterSample(wq[0]);
+        } else {
+          setError(true);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
         setError(true);
-      }
-      setLoading(false);
-    }).catch(() => {
-      setError(true);
-      setLoading(false);
-    });
+        setLoading(false);
+      });
   }, [id]);
 
   const diseaseDistribution = useMemo(() => {
@@ -77,19 +98,90 @@ export function VillageDetailsPage() {
   if (loading) return <LoadingState message="Loading village surveillance details..." />;
   if (error || !village) return <ErrorState message="Village not found." onRetry={() => navigate('/villages')} />;
 
+  const handleUpdateDispatchStatus = async (id: number, nextStatus: string) => {
+    try {
+      const updated = await api.updateDispatchStatus(id, nextStatus);
+      setVillageDispatches((prev) => prev.map((d) => (d.id === id ? updated : d)));
+    } catch (e) {
+      console.error('Failed to update dispatch status:', e);
+    }
+  };
+
+  const activeDispatches = villageDispatches.filter(
+    (d) => d.status !== 'RESOLVED' && d.status !== 'CANCELLED'
+  );
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title={village.name}
         subtitle={`${village.district}, ${village.state}`}
         breadcrumb={['Home', 'Villages', village.name]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <RiskBadge level={village.riskLevel} />
-            <button onClick={() => navigate('/villages')} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> Back</button>
+            <button
+              onClick={() => setShowDispatchModal(true)}
+              className="btn-primary bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm inline-flex items-center gap-1.5 font-semibold"
+            >
+              <Siren className="h-4 w-4" /> Dispatch Ambulance / Team
+            </button>
+            <button onClick={() => navigate('/villages')} className="btn-secondary">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
           </div>
         }
       />
+
+      {/* Active Emergency Deployment Banner */}
+      {activeDispatches.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50/70 p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Siren className="h-4 w-4 text-red-600 animate-pulse" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-red-950">
+                Active Emergency Deployment ({activeDispatches.length} Unit Active)
+              </h4>
+            </div>
+            <span className="badge bg-red-100 text-red-800 border border-red-200 font-bold text-[10px]">
+              Priority Intervention
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {activeDispatches.map((d) => (
+              <div key={d.id} className="rounded-lg border border-red-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="badge bg-red-100 text-red-700 text-[10px] font-bold">{d.priority_display}</span>
+                  <span className="text-xs font-semibold text-slate-800">{d.status_display}</span>
+                </div>
+                <p className="mt-1 text-xs font-bold text-slate-900">{d.dispatch_type_display}</p>
+                <p className="text-xs text-slate-600 mt-0.5">{d.reason}</p>
+                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Lead: {d.team_lead_name} ({d.team_lead_phone || 'N/A'})</span>
+                  <span className="font-bold text-slate-800">ETA: {d.estimated_arrival_minutes}m</span>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-dashed border-slate-100 flex items-center justify-end gap-1.5">
+                  {d.status === 'DISPATCHED' && (
+                    <button
+                      onClick={() => handleUpdateDispatchStatus(d.id, 'ON_SITE')}
+                      className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium text-[11px] border border-blue-200 transition-colors"
+                    >
+                      Mark On-Site
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleUpdateDispatchStatus(d.id, 'RESOLVED')}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-[11px] border border-emerald-200 transition-colors"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -111,7 +203,7 @@ export function VillageDetailsPage() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Health - Disease Distribution */}
         <ChartCard title="Health Surveillance" subtitle="Recorded cases by disease category">
           <ResponsiveContainer width="100%" height={240}>
@@ -151,52 +243,49 @@ export function VillageDetailsPage() {
               statusColor="text-risk-low"
             />
             <WaterMetric
-              icon={Activity}
+              icon={Droplets}
               label="TDS"
-              value={waterSample ? `${waterSample.tds} ppm` : '380 ppm'}
-              status="Recorded"
-              statusColor="text-risk-low"
+              value={waterSample ? `${waterSample.tds} ppm` : '210 ppm'}
+              status={waterSample && waterSample.tds > 500 ? 'Elevated' : 'Normal'}
+              statusColor={waterSample && waterSample.tds > 500 ? 'text-risk-critical' : 'text-risk-low'}
             />
           </div>
-        </div>
-
-        {/* Risk History */}
-        <ChartCard title="Risk Trend" subtitle="Calculated risk score progression">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem' }} />
-              <Line type="monotone" dataKey="riskScore" stroke="#ea580c" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Map */}
-        <ChartCard title="Village Location" subtitle="GPS Geographic Position">
-          <div className="h-48 overflow-hidden rounded-lg">
-            <MapContainer center={[village.lat, village.lng]} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-              <CircleMarker center={[village.lat, village.lng]} radius={12} pathOptions={{ color: riskConfig[village.riskLevel].hex, fillColor: riskConfig[village.riskLevel].hex, fillOpacity: 0.7 }}>
-                <Popup><p className="font-semibold">{village.name}</p><p className="text-xs">Risk: {village.riskScore}%</p></Popup>
-              </CircleMarker>
-            </MapContainer>
+          <div className="mt-4 flex justify-end">
+            <Link to="/water-quality" className="text-xs font-medium text-primary-600 hover:underline">View All Water Tests →</Link>
           </div>
-        </ChartCard>
+        </div>
       </div>
 
-      {/* Recent Alerts */}
-      <div className="card mt-6 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-slate-900">Active Advisories</h3>
+      {/* 30-Day Risk Trend */}
+      <ChartCard title="30-Day Risk & Case Trend" subtitle="Daily predicted risk score vs reported cases">
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={trend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+            <YAxis yAxisId="left" domain={[0, 100]} tick={{ fontSize: 11 }} />
+            <YAxis yAxisId="right" orientation="right" domain={[0, 10]} tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Legend />
+            <Line yAxisId="left" type="monotone" dataKey="riskScore" name="Risk Score (%)" stroke="#2563eb" strokeWidth={2} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="cases" name="Suspected Cases" stroke="#ea580c" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Active Alerts */}
+      <div className="card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-900">Active Advisories ({alerts.length})</h3>
+          <Link to="/alerts" className="text-xs font-medium text-primary-600 hover:underline">Manage All Alerts →</Link>
+        </div>
         {alerts.length === 0 ? (
-          <p className="text-sm text-slate-400">No active alerts reported for this village.</p>
+          <p className="text-sm text-slate-400">No active advisories for this village.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {alerts.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: riskConfig[a.severity].hex + '15' }}>
-                  <Bell className="h-4 w-4" style={{ color: riskConfig[a.severity].hex }} />
+              <div key={a.id} className="flex items-start gap-3 rounded-lg border border-slate-100 p-3">
+                <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md" style={{ backgroundColor: riskConfig[a.severity].bg }}>
+                  <Bell className="h-3.5 w-3.5" style={{ color: riskConfig[a.severity].hex }} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2"><RiskBadge level={a.severity} /></div>
@@ -210,7 +299,7 @@ export function VillageDetailsPage() {
       </div>
 
       {/* Health Records */}
-      <div className="card mt-6 p-5">
+      <div className="card p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Health Surveillance Records</h3>
           <Link to="/health/add" className="text-xs font-medium text-primary-600 hover:underline">+ Add Record</Link>
@@ -231,6 +320,14 @@ export function VillageDetailsPage() {
           </div>
         )}
       </div>
+
+      {/* Emergency Dispatch Modal */}
+      <DispatchModal
+        open={showDispatchModal}
+        onClose={() => setShowDispatchModal(false)}
+        initialVillageId={id}
+        onSuccess={(newD) => setVillageDispatches((prev) => [newD, ...prev])}
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import type {
   DiseaseCategory,
   Symptom,
   AgeGroup,
+  EmergencyDispatch,
 } from '@/types';
 
 // ─── Data Normalizers ────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export function normalizeAlert(a: any): Alert {
     villageId: String(a.village),
     villageName: a.village_name || `Village #${a.village}`,
     riskScore: sev === 'critical' ? 85 : sev === 'high' ? 70 : 45,
+    title: a.title || '',
     message: a.title ? `${a.title}: ${a.message}` : a.message || 'Water advisory active',
     factors: a.action_required ? [a.action_required] : (a.factors || ['Water testing alert']),
     detectedAt: a.created_at || new Date().toISOString(),
@@ -623,4 +625,19 @@ export const api = {
       recommendation: 'Increase water chlorine dosing and distribute advisory leaflets.',
     };
   },
+
+  // Emergency Dispatches (Ambulance / Rapid Response Teams)
+  getDispatches: async (params?: { village_id?: string; status?: string }): Promise<EmergencyDispatch[]> => {
+    const query = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
+    return authGet<EmergencyDispatch[]>(`/api/dispatches/${query}`);
+  },
+
+  createDispatch: async (data: any): Promise<EmergencyDispatch> => {
+    return authPost<EmergencyDispatch>('/api/dispatches/', data);
+  },
+
+  updateDispatchStatus: async (id: number, status: string, notes?: string): Promise<EmergencyDispatch> => {
+    return authPatch<EmergencyDispatch>(`/api/dispatches/${id}/status/`, { status, notes });
+  },
 };
+

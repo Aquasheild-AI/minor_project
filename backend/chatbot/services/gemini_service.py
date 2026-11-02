@@ -16,6 +16,45 @@ FALLBACK_MODELS = [
     'gemini-3.8-flash',
 ]
 
+LANGUAGE_NAMES = {
+    'hi': 'Hindi (हिन्दी)',
+    'en': 'English',
+    'te': 'Telugu (తెలుగు)',
+    'ta': 'Tamil (தமிழ்)',
+    'bn': 'Bengali (বাংলা)',
+    'mr': 'Marathi (मराठी)',
+    'gu': 'Gujarati (ગુજરાતી)',
+    'kn': 'Kannada (ಕನ್ನಡ)',
+    'ml': 'Malayalam (മലയാളം)',
+    'pa': 'Punjabi (ਪੰਜਾਬੀ)',
+    'or': 'Odia (ଓଡ଼ିଆ)',
+    'ur': 'Urdu (اردو)',
+    'as': 'Assamese (অসমীয়া)',
+    'es': 'Spanish (Español)',
+    'fr': 'French (Français)',
+    'de': 'German (Deutsch)',
+    'ar': 'Arabic (العربية)',
+    'ru': 'Russian (Русский)',
+    'pt': 'Portuguese (Português)',
+    'it': 'Italian (Italiano)',
+    'ja': 'Japanese (日本語)',
+    'zh': 'Chinese (中文)',
+    'ko': 'Korean (한국어)',
+    'tr': 'Turkish (Türkçe)',
+    'nl': 'Dutch (Nederlands)',
+    'id': 'Indonesian (Bahasa Indonesia)',
+    'fa': 'Persian (فارسی)',
+    'sw': 'Swahili (Kiswahili)',
+}
+
+def get_language_display_name(lang: str) -> str:
+    if not lang:
+        return 'English'
+    code = str(lang).lower().strip()
+    if code in LANGUAGE_NAMES:
+        return LANGUAGE_NAMES[code]
+    return str(lang).strip().capitalize()
+
 def get_api_key():
     load_dotenv(os.path.join(settings.BASE_DIR, '.env'))
     api_key = os.getenv('GEMINI_API_KEY')
@@ -27,25 +66,36 @@ def generate_chat_response(messages, system_instruction, context="", lang='en'):
     """
     Calls Gemini API with the given messages, system instruction, and language direction.
     Uses robust REST endpoint with fallback models and strict timeout.
+    Supports English, Hindi, and any specific requested regional or global language.
     """
     api_key = get_api_key()
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not set.")
 
     # Enhance system instruction with strict language enforcement
-    if lang == 'hi':
+    norm_lang = str(lang).lower().strip() if lang else 'en'
+    if norm_lang == 'hi':
         language_directive = (
             "\n\nCRITICAL LANGUAGE ENFORCEMENT:\n"
             "The user communicates in HINDI (हिन्दी).\n"
             "You MUST respond completely and naturally in HINDI using Devanagari script.\n"
             "Do NOT answer in English. All advice, explanations, and follow-up topics MUST be in Hindi.\n"
         )
-    else:
+    elif norm_lang == 'en':
         language_directive = (
             "\n\nCRITICAL LANGUAGE ENFORCEMENT:\n"
             "The user communicates in ENGLISH.\n"
             "You MUST respond in clear, simple English.\n"
             "All explanations and follow-up topics MUST be in English.\n"
+        )
+    else:
+        lang_display = get_language_display_name(norm_lang)
+        language_directive = (
+            f"\n\nCRITICAL LANGUAGE ENFORCEMENT:\n"
+            f"The user has requested to communicate in {lang_display.upper()}.\n"
+            f"You MUST respond completely, naturally, and fluently in {lang_display} using its standard native script/alphabet.\n"
+            f"Do NOT answer in English or Hindi unless specifically requested by the user.\n"
+            f"All health explanations, hydration/ORS advice, emergency warnings, and follow-up topics MUST be written in {lang_display}.\n"
         )
 
     full_system_instruction = f"{system_instruction.strip()}{language_directive}"

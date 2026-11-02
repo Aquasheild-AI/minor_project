@@ -29,6 +29,74 @@ class ChatbotServiceUnitTests(TestCase):
         lang2 = determine_language("talk in hindi please", [])
         self.assertEqual(lang2, 'hi')
 
+    def test_multilingual_language_request_detection(self):
+        # Spanish
+        self.assertEqual(determine_language("Can you speak in Spanish?", []), 'es')
+        self.assertEqual(determine_language("talk in spanish please", []), 'es')
+        self.assertEqual(determine_language("habla en español", []), 'es')
+
+        # Telugu
+        self.assertEqual(determine_language("talk in telugu", []), 'te')
+        self.assertEqual(determine_language("telugu lo cheppandi", []), 'te')
+
+        # Tamil
+        self.assertEqual(determine_language("talk in tamil", []), 'ta')
+        self.assertEqual(determine_language("tamil me baat karo", []), 'ta')
+
+        # Bengali
+        self.assertEqual(determine_language("talk in bengali", []), 'bn')
+        self.assertEqual(determine_language("bengali me baat karo", []), 'bn')
+
+        # Marathi
+        self.assertEqual(determine_language("talk in marathi", []), 'mr')
+        self.assertEqual(determine_language("मराठीत बोला", []), 'mr')
+
+        # French & German
+        self.assertEqual(determine_language("speak in french please", []), 'fr')
+        self.assertEqual(determine_language("switch to german", []), 'de')
+
+        # Arbitrary global language
+        self.assertEqual(determine_language("talk in polish", []), 'Polish')
+
+    def test_script_based_language_detection(self):
+        # Telugu script
+        self.assertEqual(determine_language("కలరా లక్షణాలు ఏమిటి?", []), 'te')
+        # Bengali script
+        self.assertEqual(determine_language("টাইফয়েডের প্রধান লক্ষণগুলি কী কী?", []), 'bn')
+        # Hindi Devanagari
+        self.assertEqual(determine_language("टाइफाइड के मुख्य लक्षण क्या हैं?", []), 'hi')
+
+    def test_multilingual_turn_persistence(self):
+        history = [
+            {"role": "user", "content": "Can you speak in Spanish?"},
+            {"role": "model", "content": "¡Hola! Ahora nos comunicaremos en español."}
+        ]
+        # Follow-up question inherits Spanish
+        lang_followup = determine_language("What are the symptoms of typhoid?", history)
+        self.assertEqual(lang_followup, 'es')
+
+        # Explicit switch to Telugu
+        history.append({"role": "user", "content": "Now talk in Telugu"})
+        history.append({"role": "model", "content": "నమస్కారం! ఇకపై నేను మీతో తెలుగులో మాట్లాడతాను."})
+        lang_telugu = determine_language("How to prepare ORS?", history)
+        self.assertEqual(lang_telugu, 'te')
+
+        # Explicit switch back to English
+        lang_en = determine_language("Switch back to English", history)
+        self.assertEqual(lang_en, 'en')
+
+    def test_offline_fallback_multilingual_spanish(self):
+        response = generate_offline_fallback("language_switch", "es", "talk in spanish", False)
+        self.assertIn("español", response.lower())
+        self.assertIn("aquashield", response.lower())
+        self.assertIn("---FOLLOW_UPS---", response)
+
+    def test_offline_fallback_multilingual_telugu(self):
+        response = generate_offline_fallback("language_switch", "te", "talk in telugu", False)
+        self.assertIn("తెలుగు", response)
+        self.assertIn("నమస్కారం", response)
+        self.assertIn("---FOLLOW_UPS---", response)
+
     def test_language_persistence_across_turns(self):
         history = [
             {"role": "user", "content": "हिंदी में बात करो"},
@@ -180,3 +248,30 @@ class ChatbotAPIE2ETests(TestCase):
         }, format='json')
         self.assertEqual(res2.status_code, status.HTTP_200_OK)
         self.assertEqual(res2.data["language"], "hi")
+
+    @patch('chatbot.services.chatbot_service.generate_chat_response')
+    def test_multilingual_api_spanish_turn_persistence(self, mock_gemini):
+        # Turn 1: Switch to Spanish
+        mock_gemini.return_value = (
+            "¡Hola! Claro, ahora hablaremos en español.\n"
+            "---FOLLOW_UPS---\n"
+            '[{"type": "topic", "label": "Síntomas del cólera", "value": "¿Cuáles son los síntomas del cólera?"}]'
+        )
+        self.client.force_authenticate(user=self.community_user)
+        res1 = self.client.post('/api/chatbot/chat/', {'message': 'Can you speak in Spanish please?'}, format='json')
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        self.assertEqual(res1.data["language"], "es")
+        conv_id = res1.data["conversation_id"]
+
+        # Turn 2: Follow-up question in Spanish
+        mock_gemini.return_value = (
+            "Los síntomas principales del cólera incluyen diarrea acuosa profusa y vómitos.\n"
+            "---FOLLOW_UPS---\n"
+            '[{"type": "topic", "label": "¿Cómo preparar suero oral?", "value": "¿Cómo preparar suero oral en casa?"}]'
+        )
+        res2 = self.client.post('/api/chatbot/chat/', {
+            'message': 'What are symptoms of cholera?',
+            'conversation_id': conv_id
+        }, format='json')
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertEqual(res2.data["language"], "es")

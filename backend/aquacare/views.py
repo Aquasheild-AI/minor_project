@@ -694,10 +694,11 @@ def manage_toggle_user(request, user_id):
     return Response(serializer.data)
 
 
-@api_view(['PATCH'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def manage_update_user(request, user_id):
     """
+    GET /api/manage/users/<id>/
     PATCH /api/manage/users/<id>/
     """
     if not _is_authority(request.user):
@@ -719,6 +720,9 @@ def manage_update_user(request, user_id):
             {'error': 'You can only manage Authority and Health Worker accounts.'},
             status=status.HTTP_403_FORBIDDEN,
         )
+
+    if request.method == 'GET':
+        return Response(UserSerializer(target).data)
 
     serializer = ProfileUpdateSerializer(target, data=request.data, partial=True, context={'request': request})
     if not serializer.is_valid():

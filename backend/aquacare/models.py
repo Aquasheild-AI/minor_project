@@ -471,6 +471,87 @@ class HealthRecord(models.Model):
             models.Index(fields=['severity']),
         ]
 
+    def calculate_risk_level(self):
+        """
+        Clinical & epidemiological risk evaluation returning:
+        'CRITICAL', 'HIGH', 'MEDIUM', 'LOW' (Safe)
+        """
+        score = 0
+        disease = (self.disease_type or '').upper()
+        if 'CHOLERA' in disease:
+            score += 35
+        elif 'TYPHOID' in disease:
+            score += 25
+        elif 'HEPATITIS' in disease:
+            score += 20
+        elif 'DYSENTERY' in disease:
+            score += 18
+        elif 'DIARRHEA' in disease or 'GASTROENTERITIS' in disease:
+            score += 10
+        else:
+            score += 5
+
+        cases = self.suspected_cases or 1
+        if cases >= 25:
+            score += 45
+        elif cases >= 10:
+            score += 30
+        elif cases >= 5:
+            score += 20
+        elif cases >= 3:
+            score += 12
+        elif cases == 2:
+            score += 5
+
+        symptoms = [str(s).lower() for s in (self.symptoms or [])]
+        if any('dehydration' in s for s in symptoms):
+            score += 15
+        if any('vomit' in s for s in symptoms):
+            score += 8
+        if any('fever' in s for s in symptoms):
+            score += 6
+        if any('blood' in s or 'dysentery' in s for s in symptoms):
+            score += 15
+        if any('shock' in s or 'unconscious' in s for s in symptoms):
+            score += 25
+        if any('pain' in s or 'cramp' in s or 'abdominal' in s for s in symptoms):
+            score += 4
+        if any('headache' in s for s in symptoms):
+            score += 2
+
+        age = self.age if self.age is not None else 25
+        if age <= 5:
+            score += 15
+        elif age >= 60:
+            score += 12
+        elif age <= 12:
+            score += 6
+
+        if self.severity == 'CRITICAL':
+            score = max(score, 75)
+        elif self.severity == 'SEVERE':
+            score = max(score, 50)
+
+        if score >= 70:
+            return 'CRITICAL'
+        elif score >= 45:
+            return 'HIGH'
+        elif score >= 20:
+            return 'MEDIUM'
+        return 'LOW'
+
+    def save(self, *args, **kwargs):
+        if not self.pk and self.severity == 'MODERATE':
+            computed = self.calculate_risk_level()
+            mapping = {
+                'CRITICAL': 'CRITICAL',
+                'HIGH': 'SEVERE',
+                'MEDIUM': 'MODERATE',
+                'LOW': 'MILD',
+            }
+            self.severity = mapping.get(computed, 'MODERATE')
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.get_disease_type_display()} ({self.village.name}) - {self.date_recorded.strftime('%Y-%m-%d')}"
 

@@ -85,7 +85,7 @@ export function WorkerHealthRecordsPage() {
           </select>
           <select value={riskFilter} onChange={(e) => { setRiskFilter(e.target.value); setPage(1); }} className="input">
             <option value="">All Risk Levels</option>
-            <option value="low">Low</option>
+            <option value="low">Safe</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>

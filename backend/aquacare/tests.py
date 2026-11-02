@@ -131,6 +131,7 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(res.data['patient_name'], 'Suresh')
         self.assertEqual(HealthRecord.objects.count(), 1)
         self.assertEqual(HealthRecord.objects.first().recorded_by, self.worker)
+        self.assertIn(res.data.get('risk_level'), ['HIGH', 'CRITICAL'])
 
     def test_health_worker_cannot_log_case_in_unassigned_village(self):
         """Health worker assigned to Village A cannot log cases for Village B."""

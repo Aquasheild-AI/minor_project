@@ -43,7 +43,7 @@
     "english": "English",
     "hindi": "हिंदी",
     "riskLevels": {
-      "low": "Low",
+      "low": "Safe",
       "medium": "Medium",
       "high": "High",
       "critical": "Critical",

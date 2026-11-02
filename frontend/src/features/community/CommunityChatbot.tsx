@@ -32,6 +32,7 @@ interface Message {
   content: string;
   intent?: string;
   warning?: boolean;
+  language?: string;
   followUpQuestions?: FollowUp[];
 }
 
@@ -156,6 +157,7 @@ export function CommunityChatbot() {
         content: response.response,
         intent: response.intent,
         warning: response.warning,
+        language: response.language,
         followUpQuestions: response.follow_up_questions,
       };
 
@@ -420,7 +422,7 @@ export function CommunityChatbot() {
                     speakingMessageId={speakingMessageId}
                     isPlaying={isPlaying}
                     isPaused={isPaused}
-                    onSpeak={(id, text) => speak(id, text, i18n.language)}
+                    onSpeak={(id, text) => speak(id, text, i18n.language, msg.language)}
                     onPause={pause}
                     onResume={resume}
                     onStop={stopSpeaking}

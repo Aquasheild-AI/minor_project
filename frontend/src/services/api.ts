@@ -24,6 +24,7 @@ import type {
   Symptom,
   AgeGroup,
   EmergencyDispatch,
+  DispatchStatus,
 } from '@/types';
 
 // ─── Data Normalizers ────────────────────────────────────────────────
@@ -110,6 +111,10 @@ export function normalizeHealthRecord(r: any): HealthRecord {
       risk_level: r.risk_level,
     }),
     reportedBy: r.recorded_by_name || r.reportedBy || 'Staff Worker',
+    treatment: r.treatment_administered || r.treatment || '',
+    notes: r.notes || '',
+    patientName: r.patient_name || '',
+    patientIdentifier: r.patient_identifier || '',
   };
 }
 
@@ -953,7 +958,7 @@ export const api = {
     }
   },
 
-  updateDispatchStatus: async (id: number, status: string, notes?: string): Promise<EmergencyDispatch> => {
+  updateDispatchStatus: async (id: number, status: DispatchStatus | string, notes?: string): Promise<EmergencyDispatch> => {
     try {
       return await authPatch<EmergencyDispatch>(`/api/dispatches/${id}/status/`, { status, notes });
     } catch {
@@ -963,7 +968,7 @@ export const api = {
         village_name: 'Rampur',
         dispatch_type: 'AMBULANCE',
         priority: 'CRITICAL',
-        status,
+        status: status as DispatchStatus,
         notes,
         dispatched_at: new Date().toISOString(),
       };

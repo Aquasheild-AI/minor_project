@@ -9,13 +9,16 @@ import {
   AlertTriangle,
   ArrowRight,
   Info,
+  Download,
 } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
+import { DownloadReportModal } from '@/components/reports/DownloadReportModal';
+import { api } from '@/services/api';
 import { communityApi, type CommunityAlert } from '@/services/communityApi';
 import { useAuth } from '@/hooks/useAuth';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village } from '@/types';
+import type { Village, HealthRecord } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityHome() {
@@ -24,6 +27,25 @@ export function CommunityHome() {
   const [village, setVillage] = useState<Village | null>(null);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDownload, setShowDownload] = useState(false);
+  const [records, setRecords] = useState<HealthRecord[]>([]);
+  const [communityReports, setCommunityReports] = useState<any[]>([]);
+
+  const handleDownload = async () => {
+    setShowDownload(true);
+    if (village?.id) {
+      try {
+        const [data, cr] = await Promise.all([
+          records.length === 0 ? api.getHealthRecords({ village_id: village.id }).catch(() => []) : Promise.resolve(records),
+          communityReports.length === 0 ? communityApi.getReports().catch(() => []) : Promise.resolve(communityReports),
+        ]);
+        setRecords(data);
+        setCommunityReports(cr.filter((r) => !village.name || r.villageName === village.name));
+      } catch (err) {
+        console.warn('Could not load specific health records for village', err);
+      }
+    }
+  };
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -55,14 +77,25 @@ export function CommunityHome() {
       </div>
 
       {/* Village selector */}
-      <div className="mb-6 flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <div>
           <p className="text-sm font-semibold text-slate-900">{village.name} {t('common.village')}</p>
           <p className="text-xs text-slate-500">{t('common.district')}: {village.district}</p>
         </div>
-        <button onClick={() => navigate('/community/profile')} className="btn-secondary text-xs">
-          {t('community.changeVillage')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="btn-secondary text-xs inline-flex items-center gap-1.5"
+            title="Download Health Report"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Download PDF Report</span>
+          </button>
+          <button onClick={() => navigate('/community/profile')} className="btn-secondary text-xs">
+            {t('community.changeVillage')}
+          </button>
+        </div>
       </div>
 
       {/* Alert Banner */}
@@ -234,6 +267,13 @@ export function CommunityHome() {
           </div>
         </div>
       )}
+      <DownloadReportModal
+        open={showDownload}
+        onClose={() => setShowDownload(false)}
+        village={village}
+        records={records}
+        title={`${village.name} Health Surveillance Report`}
+      />
     </div>
   );
 }

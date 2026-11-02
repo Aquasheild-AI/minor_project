@@ -63,6 +63,8 @@ export interface HealthRecord {
   reportedBy: string;
   treatment?: string;
   notes?: string;
+  patientName?: string;
+  patientIdentifier?: string;
 }
 
 export interface WaterQualityRecord {
@@ -133,6 +135,7 @@ export interface User {
 
 export interface TrendPoint {
   date: string;
+  full_date?: string;
   cases: number;
   riskScore: number;
   ph: number;
@@ -262,7 +265,7 @@ export interface ApiVillage {
 }
 
 
-export type DispatchType = 'AMBULANCE' | 'RAPID_RESPONSE_TEAM' | 'WATER_CHLORINATION_UNIT' | 'MEDICAL_RELIEF_CAMP';
+export type DispatchType = 'AMBULANCE' | 'RAPID_RESPONSE_TEAM' | 'WATER_CHLORINATION_UNIT' | 'MEDICAL_RELIEF_CAMP' | 'MOBILE_MEDICAL_UNIT';
 export type DispatchPriority = 'STANDARD' | 'HIGH' | 'CRITICAL';
 export type DispatchStatus = 'DISPATCHED' | 'ON_SITE' | 'RESOLVED' | 'CANCELLED';
 
@@ -270,18 +273,18 @@ export interface EmergencyDispatch {
   id: number;
   village: number;
   village_name: string;
-  district: string;
+  district?: string;
   dispatch_type: DispatchType;
-  dispatch_type_display: string;
+  dispatch_type_display?: string;
   priority: DispatchPriority;
-  priority_display: string;
+  priority_display?: string;
   status: DispatchStatus;
-  status_display: string;
+  status_display?: string;
   vehicle_number?: string;
-  team_lead_name: string;
+  team_lead_name?: string;
   team_lead_phone?: string;
-  reason: string;
-  estimated_arrival_minutes: number;
+  reason?: string;
+  estimated_arrival_minutes?: number;
   dispatched_by_name?: string;
   dispatched_at: string;
   resolved_at?: string;

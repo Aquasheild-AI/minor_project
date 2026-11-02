@@ -11,6 +11,12 @@ export interface CommunityReport {
   ageGroup?: string;
   notes?: string;
   status: 'submitted' | 'under_review' | 'reviewed';
+  reporterName?: string;
+  reporterPhone?: string;
+  waterSourceName?: string;
+  waterIssueObserved?: string;
+  reviewNotes?: string;
+  reviewedAt?: string;
 }
 
 export interface CommunityAlert extends Alert {
@@ -80,6 +86,12 @@ function normalizeCommunityReport(r: any): CommunityReport {
     ageGroup: r.age_group_display || ageLabels[r.age_group] || r.age_group || 'All Ages',
     notes: r.description || r.notes || '',
     status: statusMap[r.status] || 'submitted',
+    reporterName: r.reporter_name || '',
+    reporterPhone: r.reporter_phone || '',
+    waterSourceName: r.water_source_name || '',
+    waterIssueObserved: r.water_issue_observed || '',
+    reviewNotes: r.review_notes || '',
+    reviewedAt: r.reviewed_at ? r.reviewed_at.split('T')[0] : '',
   };
 }
 

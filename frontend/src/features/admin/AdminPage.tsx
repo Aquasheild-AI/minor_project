@@ -16,6 +16,7 @@ import {
   Mail,
   CheckCircle2,
   Lock,
+  Download,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Table } from '@/components/ui/Table';
@@ -23,9 +24,11 @@ import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
+import { DownloadReportModal } from '@/components/reports/DownloadReportModal';
 import { authGet, authPost, authPatch } from '@/services/authFetch';
 import { api } from '@/services/api';
-import type { Village } from '@/types';
+import { communityApi, type CommunityReport } from '@/services/communityApi';
+import type { Village, HealthRecord } from '@/types';
 
 interface DjangoUser {
   id: number;
@@ -112,6 +115,31 @@ export function AdminPage() {
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Health Records Report Download State
+  const [showHealthReportModal, setShowHealthReportModal] = useState(false);
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
+  const [communityReports, setCommunityReports] = useState<CommunityReport[]>([]);
+  const [loadingReport, setLoadingReport] = useState(false);
+
+  const handleOpenHealthReport = async () => {
+    setShowHealthReportModal(true);
+    if (healthRecords.length === 0 || communityReports.length === 0) {
+      setLoadingReport(true);
+      try {
+        const [records, cReports] = await Promise.all([
+          api.getHealthRecords().catch(() => []),
+          communityApi.getReports().catch(() => []),
+        ]);
+        setHealthRecords(records);
+        setCommunityReports(cReports);
+      } catch (err) {
+        console.error('Failed to fetch records for report', err);
+      } finally {
+        setLoadingReport(false);
+      }
+    }
+  };
 
   // Feedback Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -337,15 +365,26 @@ export function AdminPage() {
         subtitle="Manage field personnel, assign surveillance jurisdictions, and provision Health Worker accounts."
         breadcrumb={['Home', 'Administration']}
         actions={
-          <button
-            onClick={() => {
-              setAddError(null);
-              setShowAdd(true);
-            }}
-            className="btn-primary inline-flex items-center gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Create Health Worker Account
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenHealthReport}
+              className="btn-secondary inline-flex items-center gap-1.5"
+              title="Download health surveillance report"
+            >
+              <Download className="h-4 w-4" /> Download PDF Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddError(null);
+                setShowAdd(true);
+              }}
+              className="btn-primary inline-flex items-center gap-1.5"
+            >
+              <Plus className="h-4 w-4" /> Create Health Worker Account
+            </button>
+          </div>
         }
       />
 
@@ -724,6 +763,17 @@ export function AdminPage() {
       </Modal>
 
       {/* ────────────────────────────────────────────────────────── */}
+      {/* HEALTH & CITIZEN REPORT DOWNLOAD MODAL (AUTHORITY ARCHIVE)  */}
+      {/* ────────────────────────────────────────────────────────── */}
+      <DownloadReportModal
+        open={showHealthReportModal}
+        onClose={() => setShowHealthReportModal(false)}
+        records={healthRecords}
+        communityReports={communityReports}
+        title="Download Public Health & Citizen Surveillance Report (PDF)"
+      />
+
+      {/* ────────────────────────────────────────────────────────── */}
       {/* 2. SEE / VIEW HEALTH WORKER DETAILS MODAL                  */}
       {/* ────────────────────────────────────────────────────────── */}
       <Modal
@@ -732,6 +782,7 @@ export function AdminPage() {
         title="Health Worker Profile & Details"
         size="md"
       >
+
         {viewUser && (
           <div className="space-y-5">
             {/* User Header Profile Card */}

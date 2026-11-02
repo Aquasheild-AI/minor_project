@@ -31,6 +31,45 @@ Example follow-up format:
 
 # ─── Language Detection & Persistence ────────────────────────────────────────
 
+LANGUAGE_CATALOG = {
+    'hi': {'name': 'Hindi', 'native': 'हिन्दी', 'aliases': ['hindi', 'hindustani', 'हिंदी', 'हिन्दी']},
+    'en': {'name': 'English', 'native': 'English', 'aliases': ['english', 'angrezi', 'angreji', 'अंग्रेजी']},
+    'te': {'name': 'Telugu', 'native': 'తెలుగు', 'aliases': ['telugu', 'telegu', 'తెలుగు', 'तेलुगु', 'तेलगु']},
+    'ta': {'name': 'Tamil', 'native': 'தமிழ்', 'aliases': ['tamil', 'thamizh', 'தமிழ்', 'तमिल']},
+    'bn': {'name': 'Bengali', 'native': 'বাংলা', 'aliases': ['bengali', 'bangla', 'বাংলা', 'बंगाली', 'बांग्ला']},
+    'mr': {'name': 'Marathi', 'native': 'मराठी', 'aliases': ['marathi', 'मराठी']},
+    'gu': {'name': 'Gujarati', 'native': 'ગુજરાતી', 'aliases': ['gujarati', 'gujrati', 'ગુજરાતી', 'गुजराती']},
+    'kn': {'name': 'Kannada', 'native': 'ಕನ್ನಡ', 'aliases': ['kannada', 'kanada', 'ಕನ್ನಡ', 'कन्नड़']},
+    'ml': {'name': 'Malayalam', 'native': 'മലയാളം', 'aliases': ['malayalam', 'മലയാളം', 'मलयालम']},
+    'pa': {'name': 'Punjabi', 'native': 'ਪੰਜਾਬੀ', 'aliases': ['punjabi', 'panjabi', 'ਪੰਜਾਬੀ', 'पंजाबी']},
+    'or': {'name': 'Odia', 'native': 'ଓଡ଼ିଆ', 'aliases': ['odia', 'oriya', 'ଓଡ଼ିଆ', 'ओड़िया', 'उड़िया']},
+    'ur': {'name': 'Urdu', 'native': 'اردو', 'aliases': ['urdu', 'اردو', 'उर्दू']},
+    'as': {'name': 'Assamese', 'native': 'অসমীয়া', 'aliases': ['assamese', 'asamiya', 'অসমীয়া', 'असमिया']},
+    'es': {'name': 'Spanish', 'native': 'Español', 'aliases': ['spanish', 'espanol', 'español', 'castellano', 'स्पैनिश', 'स्पेनिश']},
+    'fr': {'name': 'French', 'native': 'Français', 'aliases': ['french', 'francais', 'français', 'फ्रेंच']},
+    'de': {'name': 'German', 'native': 'Deutsch', 'aliases': ['german', 'deutsch', 'जर्मन']},
+    'ar': {'name': 'Arabic', 'native': 'العربية', 'aliases': ['arabic', 'arab', 'العربية', 'عربي', 'अरबी']},
+    'ru': {'name': 'Russian', 'native': 'Русский', 'aliases': ['russian', 'русский', 'रूसी']},
+    'pt': {'name': 'Portuguese', 'native': 'Português', 'aliases': ['portuguese', 'portugues', 'português', 'पुर्तगाली']},
+    'it': {'name': 'Italian', 'native': 'Italiano', 'aliases': ['italian', 'italiano', 'इतालवी']},
+    'ja': {'name': 'Japanese', 'native': '日本語', 'aliases': ['japanese', 'nihongo', '日本語', 'जापानी']},
+    'zh': {'name': 'Chinese', 'native': '中文', 'aliases': ['chinese', 'mandarin', 'zhongwen', '中文', 'चीनी']},
+    'ko': {'name': 'Korean', 'native': '한국어', 'aliases': ['korean', 'hangul', '한국어', 'कोरियाई']},
+    'tr': {'name': 'Turkish', 'native': 'Türkçe', 'aliases': ['turkish', 'turkce', 'türkçe', 'तुर्की']},
+    'sw': {'name': 'Swahili', 'native': 'Kiswahili', 'aliases': ['swahili', 'kiswahili']},
+}
+
+def resolve_language_identifier(text: str):
+    if not text:
+        return None
+    w = str(text).strip().lower()
+    for code, info in LANGUAGE_CATALOG.items():
+        if w == code or w == info['name'].lower() or w in [a.lower() for a in info['aliases']]:
+            return code
+    if len(w) >= 3 and w.isalpha():
+        return w.capitalize()
+    return None
+
 def is_devanagari(text: str) -> bool:
     return bool(re.search(r'[\u0900-\u097F]', text or ''))
 
@@ -48,41 +87,123 @@ def is_explicit_hindi_request(text: str) -> bool:
 def is_explicit_english_request(text: str) -> bool:
     t = (text or '').lower().strip()
     patterns = [
-        'talk in english', 'speak in english', 'switch to english', 'in english',
-        'english please', 'english me baat karo', 'english me bolo', 'english mein bolo',
-        'अंग्रेजी में बात करो', 'अंग्रेजी में बोलो', 'english only'
+        'talk in english', 'speak in english', 'switch to english', 'switch back to english',
+        'in english', 'english please', 'english me baat karo', 'english me bolo',
+        'english mein bolo', 'अंग्रेजी में बात करो', 'अंग्रेजी में बोलो', 'english only'
     ]
     return any(p in t for p in patterns)
+
+def detect_explicit_language_request(text: str):
+    """
+    Detects if the user requested a specific language across English, Hindi,
+    Indian regional languages, or any global language.
+    """
+    t = (text or '').strip().lower()
+    if not t:
+        return None
+
+    if is_explicit_hindi_request(t):
+        return 'hi'
+    if is_explicit_english_request(t):
+        return 'en'
+
+    # Native/regional switch phrases
+    if any(p in t for p in ['habla en español', 'hablemos en español', 'en español']):
+        return 'es'
+    if any(p in t for p in ['parle en français', 'parlez en français', 'en français']):
+        return 'fr'
+    if any(p in t for p in ['sprechen sie deutsch', 'auf deutsch']):
+        return 'de'
+    if any(p in t for p in ['తెలుగులో మాట్లాడు', 'తెలుగులో మాట్లాడండి', 'తెలుగులో చెప్పు', 'తెలుగులో చెప్పండి']):
+        return 'te'
+    if any(p in t for p in ['தமிழில் பேசுங்கள்', 'தமிழில் சொல்லுங்கள்']):
+        return 'ta'
+    if any(p in t for p in ['বাংলায় বলুন', 'বাংলায় কথা বলুন']):
+        return 'bn'
+    if any(p in t for p in ['मराठीत बोला', 'मराठी मध्ये बोला', 'मराठीत सांगा']):
+        return 'mr'
+    if any(p in t for p in ['ગુજરાતીમાં બોલો', 'ગુજરાતીમાં વાત કરો']):
+        return 'gu'
+
+    patterns = [
+        r'(?:talk|speak|chat|reply|answer|communicate|write|respond)\s+(?:to\s+me\s+)?in\s+([a-zA-Z\u00C0-\u024F\u0900-\u097F]+)',
+        r'(?:switch|change)\s+(?:(?:the\s+)?language\s+to\s+|back\s+to\s+|to\s+)([a-zA-Z\u00C0-\u024F\u0900-\u097F]+)',
+        r'(?:can\s+you\s+)?(?:speak|talk)\s+([a-zA-Z\u00C0-\u024F]+)',
+        r'\bin\s+([a-zA-Z\u00C0-\u024F]+)\s+please\b',
+        r'\b([a-zA-Z\u00C0-\u024F]+)\s+please\b',
+        r'\b([a-zA-Z\u00C0-\u024F]+)\s+only\b',
+        r'\b([a-zA-Z\u00C0-\u024F]+)\s+(?:me|mein)\s+(?:baat\s+karo|bolo|bataye|samjhao|likho)',
+        r'\b([a-zA-Z\u00C0-\u024F]+)\s+(?:lo|la|te|dalli|il)\s+(?:cheppandi|matladandi|pesunga|bolun|samsarikku|heli|katha\s+kuhantu)',
+        r'([\u0900-\u097F]+)\s+में\s+(?:बात\s+करो|बोलो|बताइए|बताओ|लिखिए)',
+    ]
+    for p in patterns:
+        m = re.search(p, t, re.I)
+        if m:
+            candidate = resolve_language_identifier(m.group(1))
+            if candidate:
+                return candidate
+    return None
+
+def detect_script_language(text: str):
+    """
+    Detects language based on non-Latin Unicode script ranges.
+    """
+    if not text:
+        return None
+    if re.search(r'[\u0C00-\u0C7F]', text): return 'te' # Telugu
+    if re.search(r'[\u0B80-\u0BFF]', text): return 'ta' # Tamil
+    if re.search(r'[\u0980-\u09FF]', text): return 'bn' # Bengali / Assamese
+    if re.search(r'[\u0A80-\u0AFF]', text): return 'gu' # Gujarati
+    if re.search(r'[\u0A00-\u0A7F]', text): return 'pa' # Gurmukhi / Punjabi
+    if re.search(r'[\u0C80-\u0CFF]', text): return 'kn' # Kannada
+    if re.search(r'[\u0D00-\u0D7F]', text): return 'ml' # Malayalam
+    if re.search(r'[\u0B00-\u0B7F]', text): return 'or' # Odia
+    if re.search(r'[\u0600-\u06FF]', text): return 'ur' # Arabic / Urdu
+    if re.search(r'[\u0400-\u04FF]', text): return 'ru' # Cyrillic
+    if re.search(r'[\u3040-\u30FF]', text): return 'ja' # Japanese
+    if re.search(r'[\uAC00-\uD7AF]', text): return 'ko' # Korean
+    if re.search(r'[\u0900-\u097F]', text):
+        marathi_markers = ['आहे', 'नाही', 'कसे', 'करावे', 'सांगा', 'लक्षणे', 'मराठी', 'पाणी']
+        if any(w in text for w in marathi_markers):
+            return 'mr'
+        return 'hi' # Priority default for Devanagari is Hindi
+    return None
 
 def determine_language(user_message: str, history: list, user_pref: str = None) -> str:
     """
     Determines conversation language with turn-by-turn persistence.
+    English and Hindi are priority default languages, but any specific requested
+    or detected language is fully supported and maintained across turns.
     """
     msg = user_message or ''
-    # 1. Current message explicit switch
-    if is_explicit_hindi_request(msg):
-        return 'hi'
-    if is_explicit_english_request(msg):
-        return 'en'
 
-    # 2. Devanagari script in current message
-    if is_devanagari(msg):
-        return 'hi'
+    # 1. Current message explicit switch request
+    explicit_lang = detect_explicit_language_request(msg)
+    if explicit_lang:
+        return explicit_lang
 
-    # 3. Check recent conversation history for established language
-    for item in reversed(history[-6:]):
+    # 2. Distinct non-Latin script in current message
+    script_lang = detect_script_language(msg)
+    if script_lang:
+        return script_lang
+
+    # 3. Check recent conversation history for established language persistence
+    for item in reversed(history[-10:]):
         content = item.get('content', '')
-        if is_explicit_hindi_request(content) or is_devanagari(content):
-            # Maintain Hindi unless user explicitly asked for English
-            if not is_explicit_english_request(msg):
-                return 'hi'
-        if is_explicit_english_request(content):
-            return 'en'
+        h_explicit = detect_explicit_language_request(content)
+        if h_explicit:
+            return h_explicit
+        h_script = detect_script_language(content)
+        if h_script:
+            return h_script
 
-    # 4. Fallback to user profile preference
-    if user_pref and str(user_pref).lower().startswith('hi'):
-        return 'hi'
+    # 4. Fallback to user profile preference if non-English
+    if user_pref and str(user_pref).strip().lower() not in ['en', 'none', '']:
+        resolved_pref = resolve_language_identifier(str(user_pref))
+        if resolved_pref:
+            return resolved_pref
 
+    # 5. Default English
     return 'en'
 
 
@@ -90,15 +211,14 @@ def determine_language(user_message: str, history: list, user_pref: str = None) 
 
 def detect_intent_and_context(user_message: str, kb: KnowledgeBase, lang: str):
     """
-    Bilingual heuristic intent detection and knowledge base grounding.
+    Bilingual & multilingual heuristic intent detection and knowledge base grounding.
     """
     msg_lower = (user_message or '').lower().strip()
 
     # 0. Language Switch intent
-    if is_explicit_hindi_request(user_message):
-        return "language_switch", "User explicitly requested to switch to Hindi."
-    if is_explicit_english_request(user_message):
-        return "language_switch", "User explicitly requested to switch to English."
+    explicit_switch = detect_explicit_language_request(user_message)
+    if explicit_switch:
+        return "language_switch", f"User explicitly requested to switch language to {lang}."
 
     # 1. ORS Preparation & Usage
     ors_keywords = [
@@ -192,11 +312,197 @@ def detect_intent_and_context(user_message: str, kb: KnowledgeBase, lang: str):
 
 # ─── Context-Aware Offline Fallback Generator ─────────────────────────────────
 
+MULTILINGUAL_GREETINGS = {
+    'es': {
+        'greeting': (
+            "¡Hola! Ahora nos comunicaremos en español. Soy tu Asistente de Salud Comunitaria de AquaShield.\n\n"
+            "Puedes preguntarme sobre enfermedades transmitidas por el agua (como tifoidea, cólera, diarrea), "
+            "preparación de suero oral (SRO/ORS), purificación de agua o cuándo acudir a un centro de salud.\n"
+            "¿En qué puedo ayudarte hoy?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "Síntomas de la tifoidea", "value": "¿Cuáles son los síntomas de la tifoidea?"},
+            {"type": "topic", "label": "¿Cómo preparar suero oral (SRO)?", "value": "¿Cómo preparar suero oral en casa?"}
+        ]
+    },
+    'te': {
+        'greeting': (
+            "నమస్కారం! ఇకపై నేను మీతో తెలుగులో మాట్లాడతాను. నేను మీ ఆక్వాషీಲ್డ్ కమ్యూనిటీ హెల్త్ అసిస్టెంట్‌ని.\n\n"
+            "నీటి ద్వారా సంక్రమించే వ్యాధులు (టైఫాయిడ్, కలరా, అతిసారం), ఇంట్లోనే ఓఆర్ఎస్ (ORS) ద్రావణం తయారీ, "
+            "తాగునీటి శుద్ధీకరణ లేదా ప్రాథమిక ఆరోగ్య కేంద్రాన్ని (PHC) ఎప్పుడు సంప్రదించాలి అనే విషయాలపై మీరు నన్ను అడగవచ్చు.\n"
+            "చెప్పండి, నేను మీకు ఎలా సహాయపడగలను?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "టైఫాయిడ్ ముఖ్య లక్షణాలు", "value": "టైఫాయిడ్ ముఖ్య లక్షణాలు ఏమిటి?"},
+            {"type": "topic", "label": "ఓఆర్ఎస్ ఎలా తయారు చేయాలి?", "value": "ఇంట్లోనే ఓఆర్ఎస్ ఎలా తయారు చేయాలి?"}
+        ]
+    },
+    'ta': {
+        'greeting': (
+            "வணக்கம்! இனி நான் உங்களுடன் தமிழில் பேசுவேன். நான் உங்கள் அக்வாஷீல்ட் சுகாதார உதவியாளர்.\n\n"
+            "நீரினால் பரவும் நோய்கள் (டைபாய்டு, காலரா, வயிற்றுப்போக்கு), வீட்டில் ஓ.ஆர்.எஸ் (ORS) தயாரிக்கும் முறை, "
+            "பாதுகாப்பான குடிநீர் அல்லது ஆரம்ப சுகாதார நிலையத்தை (PHC) எப்போது அணுக வேண்டும் என்பது பற்றி நீங்கள் கேட்கலாம்.\n"
+            "நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "டைபாய்டு அறிகுறிகள்", "value": "டைபாய்டு காய்ச்சலின் முக்கிய அறிகுறிகள் என்ன?"},
+            {"type": "topic", "label": "ஓ.ஆர்.எஸ் தயாரிப்பது எப்படி?", "value": "வீட்டில் ஓ.ஆர்.எஸ் தயாரிப்பது எப்படி?"}
+        ]
+    },
+    'bn': {
+        'greeting': (
+            "নমস্কার! এখন থেকে আমি আপনার সাথে বাংলায় কথা বলব। আমি আপনার অ্যাকোয়াশিল্ড কমিউনিটি হেলথ অ্যাসিস্ট্যান্ট।\n\n"
+            "আপনি আমাকে পানিবাহিত রোগ (যেমন টাইফয়েড, কলেরা, ডায়রিয়া), বাড়িতে ওআরএস (ORS) তৈরি, "
+            "নিরাপদ পানীয় জল বা কখন স্বাস্থ্যকর্মীর পরামর্শ নেওয়া উচিত সে সম্পর্কে প্রশ্ন করতে পারেন।\n"
+            "আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "টাইফয়েডের প্রধান লক্ষণ", "value": "টাইফয়েডের প্রধান লক্ষণগুলি কী কী?"},
+            {"type": "topic", "label": "ওআরএস তৈরির নিয়ম", "value": "বাড়িতে ওআরএস কীভাবে তৈরি করবেন?"}
+        ]
+    },
+    'mr': {
+        'greeting': (
+            "नमस्कार! आता मी तुमच्याशी मराठीत बोलेन. मी तुमचा ॲक्वाशील्ड कम्युनिटी हेल्थ असिस्टंट आहे.\n\n"
+            "तुम्ही मला जलजन्य आजार (जसे टायफॉइड, कॉलरा, जुलाब), ओआरएस (ORS) द्रावण बनवण्याची पद्धत, "
+            "पिण्याचे पाणी शुद्ध करणे किंवा प्राथमिक आरोग्य केंद्राशी (PHC) संपर्क कधी साधावा याबद्दल प्रश्न विचारू शकता.\n"
+            "आज मी तुम्हाला काय मदत करू शकेन?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "टायफॉइडची मुख्य लक्षणे", "value": "टायफॉइडची मुख्य लक्षणे कोणती आहेत?"},
+            {"type": "topic", "label": "ओआरएस कसे बनवावे?", "value": "घरी ओआरएस कसे बनवावे?"}
+        ]
+    },
+    'gu': {
+        'greeting': (
+            "નમસ્તે! હવે હું તમારી સાથે ગુજરાતીમાં વાત કરીશ. હું તમારો એક્વાશીલ્ડ કોમ્યુનિટી હેલ્થ આસિસ્ટન્ટ છું.\n\n"
+            "તમે મને પાણીજન્ય રોગો (ટાઇફોઇડ, કોલેરા, ઝાડા), ઘરે ઓઆરએસ (ORS) બનાવવાની રીત, "
+            "પીવાના પાણીને શુદ્ધ કરવાની પદ્ધતિઓ અથવા આરોગ્ય કેન્દ્રનો ક્યારે સંપર્ક કરવો તે વિશે પૂછી શકો છો.\n"
+            "હું તમારી શું મદદ કરી શકું?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "ટાઇફોઇડના મુખ્ય લક્ષણો", "value": "ટાઇફોઇડના મુખ્ય લક્ષણો શું છે?"},
+            {"type": "topic", "label": "ઓઆરએસ કેવી રીતે બનાવવું?", "value": "ઘરે ઓઆરએસ કેવી રીતે બનાવવું?"}
+        ]
+    },
+    'kn': {
+        'greeting': (
+            "ನಮಸ್ಕಾರ! ಇನ್ನು ಮುಂದೆ ನಾನು ನಿಮ್ಮೊಂದಿಗೆ ಕನ್ನಡದಲ್ಲಿ ಮಾತನಾಡುತ್ತೇನೆ. ನಾನು ನಿಮ್ಮ ಆಕ್ವಾಶೀಲ್ಡ್ ಸಮುದಾಯ ಆರೋಗ್ಯ ಸಹಾಯಕ.\n\n"
+            "ನೀರಿನಿಂದ ಹರಡುವ ರೋಗಗಳು (ಟೈಫಾಯ್ಡ್, ಕಾಲರಾ, ಅತಿಸಾರ), ಮನೆಯಲ್ಲೇ ಓಆರ್‌ಎಸ್ (ORS) ತಯಾರಿಕೆ ಮತ್ತು ಕುಡಿಯುವ ನೀರಿನ ಸುರಕ್ಷತೆಯ ಬಗ್ಗೆ ನೀವು ಕೇಳಬಹುದು.\n"
+            "ಇಂದು ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "ಟೈಫಾಯ್ಡ್ ಲಕ್ಷಣಗಳು", "value": "ಟೈಫಾಯ್ಡ್‌ನ ಮುಖ್ಯ ಲಕ್ಷಣಗಳು ಯಾವುವು?"},
+            {"type": "topic", "label": "ಓಆರ್‌ಎಸ್ ತಯಾರಿಸುವುದು ಹೇಗೆ?", "value": "ಮನೆಯಲ್ಲೇ ಓಆರ್‌ಎಸ್ ತಯಾರಿಸುವುದು ಹೇಗೆ?"}
+        ]
+    },
+    'ml': {
+        'greeting': (
+            "നമസ്കാരം! ഇനി മുതൽ ഞാൻ നിങ്ങളോട് മലയാളത്തിൽ സംസാരിക്കും. ഞാൻ നിങ്ങളുടെ അക്വാഷੀൽഡ് കമ്മ്യൂണിറ്റി ഹെൽത്ത് അസിസ്റ്റന്റാണ്.\n\n"
+            "ജലജന്യ രോഗങ്ങൾ (ടൈഫോയ്ഡ്, കോളറ, വയറിളക്കം), ഒആർഎസ് (ORS) നിർമ്മാണം, കുടിവെള്ള ശുദ്ധീകരണം എന്നിവയെക്കുറിച്ച് നിങ്ങൾക്ക് ചോദിക്കാം.\n"
+            "ഇന്ന് ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കണം?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "ടൈഫോയ്ഡ് ലക്ഷണങ്ങൾ", "value": "ടൈഫോയ്ഡിന്റെ പ്രധാന ലക്ഷണങ്ങൾ എന്തൊക്കെയാണ്?"},
+            {"type": "topic", "label": "ഒആർഎസ് ഉണ്ടാക്കുന്നത് എങ്ങനെ?", "value": "വീട്ടിൽ ഒആർഎസ് ഉണ്ടാക്കുന്നത് എങ്ങനെ?"}
+        ]
+    },
+    'pa': {
+        'greeting': (
+            "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਹੁਣ ਤੋਂ ਮੈਂ ਤੁਹਾਡੇ ਨਾਲ ਪੰਜਾਬੀ ਵਿੱਚ ਗੱਲ ਕਰਾਂਗਾ। ਮੈਂ ਤੁਹਾਡਾ ਐਕਵਾਸ਼ੀਲਡ ਕਮਿਊਨਿਟੀ ਹੈਲਥ ਅਸਿਸਟੈਂਟ ਹਾਂ।\n\n"
+            "ਤੁਸੀਂ ਮੇਰੇ ਤੋਂ ਪਾਣੀ ਤੋਂ ਹੋਣ ਵਾਲੀਆਂ ਬਿਮਾਰੀਆਂ (ਜਿਵੇਂ ਟਾਈਫਾਈਡ, ਹੈਜ਼ਾ, ਦਸਤ), ਓ.ਆਰ.ਐਸ (ORS) ਬਣਾਉਣ ਦਾ ਤਰੀਕਾ, ਅਤੇ ਪੀਣ ਵਾਲੇ ਪਾਣੀ ਨੂੰ ਸਾਫ਼ ਕਰਨ ਬਾਰੇ ਪੁੱਛ ਸਕਦੇ ਹੋ।\n"
+            "ਮੈਂ ਤੁਹਾਡੀ ਕੀ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "ਟਾਈਫਾਈਡ ਦੇ ਲੱਛਣ", "value": "ਟਾਈਫਾਈਡ ਦੇ ਮੁੱਖ ਲੱਛਣ ਕੀ ਹਨ?"},
+            {"type": "topic", "label": "ਓ.ਆਰ.ਐਸ ਕਿਵੇਂ ਬਣਾਈਏ?", "value": "ਘਰ ਵਿੱਚ ਓ.ਆਰ.ਐਸ ਕਿਵੇਂ ਬਣਾਈਏ?"}
+        ]
+    },
+    'fr': {
+        'greeting': (
+            "Bonjour ! Je vais désormais communiquer avec vous en français. Je suis votre assistant de santé communautaire AquaShield.\n\n"
+            "Vous pouvez me poser des questions sur les maladies d'origine hydrique (typhoïde, choléra, diarrhée), la préparation des solutions de réhydratation orale (SRO), la purification de l'eau ou le moment de consulter un médecin.\n"
+            "Comment puis-je vous aider aujourd'hui ?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "Symptômes de la typhoïde", "value": "Quels sont les symptômes de la typhoïde ?"},
+            {"type": "topic", "label": "Préparation de la SRO", "value": "Comment préparer une solution de réhydratation orale à la maison ?"}
+        ]
+    },
+    'de': {
+        'greeting': (
+            "Hallo! Ich werde ab jetzt auf Deutsch mit Ihnen sprechen. Ich bin Ihr AquaShield Community-Gesundheitsassistent.\n\n"
+            "Sie können mich zu wasserbedingten Krankheiten (Typhus, Cholera, Durchfall), der Zubereitung von Trinklösungen (ORS) und sauberem Trinkwasser befragen.\n"
+            "Wie kann ich Ihnen heute helfen?"
+        ),
+        'follow_ups': [
+            {"type": "topic", "label": "Symptome von Typhus", "value": "Was sind die Hauptsymptome von Typhus?"},
+            {"type": "topic", "label": "ORS Zubereitung", "value": "Wie bereite ich eine Elektrolytlösung zu Hause zu?"}
+        ]
+    },
+}
+
+def generate_multilingual_fallback(intent: str, lang: str, user_message: str, has_warning: bool) -> str:
+    """
+    Fallback generator for regional and international languages.
+    """
+    code = str(lang).lower().strip()
+    lang_info = LANGUAGE_CATALOG.get(code, {})
+    lang_display = lang_info.get('name', str(lang).capitalize())
+    native_name = lang_info.get('native', lang_display)
+
+    if intent == "language_switch" and code in MULTILINGUAL_GREETINGS:
+        data = MULTILINGUAL_GREETINGS[code]
+        return f"{data['greeting']}\n---FOLLOW_UPS---\n{json.dumps(data['follow_ups'], ensure_ascii=False)}"
+
+    if intent == "language_switch":
+        return (
+            f"Hello! I will now communicate with you in {lang_display} ({native_name}). "
+            f"I am your AquaShield Community Health Assistant.\n\n"
+            f"You can ask me about water-borne disease prevention, boiling water, preparing home ORS, "
+            f"or when to consult your local Primary Health Centre (PHC).\n"
+            f"How can I assist you today?"
+            f"\n---FOLLOW_UPS---\n"
+            f'[{{"type": "topic", "label": "Typhoid Symptoms & Prevention", "value": "What are the common symptoms of typhoid?"}}, '
+            f'{{"type": "topic", "label": "How to prepare safe ORS?", "value": "How do I safely prepare ORS at home?"}}]'
+        )
+
+    # For other intents when Gemini API is offline:
+    if has_warning or intent in ["warning_signs", "phc_consultation"]:
+        return (
+            f"**[AquaShield Health Advisory — {lang_display} ({native_name})]**\n\n"
+            f"**EMERGENCY WARNING SIGNS:**\n"
+            f"If the patient experiences blood in stool/vomit, inability to retain liquids, sunken eyes, "
+            f"or continuous high fever for over 3 days, please take them immediately to the nearest Primary Health Centre (PHC) "
+            f"or hospital, or contact your local ASHA/ANM health worker without delay.\n\n"
+            f"Begin giving clean fluids and Oral Rehydration Salts (ORS) in small sips while arranging medical transport."
+            f"\n---FOLLOW_UPS---\n"
+            f'[{{"type": "topic", "label": "How to prepare safe ORS?", "value": "How do I safely prepare ORS at home?"}}, '
+            f'{{"type": "topic", "label": "Safe Drinking Water Steps", "value": "How can I ensure my drinking water is safe?"}}]'
+        )
+
+    # General / ORS / Disease fallback with language acknowledgment
+    return (
+        f"**[AquaShield Community Health Assistant — {lang_display} ({native_name})]**\n\n"
+        f"**Core Health Guidelines:**\n"
+        f"1. **Safe Drinking Water:** Boil all drinking water vigorously for **at least 10 minutes** to eliminate harmful pathogens.\n"
+        f"2. **Dehydration Protection (ORS):** Mix 1 packet of WHO-ORS in **1 litre of clean boiled water** (or 6 teaspoons sugar + 1/2 teaspoon salt in 1L water). Drink in small frequent sips.\n"
+        f"3. **Hygiene:** Wash hands thoroughly with soap before food handling and after toilet use.\n"
+        f"4. **Medical Care:** For persistent fever, severe loose motions, or weakness, consult your local ASHA worker or visit the nearest PHC."
+        f"\n---FOLLOW_UPS---\n"
+        f'[{{"type": "topic", "label": "How to prepare safe ORS?", "value": "How do I safely prepare ORS at home?"}}, '
+        f'{{"type": "topic", "label": "Safe Drinking Water Steps", "value": "How can I ensure my drinking water is safe?"}}]'
+    )
+
 def generate_offline_fallback(intent: str, lang: str, user_message: str, has_warning: bool) -> str:
     """
     Generates rich, contextual, educational responses when Gemini API is unavailable.
+    Supports Hindi, English, Indian regional languages, and global languages.
     """
-    if lang == 'hi':
+    norm_lang = str(lang).lower().strip() if lang else 'en'
+
+    # ─── Hindi Fallback ────────────────────────────────────────────────────────
+    if norm_lang == 'hi':
         if intent == "language_switch":
             return (
                 "नमस्ते! अब मैं आपसे हिंदी में बात करूंगा। मैं आपका एक्वाशील्ड कम्युनिटी हेल्थ असिस्टेंट हूँ।\n\n"
@@ -322,6 +628,10 @@ def generate_offline_fallback(intent: str, lang: str, user_message: str, has_war
             '[{"type": "topic", "label": "टाइफाइड के मुख्य लक्षण", "value": "टाइफाइड के मुख्य लक्षण क्या हैं?"}, '
             '{"type": "topic", "label": "ओआरएस घोल कैसे बनाएं?", "value": "घर पर ओआरएस कैसे बनाएं?"}]'
         )
+
+    # ─── Multilingual Regional / Global Fallback ──────────────────────────────
+    if norm_lang != 'en':
+        return generate_multilingual_fallback(intent, norm_lang, user_message, has_warning)
 
     # ─── English Fallback ─────────────────────────────────────────────────────
     if intent == "language_switch":

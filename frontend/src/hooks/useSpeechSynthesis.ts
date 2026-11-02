@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   stripMarkdownForSpeech,
   detectLanguageForSpeech,
+  mapLanguageCodeToBcp47,
   findBestVoice,
 } from '@/utils/speechUtils';
 
@@ -115,7 +116,7 @@ export function useSpeechSynthesis() {
       messageId: string,
       rawText: string,
       fallbackLang: string = 'en',
-      langOverride?: 'hi-IN' | 'en-IN'
+      langOverride?: string
     ) => {
       if (!isSupported) {
         setError('ttsNotSupported');
@@ -130,7 +131,9 @@ export function useSpeechSynthesis() {
       if (!cleanText.trim()) return;
 
       const targetLang =
-        langOverride || detectLanguageForSpeech(cleanText, fallbackLang);
+        (langOverride && langOverride !== 'en')
+          ? mapLanguageCodeToBcp47(langOverride)
+          : detectLanguageForSpeech(cleanText, fallbackLang, langOverride);
 
       try {
         const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -201,4 +204,3 @@ export function useSpeechSynthesis() {
     stop,
   };
 }
-

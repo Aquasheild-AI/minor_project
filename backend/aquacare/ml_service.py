@@ -307,7 +307,7 @@ def _raise_water_alert(prediction, previous, lab_confirmed):
         message = (f'Field readings at {source} indicate critical faecal contamination risk '
                    f'(score {prediction.risk_score:.0f}/100). Confirm with a lab test.')
         severity, audience = 'HIGH', 'HEALTH_WORKER'
-    Alert.objects.create(
+    alert = Alert.objects.create(
         village=prediction.village,
         title=title[:200],
         message=message,
@@ -318,6 +318,13 @@ def _raise_water_alert(prediction, previous, lab_confirmed):
         generated_by_ai=True,
         related_water_prediction=prediction,
     )
+    try:
+        from .notifications import dispatch_alert_email
+        dispatch_alert_email(alert)
+    except Exception:
+        pass
+    return alert
+
 
 
 # ─── Module B: district outbreak risk ───────────────────────────────
@@ -394,7 +401,7 @@ def _raise_outbreak_alerts(prediction):
         if Alert.objects.filter(village=village, alert_type='OUTBREAK_WARNING',
                                 is_active=True, generated_by_ai=True).exists():
             continue
-        Alert.objects.create(
+        alert = Alert.objects.create(
             village=village,
             title=f'Outbreak risk critical in {prediction.district}'[:200],
             message=prediction.plain_language_explanation,
@@ -405,6 +412,12 @@ def _raise_outbreak_alerts(prediction):
             generated_by_ai=True,
             related_disease_prediction=prediction,
         )
+        try:
+            from .notifications import dispatch_alert_email
+            dispatch_alert_email(alert)
+        except Exception:
+            pass
+
 
 
 # ─── Batch refresh and model info ───────────────────────────────────

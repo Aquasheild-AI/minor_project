@@ -13,6 +13,7 @@ from .models import (
     Alert,
     AlertAcknowledgement,
     PasswordResetOTP,
+    EmergencyDispatch,
 )
 
 
@@ -127,3 +128,11 @@ class PasswordResetOTPAdmin(admin.ModelAdmin):
     search_fields = ('email', 'user__username', 'otp')
     date_hierarchy = 'created_at'
     readonly_fields = ('created_at',)
+
+
+@admin.register(EmergencyDispatch)
+class EmergencyDispatchAdmin(admin.ModelAdmin):
+    list_display = ('id', 'village', 'dispatch_type', 'priority', 'status', 'team_lead_name', 'vehicle_number', 'dispatched_at')
+    list_filter = ('dispatch_type', 'priority', 'status', 'village__district')
+    search_fields = ('village__name', 'team_lead_name', 'vehicle_number', 'reason')
+    ordering = ('-dispatched_at',)

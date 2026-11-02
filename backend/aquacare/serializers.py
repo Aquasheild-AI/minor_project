@@ -9,7 +9,8 @@ from .models import (
     WaterRiskPrediction,
     DiseaseRiskPrediction,
     Alert,
-    AlertAcknowledgement
+    AlertAcknowledgement,
+    EmergencyDispatch
 )
 
 
@@ -326,3 +327,27 @@ class VillageDetailSerializer(serializers.ModelSerializer):
     def get_risk_score(self, obj):
         pred = self._get_latest_prediction(obj)
         return pred.risk_score if pred else 0.0
+
+
+
+class EmergencyDispatchSerializer(serializers.ModelSerializer):
+    village_name = serializers.CharField(source='village.name', read_only=True)
+    district = serializers.CharField(source='village.district', read_only=True)
+    dispatched_by_name = serializers.CharField(source='dispatched_by.get_full_name', read_only=True)
+    dispatch_type_display = serializers.CharField(source='get_dispatch_type_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = EmergencyDispatch
+        fields = [
+            'id', 'village', 'village_name', 'district',
+            'dispatch_type', 'dispatch_type_display',
+            'priority', 'priority_display',
+            'status', 'status_display',
+            'vehicle_number', 'team_lead_name', 'team_lead_phone',
+            'reason', 'estimated_arrival_minutes',
+            'dispatched_by', 'dispatched_by_name',
+            'dispatched_at', 'resolved_at', 'notes'
+        ]
+        read_only_fields = ['dispatched_by', 'dispatched_at']

@@ -1,15 +1,29 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2, Clock, MapPin, Plus, Send } from 'lucide-react';
+import {
+  Bell,
+  ShieldAlert,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Plus,
+  Send,
+  Siren,
+  Truck,
+  Check,
+} from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Drawer } from '@/components/ui/Drawer';
 import { Modal } from '@/components/ui/Modal';
 import { LoadingState, EmptyState } from '@/components/ui/States';
+import { DispatchModal } from '@/components/emergency/DispatchModal';
 import { api } from '@/services/api';
 import { riskConfig, timeAgo, formatDateTime } from '@/utils/risk';
-import type { Alert, AlertStatus, Village } from '@/types';
+import type { Alert, AlertStatus, Village, EmergencyDispatch } from '@/types';
 
 const tabs: { key: 'all' | 'critical' | 'high' | 'medium' | 'resolved'; label: string }[] = [
   { key: 'all', label: 'All Active' },
@@ -44,10 +58,21 @@ export function AlertsPage() {
     actionRequired: 'Boil water before consumption.',
   });
 
+  // Emergency Dispatch Modal State
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchVillageId, setDispatchVillageId] = useState<string | number>('');
+  const [dispatchReason, setDispatchReason] = useState<string>('');
+  const [dispatches, setDispatches] = useState<EmergencyDispatch[]>([]);
+
   useEffect(() => {
-    Promise.all([api.getAlerts(), api.getVillages()]).then(([a, v]) => {
+    Promise.all([
+      api.getAlerts(),
+      api.getVillages(),
+      api.getDispatches().catch(() => [] as EmergencyDispatch[]),
+    ]).then(([a, v, d]) => {
       setAlerts(a);
       setVillageList(v);
+      setDispatches(d || []);
       if (v.length > 0) {
         setCreateForm((prev) => ({ ...prev, villageId: v[0].id }));
       }
@@ -104,16 +129,47 @@ export function AlertsPage() {
     }
   };
 
+  const handleDispatchSuccess = (newDispatch: EmergencyDispatch) => {
+    setDispatches((prev) => [newDispatch, ...prev]);
+  };
+
+  const handleUpdateDispatchStatus = async (id: number, nextStatus: string) => {
+    try {
+      const updated = await api.updateDispatchStatus(id, nextStatus);
+      setDispatches((prev) => prev.map((d) => (d.id === id ? updated : d)));
+    } catch (e) {
+      console.error('Failed to update dispatch status:', e);
+    }
+  };
+
+  const activeDispatches = dispatches.filter(
+    (d) => d.status !== 'RESOLVED' && d.status !== 'CANCELLED'
+  );
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Early Warnings & Advisories"
-        subtitle="Monitor and broadcast disease and water contamination alerts across monitored communities."
+        subtitle="Monitor and broadcast disease alerts, mobilize rapid response teams, and dispatch ambulances."
         breadcrumb={['Home', 'Alerts']}
         actions={
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-            <Plus className="h-4 w-4" /> Broadcast Advisory
-          </button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => {
+                setDispatchVillageId(villageList[0]?.id || '');
+                setDispatchReason('');
+                setShowDispatchModal(true);
+              }}
+              className="btn-secondary text-red-600 border-red-200 hover:bg-red-50 inline-flex items-center gap-1.5 font-semibold"
+            >
+              <Siren className="h-4 w-4 text-red-600" />
+              <span>Dispatch Ambulance / Team</span>
+            </button>
+            <button onClick={() => setShowCreateModal(true)} className="btn-primary inline-flex items-center gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span>Broadcast Advisory</span>
+            </button>
+          </div>
         }
       />
 
@@ -125,8 +181,58 @@ export function AlertsPage() {
         <StatCard label="Medium Risk" value={stats.medium} icon={AlertCircle} iconColor="text-risk-medium" iconBg="bg-risk-medium-bg" />
       </div>
 
+      {/* Active Emergency Dispatches Banner */}
+      {activeDispatches.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Siren className="h-4 w-4 text-red-600 animate-pulse" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-red-900">
+                Active Field Deployments ({activeDispatches.length} Units En Route / On-Site)
+              </h4>
+            </div>
+            <span className="badge bg-red-100 text-red-800 border border-red-200 font-semibold text-[10px]">
+              Live Mobilization
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {activeDispatches.map((d) => (
+              <div key={d.id} className="rounded-lg border border-red-200 bg-white p-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="badge bg-red-100 text-red-700 font-bold text-[10px]">{d.priority_display}</span>
+                  <span className="text-[11px] font-semibold text-slate-700">{d.status_display}</span>
+                </div>
+                <p className="mt-1 text-xs font-bold text-slate-900 truncate">{d.dispatch_type_display}</p>
+                <p className="text-xs text-slate-600 truncate">Village: <span className="font-semibold">{d.village_name}</span> ({d.district})</p>
+                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <span className="truncate">Lead: {d.team_lead_name}</span>
+                  <span className="shrink-0 font-semibold text-slate-700">ETA: {d.estimated_arrival_minutes}m</span>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-dashed border-slate-100 flex items-center justify-end gap-1.5">
+                  {d.status === 'DISPATCHED' && (
+                    <button
+                      onClick={() => handleUpdateDispatchStatus(d.id, 'ON_SITE')}
+                      className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium text-[11px] border border-blue-200 transition-colors"
+                    >
+                      Mark On-Site
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleUpdateDispatchStatus(d.id, 'RESOLVED')}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-[11px] border border-emerald-200 transition-colors"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="mt-6 flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-slate-200">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -143,52 +249,52 @@ export function AlertsPage() {
       </div>
 
       {/* Alert cards */}
-      <div className="mt-4 space-y-3">
+      <div className="space-y-3">
         {loading ? (
           <LoadingState message="Loading early warnings..." />
         ) : filtered.length === 0 ? (
           <div className="card">
-            <EmptyState icon={Bell} title="No Alerts" message="No active alerts found for this filter. All monitored villages are within normal limits." />
+            <EmptyState icon={Bell} title="No alerts found" message={`There are no ${activeTab === 'all' ? 'active' : activeTab} alerts at this time.`} />
           </div>
         ) : (
           filtered.map((alert) => {
-            const cfg = riskConfig[alert.severity];
-            const status = statusConfig[alert.status];
+            const StatusIcon = statusConfig[alert.status].icon;
+            const isResolved = alert.status === 'resolved';
+
             return (
               <div
                 key={alert.id}
-                className={`card cursor-pointer p-4 transition-shadow hover:shadow-card-hover ${alert.status === 'active' ? 'border-l-4' : ''}`}
-                style={alert.status === 'active' ? { borderLeftColor: cfg.hex } : {}}
                 onClick={() => setSelected(alert)}
+                className={`card card-hover flex cursor-pointer items-start justify-between p-4 transition-all ${
+                  isResolved ? 'opacity-60 bg-slate-50/50' : ''
+                }`}
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: cfg.hex + '15' }}>
-                      <Bell className="h-5 w-5" style={{ color: cfg.hex }} />
+                <div className="flex items-start gap-3.5">
+                  <div
+                    className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: riskConfig[alert.severity].bg }}
+                  >
+                    <AlertTriangle className="h-4 w-4" style={{ color: riskConfig[alert.severity].hex }} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-sm font-semibold ${isResolved ? 'line-through text-slate-500' : 'text-slate-900'}`}>{alert.title || alert.message}</h3>
+                      <RiskBadge level={alert.severity} />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <RiskBadge level={alert.severity} />
-                        <span className="badge bg-slate-100 text-slate-600">{status.label}</span>
-                      </div>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{alert.message}</p>
-                      <p className="text-xs text-slate-500">{alert.villageName} — Severity Level: {alert.severity.toUpperCase()}</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {alert.factors.map((f, i) => (
-                          <span key={i} className="text-xs text-slate-400">• {f}</span>
-                        ))}
-                      </div>
+                    <p className="mt-1 text-xs text-slate-500 line-clamp-1">{alert.message}</p>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-slate-500" /> {alert.villageName}</span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-500" /> {timeAgo(alert.detectedAt)}</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-xs text-slate-400">{timeAgo(alert.detectedAt)}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelected(alert); }}
-                      className="text-xs font-medium text-primary-600 hover:underline"
-                    >
-                      View Details
-                    </button>
-                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`badge ${statusConfig[alert.status].bg} ${statusConfig[alert.status].color}`}>
+                    <StatusIcon className="h-3 w-3" />
+                    {statusConfig[alert.status].label}
+                  </span>
                 </div>
               </div>
             );
@@ -196,35 +302,35 @@ export function AlertsPage() {
         )}
       </div>
 
-      {/* Alert Details Drawer */}
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title="Alert Details">
+      {/* Alert Detail Drawer */}
+      <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.title || selected?.message || 'Alert Details'}>
         {selected && (
-          <div className="space-y-5">
-            {/* Severity header */}
-            <div className="rounded-lg p-4" style={{ backgroundColor: riskConfig[selected.severity].hex + '10' }}>
-              <div className="flex items-center gap-2">
-                <RiskBadge level={selected.severity} />
-                <span className="badge bg-slate-100 text-slate-600">{statusConfig[selected.status].label}</span>
-              </div>
-              <p className="mt-2 text-base font-bold text-slate-900">{selected.message}</p>
-              <p className="text-sm text-slate-500">{selected.villageName}</p>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <RiskBadge level={selected.severity} />
+              <span className={`badge ${statusConfig[selected.status].bg} ${statusConfig[selected.status].color}`}>
+                {statusConfig[selected.status].label}
+              </span>
             </div>
 
-            {/* Key info */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Risk Score</p>
-                <p className="text-xl font-bold" style={{ color: riskConfig[selected.severity].hex }}>{selected.riskScore}%</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Detected</p>
-                <p className="text-sm font-semibold text-slate-900">{formatDateTime(selected.detectedAt)}</p>
-              </div>
-            </div>
-
-            {/* Recommended action / checklist */}
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Advisory Action</h4>
+              <p className="text-xs text-slate-500">Village</p>
+              <p className="text-base font-semibold text-slate-900">{selected.villageName}</p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500">Description</p>
+              <p className="mt-1 text-sm text-slate-700 leading-relaxed">{selected.message}</p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500">Detected</p>
+              <p className="text-sm text-slate-700">{formatDateTime(selected.detectedAt)} ({timeAgo(selected.detectedAt)})</p>
+            </div>
+
+            {/* Contributing factors */}
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Contributing Risk Factors</h4>
               <div className="space-y-2">
                 {selected.factors.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2.5 text-sm text-slate-700">
@@ -236,10 +342,27 @@ export function AlertsPage() {
             </div>
 
             {/* Actions */}
-            <div className="space-y-2 border-t border-slate-200 pt-4">
-              <Link to={`/villages/${selected.villageId}`} className="btn-secondary w-full"><MapPin className="h-4 w-4" /> View Village Profile</Link>
+            <div className="space-y-2.5 border-t border-slate-200 pt-4">
+              {/* Emergency Dispatch Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setDispatchVillageId(selected.villageId);
+                  setDispatchReason(`Urgent response for ${selected.title || selected.message}: ${selected.message}`);
+                  setShowDispatchModal(true);
+                }}
+                className="btn-secondary w-full text-red-600 border-red-200 hover:bg-red-50 inline-flex items-center justify-center gap-2 font-semibold"
+              >
+                <Siren className="h-4 w-4 text-red-600" />
+                <span>Dispatch Ambulance / Rapid Response Team</span>
+              </button>
+
+              <Link to={`/villages/${selected.villageId}`} className="btn-secondary w-full inline-flex items-center justify-center gap-2">
+                <MapPin className="h-4 w-4" /> View Village Profile
+              </Link>
+
               {selected.status !== 'resolved' && (
-                <button onClick={() => updateStatus(selected.id, 'resolved')} className="btn-primary w-full">
+                <button onClick={() => updateStatus(selected.id, 'resolved')} className="btn-primary w-full inline-flex items-center justify-center gap-2">
                   <CheckCircle2 className="h-4 w-4" /> Resolve Alert (Deactivate)
                 </button>
               )}
@@ -330,12 +453,21 @@ export function AlertsPage() {
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={creating} className="btn-primary">
+            <button type="submit" disabled={creating} className="btn-primary inline-flex items-center gap-1.5">
               <Send className="h-4 w-4" /> {creating ? 'Broadcasting...' : 'Broadcast Alert'}
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* Emergency Dispatch Modal */}
+      <DispatchModal
+        open={showDispatchModal}
+        onClose={() => setShowDispatchModal(false)}
+        initialVillageId={dispatchVillageId}
+        initialReason={dispatchReason}
+        onSuccess={handleDispatchSuccess}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ from .models import (
     Alert,
     AlertAcknowledgement,
     PasswordResetOTP,
+    EmergencyDispatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ from .serializers import (
     DiseaseRiskPredictionSerializer,
     AlertSerializer,
     ProfileUpdateSerializer,
+    EmergencyDispatchSerializer,
 )
 from . import ml_service
 from .permissions import (
@@ -1280,6 +1282,11 @@ def alerts_list_create(request):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         alert = serializer.save()
+        try:
+            from .notifications import dispatch_alert_email
+            dispatch_alert_email(alert)
+        except Exception as e:
+            logger.warning(f"Failed to dispatch alert email: {e}")
         return Response(AlertSerializer(alert).data, status=status.HTTP_201_CREATED)
 
 
@@ -1529,3 +1536,106 @@ def notifications_list(request):
     notifications.sort(key=lambda n: n.get('time', ''), reverse=True)
     return Response(notifications[:15])
 
+
+
+
+# ─── Emergency Response Dispatches (Ambulance / Rapid Response Teams) ─────────
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def emergency_dispatches_list_create(request):
+    """
+    GET /api/dispatches/?village_id=...&status=...
+    POST /api/dispatches/ (AUTHORITY only)
+    """
+    if request.method == 'GET':
+        qs = EmergencyDispatch.objects.select_related('village', 'dispatched_by').all()
+        village_id = request.query_params.get('village_id')
+        status_filter = request.query_params.get('status')
+        if village_id:
+            qs = qs.filter(village_id=village_id)
+        if status_filter:
+            qs = qs.filter(status=status_filter.upper())
+        serializer = EmergencyDispatchSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        # Strict RBAC: Only Health Authorities can mobilize emergency response teams and ambulances
+        if request.user.role != 'AUTHORITY':
+            return Response(
+                {'error': 'Permission denied. Only Health Authorities can dispatch emergency response teams or ambulances.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = EmergencyDispatchSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        dispatch = serializer.save(dispatched_by=request.user)
+
+        # Dispatch immediate email notice to local health workers & admin
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+            assigned_workers = User.objects.filter(
+                role='HEALTH_WORKER',
+                assigned_villages=dispatch.village,
+                email__isnull=False
+            ).exclude(email='')
+            recipient_list = [w.email.strip() for w in assigned_workers if w.email]
+            if getattr(settings, 'EMAIL_HOST_USER', None):
+                recipient_list.append(settings.EMAIL_HOST_USER.strip())
+
+            if recipient_list:
+                subject = f"[EMERGENCY DISPATCH] {dispatch.get_dispatch_type_display()} -> {dispatch.village.name}"
+                body = (
+                    f"CRITICAL HEALTH INTERVENTION DEPLOYED\n"
+                    f"==================================================\n"
+                    f"Target Village: {dispatch.village.name} (District: {dispatch.village.district})\n"
+                    f"Dispatch Type:  {dispatch.get_dispatch_type_display()}\n"
+                    f"Priority:       {dispatch.get_priority_display()}\n"
+                    f"Vehicle / Unit: {dispatch.vehicle_number or 'Ambulance Unit'}\n"
+                    f"Team Lead:      {dispatch.team_lead_name} (Phone: {dispatch.team_lead_phone or 'N/A'})\n"
+                    f"Estimated ETA:  {dispatch.estimated_arrival_minutes} minutes\n"
+                    f"Dispatched By:  {request.user.get_full_name() or request.user.username} (Health Authority)\n"
+                    f"--------------------------------------------------\n"
+                    f"Reason / Directives:\n{dispatch.reason}\n\n"
+                    f"Please prepare field triage and coordinate with the incoming unit immediately."
+                )
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
+                    recipient_list=list(set(recipient_list)),
+                    fail_silently=True
+                )
+        except Exception as e:
+            logger.warning(f"Failed to dispatch emergency deployment notification email: {e}")
+
+        return Response(EmergencyDispatchSerializer(dispatch).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated, IsHealthWorkerOrAuthority])
+def emergency_dispatch_update_status(request, pk):
+    """
+    PATCH /api/dispatches/<pk>/status/
+    Updates dispatch status (ON_SITE, RESOLVED, CANCELLED) and optional notes.
+    """
+    dispatch = get_object_or_404(EmergencyDispatch, pk=pk)
+    if not has_village_access(request.user, dispatch.village):
+        return Response(
+            {'error': 'You do not have jurisdiction to update emergency dispatches in this village.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    new_status = request.data.get('status')
+    if new_status:
+        dispatch.status = new_status.upper()
+        if dispatch.status == 'RESOLVED':
+            dispatch.resolved_at = timezone.now()
+    if 'notes' in request.data:
+        dispatch.notes = request.data['notes']
+
+    dispatch.save()
+    return Response(EmergencyDispatchSerializer(dispatch).data)

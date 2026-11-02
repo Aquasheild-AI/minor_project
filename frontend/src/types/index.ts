@@ -100,6 +100,7 @@ export interface Alert {
   villageId: string;
   villageName: string;
   riskScore: number;
+  title?: string;
   message: string;
   factors: string[];
   detectedAt: string;
@@ -111,6 +112,7 @@ export interface Notification {
   id: string;
   type: 'alert' | 'water' | 'health' | 'system';
   severity: RiskLevel | 'info';
+  title?: string;
   message: string;
   detail?: string;
   villageName?: string;
@@ -257,4 +259,31 @@ export interface ApiVillage {
   longitude: string;
   risk_level: ApiRiskLevel;
   risk_score: number;
+}
+
+
+export type DispatchType = 'AMBULANCE' | 'RAPID_RESPONSE_TEAM' | 'WATER_CHLORINATION_UNIT' | 'MEDICAL_RELIEF_CAMP';
+export type DispatchPriority = 'STANDARD' | 'HIGH' | 'CRITICAL';
+export type DispatchStatus = 'DISPATCHED' | 'ON_SITE' | 'RESOLVED' | 'CANCELLED';
+
+export interface EmergencyDispatch {
+  id: number;
+  village: number;
+  village_name: string;
+  district: string;
+  dispatch_type: DispatchType;
+  dispatch_type_display: string;
+  priority: DispatchPriority;
+  priority_display: string;
+  status: DispatchStatus;
+  status_display: string;
+  vehicle_number?: string;
+  team_lead_name: string;
+  team_lead_phone?: string;
+  reason: string;
+  estimated_arrival_minutes: number;
+  dispatched_by_name?: string;
+  dispatched_at: string;
+  resolved_at?: string;
+  notes?: string;
 }

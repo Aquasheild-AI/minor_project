@@ -266,26 +266,57 @@ def send_transactional_email(
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> Dict[str, Any]:
     """
-    Convenience function to send a transactional email using the default Brevo service.
-
-    Args:
-        to: Single email string, list of email strings, or list of dicts [{'email': '...', 'name': '...'}]
-        subject: Subject line
-        html_content: Optional HTML email body
-        text_content: Optional plain-text email body
-        sender: Optional custom sender dict {'email': '...', 'name': '...'}
-        fail_silently: If True, errors are logged and a failure dict is returned instead of raising
-        timeout: Request timeout in seconds (default 10.0s)
-
-    Returns:
-        dict: {'success': bool, 'message_id': str, 'status_code': int}
+    Unified transactional email dispatcher.
+    Attempts Brevo REST API first if BREVO_API_KEY is configured.
+    Falls back to Django SMTP (e.g. Gmail SMTP) when Brevo is unconfigured or fails.
     """
-    service = BrevoEmailService(timeout=timeout)
-    return service.send(
-        to=to,
-        subject=subject,
-        html_content=html_content,
-        text_content=text_content,
-        sender=sender,
-        fail_silently=fail_silently,
-    )
+    import uuid
+    brevo_key = (getattr(settings, 'BREVO_API_KEY', '') or os.environ.get('BREVO_API_KEY', '')).strip()
+
+    if brevo_key:
+        try:
+            service = BrevoEmailService(timeout=timeout)
+            return service.send(
+                to=to,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+                sender=sender,
+                fail_silently=False,
+            )
+        except Exception as exc:
+            logger.warning("Brevo email API failed (%s), falling back to SMTP...", exc)
+
+    # Fallback to Django SMTP (Gmail / configured host)
+    try:
+        from django.core.mail import EmailMultiAlternatives
+        recipients = _normalize_recipients(to)
+        recipient_emails = [r['email'] for r in recipients]
+        from_email = (
+            (sender.get('email') if sender else None)
+            or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+            or getattr(settings, 'EMAIL_HOST_USER', None)
+            or 'noreply@aquashield.org'
+        )
+
+        msg = EmailMultiAlternatives(
+            subject=subject.strip(),
+            body=text_content or (html_content or ''),
+            from_email=from_email,
+            to=recipient_emails,
+        )
+        if html_content:
+            msg.attach_alternative(html_content, "text/html")
+
+        sent_count = msg.send(fail_silently=fail_silently)
+        logger.info("Dispatched email via SMTP to %s (sent=%s)", recipient_emails, sent_count)
+        return {
+            'success': sent_count > 0,
+            'message_id': f"<smtp-{uuid.uuid4().hex[:12]}@aquashield>",
+            'status_code': 200 if sent_count > 0 else 500,
+        }
+    except Exception as exc:
+        logger.warning("SMTP email dispatch failed: %s", exc)
+        if fail_silently:
+            return {'success': False, 'error': str(exc), 'status_code': 500}
+        raise EmailDeliveryError(f"Email delivery failed: {exc}") from exc

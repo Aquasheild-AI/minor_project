@@ -500,15 +500,6 @@ class HealthRecord(models.Model):
 
 
     def save(self, *args, **kwargs):
-        if not self.pk and self.severity == 'MODERATE':
-            computed = self.calculate_risk_level()
-            mapping = {
-                'CRITICAL': 'CRITICAL',
-                'HIGH': 'SEVERE',
-                'MEDIUM': 'MODERATE',
-                'LOW': 'MILD',
-            }
-            self.severity = mapping.get(computed, 'MODERATE')
         super().save(*args, **kwargs)
 
     def __str__(self):

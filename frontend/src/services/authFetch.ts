@@ -33,7 +33,11 @@ function extractErrorMessage(data: any, status: number): string {
   return `Request failed (${status})`;
 }
 
-export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export interface AuthFetchOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+export async function authFetch(url: string, options: AuthFetchOptions = {}): Promise<Response> {
   const fullUrl = getApiUrl(url);
   const token = localStorage.getItem(TOKEN_KEY);
   const headers = new Headers(options.headers);
@@ -46,8 +50,9 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json');
   }
 
+  const timeoutMs = options.timeoutMs ?? 20000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5500);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(fullUrl, {
@@ -62,8 +67,8 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 }
 
 /** Convenience: GET with auth */
-export async function authGet<T>(url: string): Promise<T> {
-  const res = await authFetch(url);
+export async function authGet<T>(url: string, options?: AuthFetchOptions): Promise<T> {
+  const res = await authFetch(url, options);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(extractErrorMessage(data, res.status));
@@ -72,10 +77,15 @@ export async function authGet<T>(url: string): Promise<T> {
 }
 
 /** Convenience: POST with auth + JSON body */
-export async function authPost<T>(url: string, body: unknown): Promise<T> {
+export async function authPost<T>(url: string, body: unknown, options?: AuthFetchOptions): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
   const res = await authFetch(url, {
+    ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -86,10 +96,15 @@ export async function authPost<T>(url: string, body: unknown): Promise<T> {
 }
 
 /** Convenience: PATCH with auth + JSON body */
-export async function authPatch<T>(url: string, body: unknown): Promise<T> {
+export async function authPatch<T>(url: string, body: unknown, options?: AuthFetchOptions): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
   const res = await authFetch(url, {
+    ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));

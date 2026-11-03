@@ -45,7 +45,7 @@ export const riskApi = {
     authGet<DiseaseRiskPrediction[]>(`/api/risk/disease/${query({ district })}`),
 
   /** Authority only. Outbreak risk needs the server to reach NASA POWER. */
-  refreshAll: () => authPost<RefreshSummary>('/api/risk/refresh/', { water: true, disease: true }),
+  refreshAll: () => authPost<RefreshSummary>('/api/risk/refresh/', { water: true, disease: true }, { timeoutMs: 35000 }),
 
   getModelInfo: () => authGet<ModelInfo>('/api/risk/models/'),
 

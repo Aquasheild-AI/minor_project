@@ -70,7 +70,7 @@ export const workerHealthRecords: HealthRecord[] = Array.from({ length: 42 }, (_
     suspectedCases: cases,
     symptoms: symptoms.length ? symptoms : ['Fever'],
     ageGroup: ageGroups[i % ageGroups.length] as HealthRecord['ageGroup'],
-    riskLevel: pickRisk(score),
+    riskLevel: (cases >= 10 ? 'critical' : cases >= 3 ? 'high' : cases >= 2 ? 'medium' : 'low') as RiskLevel,
     reportedBy: 'Anita Devi',
   };
 });

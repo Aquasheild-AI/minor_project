@@ -97,7 +97,7 @@ export const healthRecords: HealthRecord[] = Array.from({ length: 70 }, (_, i) =
     suspectedCases: cases,
     symptoms: symptoms.length ? symptoms : ['Fever'],
     ageGroup: ageGroups[i % ageGroups.length],
-    riskLevel: pickRisk(score),
+    riskLevel: (cases >= 10 ? 'critical' : cases >= 3 ? 'high' : cases >= 2 ? 'medium' : 'low') as RiskLevel,
     reportedBy: ['Dr. Anjali Verma', 'Dr. Ramesh Singh', 'Nurse Priya Yadav', 'Worker Suresh Kumar'][i % 4],
   };
 });

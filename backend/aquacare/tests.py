@@ -779,5 +779,35 @@ class AquaCareRBACTestCase(TestCase):
         self.assertEqual(len(res.data), 1)
         self.assertEqual(res.data[0]['name'], self.village_a.name)
 
+    def test_health_record_risk_level_by_case_count_only(self):
+        """
+        Verify that HealthRecord risk evaluation is determined strictly on the basis of number of cases:
+        - 1 case -> LOW (Safe)
+        - 2 cases -> MEDIUM
+        - 3-9 cases -> HIGH
+        - 10+ cases -> CRITICAL
+        """
+        # 1 case -> LOW (Safe)
+        hr1 = HealthRecord(village=self.village_a, suspected_cases=1, disease_type='TYPHOID', symptoms=['Fever'])
+        self.assertEqual(hr1.calculate_risk_level(), 'LOW')
 
+        # 2 cases -> MEDIUM
+        hr2 = HealthRecord(village=self.village_a, suspected_cases=2, disease_type='ACUTE_DIARRHEA', symptoms=['Diarrhea'])
+        self.assertEqual(hr2.calculate_risk_level(), 'MEDIUM')
+
+        # 3 cases -> HIGH
+        hr3 = HealthRecord(village=self.village_a, suspected_cases=3, disease_type='DYSENTERY', symptoms=['Bloody diarrhea'])
+        self.assertEqual(hr3.calculate_risk_level(), 'HIGH')
+
+        # 5 cases -> HIGH
+        hr5 = HealthRecord(village=self.village_a, suspected_cases=5, disease_type='TYPHOID', symptoms=['Fever'])
+        self.assertEqual(hr5.calculate_risk_level(), 'HIGH')
+
+        # 10 cases -> CRITICAL
+        hr10 = HealthRecord(village=self.village_a, suspected_cases=10, disease_type='CHOLERA', symptoms=['Dehydration'])
+        self.assertEqual(hr10.calculate_risk_level(), 'CRITICAL')
+
+        # 50 cases -> CRITICAL
+        hr50 = HealthRecord(village=self.village_a, suspected_cases=50, disease_type='TYPHOID', symptoms=['Headache'])
+        self.assertEqual(hr50.calculate_risk_level(), 'CRITICAL')
 

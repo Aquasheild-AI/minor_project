@@ -287,7 +287,7 @@ export function WorkerAddHealthRecord() {
             <RiskBadge level={previewRisk} />
           </div>
           <span className="text-xs text-slate-500">
-            Real-time assessment based on disease, cluster volume ({form.suspectedCases || 1} cases), and symptoms.
+            Assessment based on reported case count ({form.suspectedCases || 1} {Number(form.suspectedCases) === 1 ? 'case' : 'cases'}): 1 = Safe, 2 = Medium, 3–9 = High, 10+ = Critical.
           </span>
         </div>
 

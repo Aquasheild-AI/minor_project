@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Users, Activity, Calendar, TrendingUp, Droplets } from 'lucide-react';
+import { MapPin, Users, Activity, Calendar, TrendingUp, Droplets, Download } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
+import { DownloadReportModal } from '@/components/reports/DownloadReportModal';
+import { api } from '@/services/api';
 import { ChartCard } from '@/components/ui/ChartCard';
 import { communityApi, type CommunityWaterQualitySummary } from '@/services/communityApi';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village, TrendPoint } from '@/types';
+import type { Village, TrendPoint, HealthRecord } from '@/types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +18,25 @@ export function CommunityVillage() {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [waterSummary, setWaterSummary] = useState<CommunityWaterQualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDownload, setShowDownload] = useState(false);
+  const [records, setRecords] = useState<HealthRecord[]>([]);
+  const [communityReports, setCommunityReports] = useState<any[]>([]);
+
+  const handleDownload = async () => {
+    setShowDownload(true);
+    if (village?.id) {
+      try {
+        const [data, cr] = await Promise.all([
+          records.length === 0 ? api.getHealthRecords({ village_id: village.id }).catch(() => []) : Promise.resolve(records),
+          communityReports.length === 0 ? communityApi.getReports().catch(() => []) : Promise.resolve(communityReports),
+        ]);
+        setRecords(data);
+        setCommunityReports(cr.filter((r) => !village.name || r.villageName === village.name));
+      } catch (err) {
+        console.warn('Could not load specific health records for village', err);
+      }
+    }
+  };
   const { t, i18n } = useTranslation();
   const isHi = i18n.language?.startsWith('hi');
 
@@ -36,12 +57,23 @@ export function CommunityVillage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{village.name} {t('common.village')}</h1>
           <p className="text-sm text-slate-500">{village.district}, {village.state}</p>
         </div>
-        <RiskBadge level={village.riskLevel} />
+        <div className="flex items-center gap-2">
+          <RiskBadge level={village.riskLevel} />
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="btn-secondary inline-flex items-center gap-1.5 text-xs py-1.5 px-3"
+            title={isHi ? 'स्वास्थ्य रिपोर्ट डाउनलोड करें' : 'Download Health Report'}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>{isHi ? 'पीडीएफ रिपोर्ट' : 'Download PDF Report'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Overview cards */}
@@ -84,6 +116,15 @@ export function CommunityVillage() {
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
+
+      <DownloadReportModal
+        open={showDownload}
+        onClose={() => setShowDownload(false)}
+        village={village}
+        records={records}
+        communityReports={communityReports}
+        title={isHi ? `${village.name} स्वास्थ्य व नागरिक रिपोर्ट` : `${village.name} Health & Citizen Report`}
+      />
 
       {/* Water Quality Summary */}
       <div className="card mt-6 p-5">

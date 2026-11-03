@@ -50,9 +50,8 @@ export async function authFetch(url: string, options: AuthFetchOptions = {}): Pr
     headers.set('Content-Type', 'application/json');
   }
 
-  const timeoutMs = options.timeoutMs ?? 20000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), 5500);
 
   try {
     const res = await fetch(fullUrl, {

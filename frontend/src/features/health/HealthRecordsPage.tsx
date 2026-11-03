@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Pencil, Trash2, HeartPulse, FileText } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, HeartPulse, FileText, Download } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Table, Pagination } from '@/components/ui/Table';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
+import { DownloadReportModal } from '@/components/reports/DownloadReportModal';
 import { api } from '@/services/api';
 import type { HealthRecord, DiseaseCategory, Village } from '@/types';
 
@@ -23,6 +24,7 @@ export function HealthRecordsPage() {
   const [riskFilter, setRiskFilter] = useState('');
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<HealthRecord | null>(null);
+  const [showDownload, setShowDownload] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const pageSize = 10;
 
@@ -75,9 +77,18 @@ export function HealthRecordsPage() {
         subtitle="Track and manage community health records across monitored villages."
         breadcrumb={['Home', 'Health Surveillance']}
         actions={
-          <Link to="/health/add" className="btn-primary">
-            <Plus className="h-4 w-4" /> Add Health Record
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowDownload(true)}
+              className="btn-secondary inline-flex items-center gap-1.5"
+              title="Download health surveillance report"
+            >
+              <Download className="h-4 w-4" /> Download PDF Report
+            </button>
+            <Link to="/health/add" className="btn-primary">
+              <Plus className="h-4 w-4" /> Add Health Record
+            </Link>
+          </div>
         }
       />
 
@@ -160,6 +171,13 @@ export function HealthRecordsPage() {
           </>
         )}
       </div>
+
+      <DownloadReportModal
+        open={showDownload}
+        onClose={() => setShowDownload(false)}
+        records={filtered}
+        title="Download Health Surveillance Report"
+      />
 
       {/* Delete confirmation */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Health Record" size="sm">

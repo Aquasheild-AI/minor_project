@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Check, ArrowLeft, HeartPulse, Users, Calendar, StickyNote } from 'lucide-react';
-import { communityApi } from '@/services/communityApi';
+import { MapPin, Check, ArrowLeft, HeartPulse, Users, Calendar, StickyNote, Printer, FileText } from 'lucide-react';
+import { communityApi, type CommunityReport } from '@/services/communityApi';
+import { printSingleCommunityReport } from '@/utils/reportExport';
 import { useAuth } from '@/hooks/useAuth';
 import type { Symptom, Village } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +44,7 @@ export function CommunityReportIssue() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submittedReport, setSubmittedReport] = useState<CommunityReport | null>(null);
 
   useEffect(() => {
     communityApi.getVillages().then((vList) => {
@@ -80,8 +82,9 @@ export function CommunityReportIssue() {
       peopleAffected,
       ageGroup: ageGroup || undefined,
       notes: notes || undefined,
-    }).then(() => {
+    }).then((created) => {
       setSaving(false);
+      setSubmittedReport(created);
       setSuccess(true);
     }).catch((err) => {
       setSaving(false);
@@ -91,17 +94,77 @@ export function CommunityReportIssue() {
 
   if (success) {
     return (
-      <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-4 py-16 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-risk-low-bg">
-          <Check className="h-10 w-10 text-risk-low" />
+      <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-4 py-10 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <Check className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900">{isHi ? 'रिपोर्ट सफलतापूर्वक दर्ज की गई' : 'Report Submitted'}</h2>
+        <h2 className="text-xl font-bold text-slate-900">
+          {isHi ? 'रिपोर्ट सफलतापूर्वक दर्ज की गई' : 'Health Issue Report Submitted'}
+        </h2>
         <p className="max-w-md text-sm text-slate-500">
           {t('community.reportIssue.form.success')}
         </p>
-        <button onClick={() => navigate('/community/home')} className="btn-primary mt-4">
-          {t('nav.home')}
-        </button>
+
+        {submittedReport && (
+          <div className="mt-2 w-full max-w-md rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-left text-xs text-slate-700 space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <span className="font-semibold text-slate-900">
+                {isHi ? 'गाँव' : 'Village'}: {submittedReport.villageName}
+              </span>
+              <span className="rounded bg-sky-100 px-2 py-0.5 font-bold text-sky-800 text-[10px]">
+                CR-{String(submittedReport.id).padStart(4, '0')}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500">{isHi ? 'प्रभावित लोग' : 'People Affected'}:</span>{' '}
+              <span className="font-semibold">{submittedReport.peopleAffected}</span>
+              {submittedReport.ageGroup && (
+                <span> · {isHi ? 'आयु वर्ग' : 'Age'}: {submittedReport.ageGroup}</span>
+              )}
+            </div>
+            <div>
+              <span className="text-slate-500">{isHi ? 'लक्षण' : 'Symptoms'}:</span>{' '}
+              <span className="font-medium text-slate-900">
+                {submittedReport.symptoms.join(', ')}
+              </span>
+            </div>
+            {submittedReport.notes && (
+              <div className="rounded bg-amber-50 border border-amber-200/80 p-2 text-amber-900">
+                <span className="font-semibold">{isHi ? 'आपका विवरण' : 'Your Notes'}:</span>{' '}
+                <span className="italic">"{submittedReport.notes}"</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons: PDF Download + Navigation */}
+        <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          {submittedReport && (
+            <button
+              type="button"
+              onClick={() => printSingleCommunityReport(submittedReport)}
+              className="btn-primary inline-flex items-center justify-center gap-2 px-5 py-2.5"
+            >
+              <Printer className="h-4 w-4" />
+              <span>{isHi ? 'दर्ज रिपोर्ट डाउनलोड करें (PDF)' : 'Download My Submitted Report (PDF)'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate('/community/reports')}
+            className="btn-secondary inline-flex items-center justify-center gap-2 px-4 py-2.5"
+          >
+            <FileText className="h-4 w-4" />
+            <span>{isHi ? 'मेरी रिपोर्ट देखें' : 'View My Reports'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/community/home')}
+            className="btn-ghost inline-flex items-center justify-center px-4 py-2.5"
+          >
+            {t('nav.home')}
+          </button>
+        </div>
       </div>
     );
   }

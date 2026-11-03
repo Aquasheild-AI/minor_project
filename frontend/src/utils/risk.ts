@@ -21,79 +21,22 @@ export interface HealthRiskFactors {
 }
 
 export function evaluateHealthRiskLevel(record: HealthRiskFactors): RiskLevel {
-  let score = 0;
-
-  // 1. Disease Pathogen Risk
-  const disease = String(record.diseaseCategory || record.disease_type || '').toUpperCase();
-  if (disease.includes('CHOLERA')) {
-    score += 35;
-  } else if (disease.includes('TYPHOID')) {
-    score += 25;
-  } else if (disease.includes('HEPATITIS')) {
-    score += 20;
-  } else if (disease.includes('DYSENTERY')) {
-    score += 18;
-  } else if (disease.includes('DIARRHEA') || disease.includes('GASTROENTERITIS')) {
-    score += 10;
-  } else if (disease) {
-    score += 5;
-  }
-
-  // 2. Case Volume & Cluster Scale
+  // Evaluated strictly on the basis of number of suspected cases:
+  // - <= 1 case  : Safe ('low')
+  // - 2 cases    : Medium ('medium')
+  // - 3 - 9 cases: High ('high')
+  // - >= 10 cases: Critical ('critical')
   const cases = Number(record.suspectedCases ?? record.suspected_cases ?? 1);
-  if (cases >= 25) {
-    score += 45;
-  } else if (cases >= 10) {
-    score += 30;
-  } else if (cases >= 5) {
-    score += 20;
-  } else if (cases >= 3) {
-    score += 12;
-  } else if (cases === 2) {
-    score += 5;
-  } else {
-    score += 0;
-  }
 
-  // 3. Danger Symptoms
-  const symptoms = (Array.isArray(record.symptoms) ? record.symptoms : []).map((s) => String(s).toLowerCase());
-  if (symptoms.some((s) => s.includes('dehydration'))) score += 15;
-  if (symptoms.some((s) => s.includes('vomit'))) score += 8;
-  if (symptoms.some((s) => s.includes('fever'))) score += 6;
-  if (symptoms.some((s) => s.includes('blood') || s.includes('bloody') || s.includes('dysentery'))) score += 15;
-  if (symptoms.some((s) => s.includes('shock') || s.includes('unconscious') || s.includes('icu'))) score += 25;
-  if (symptoms.some((s) => s.includes('pain') || s.includes('cramp') || s.includes('abdominal'))) score += 4;
-  if (symptoms.some((s) => s.includes('headache'))) score += 2;
+  if (cases >= 10) return 'critical';
+  if (cases >= 3) return 'high';
+  if (cases >= 2) return 'medium';
 
-  // 4. Age Vulnerability
-  const ageGroup = String(record.ageGroup || '');
-  const age = Number(record.age ?? (ageGroup === '0-5' ? 3 : ageGroup === '6-12' ? 9 : ageGroup === '60+' ? 65 : 25));
-  if (age <= 5 || ageGroup === '0-5' || ageGroup.toLowerCase().includes('under 5')) {
-    score += 15;
-  } else if (age >= 60 || ageGroup === '60+' || ageGroup === '65+') {
-    score += 12;
-  } else if (age <= 12 || ageGroup === '6-12' || ageGroup === '5-14') {
-    score += 6;
-  }
-
-  // 5. Explicit Severity Floor from Authority
+  // Explicit authority clinical severity override (if clinically flagged as SEVERE/CRITICAL)
   const sev = String(record.severity || '').toUpperCase();
-  if (sev === 'CRITICAL') score = Math.max(score, 75);
-  else if (sev === 'SEVERE') score = Math.max(score, 50);
+  if (sev === 'CRITICAL') return 'critical';
+  if (sev === 'SEVERE') return 'high';
 
-  // Fallback to explicit risk_level if neither disease nor symptoms are present
-  if (!disease && symptoms.length === 0 && record.risk_level) {
-    const raw = String(record.risk_level).toLowerCase();
-    if (raw === 'critical') return 'critical';
-    if (raw === 'high') return 'high';
-    if (raw === 'medium') return 'medium';
-    if (raw === 'low' || raw === 'safe') return 'low';
-  }
-
-  // 6. Classification: Critical (>=70), High (>=45), Medium (>=20), Safe (<20)
-  if (score >= 70) return 'critical';
-  if (score >= 45) return 'high';
-  if (score >= 20) return 'medium';
   return 'low';
 }
 

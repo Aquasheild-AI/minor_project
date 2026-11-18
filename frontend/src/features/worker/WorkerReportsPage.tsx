@@ -256,8 +256,13 @@ export function WorkerReportsPage() {
                       <Badge variant={statusBadgeVariant[r.status] || 'info'}>
                         {r.status_display || r.status}
                       </Badge>
+                      {r.status === 'VERIFIED' && (
+                        <p className="text-[10px] text-teal-700 font-semibold mt-1">
+                          🩺 Authority Appt Eligible
+                        </p>
+                      )}
                       {r.health_record_id && (
-                        <p className="text-[10px] text-primary-700 font-semibold mt-1">
+                        <p className="text-[10px] text-primary-700 font-semibold mt-0.5">
                           ✓ Record #{r.health_record_id}
                         </p>
                       )}
@@ -345,6 +350,14 @@ export function WorkerReportsPage() {
                 <option value="VERIFIED">Mark Verified (Outbreak / Case Confirmed)</option>
                 <option value="RESOLVED">Mark Resolved (Intervention completed)</option>
               </select>
+              {reviewStatus === 'VERIFIED' && (
+                <div className="mt-2 rounded-lg bg-teal-50 border border-teal-200 p-2.5 text-xs text-teal-800 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" />
+                  <span>
+                    <strong>Authority Scheduling Trigger:</strong> Marking verified allows the Health Authority to schedule an official doctor appointment and send consultation slips.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg border border-primary-200 bg-primary-50/60 p-3.5">

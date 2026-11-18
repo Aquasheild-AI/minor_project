@@ -811,3 +811,76 @@ class AquaCareRBACTestCase(TestCase):
         hr50 = HealthRecord(village=self.village_a, suspected_cases=50, disease_type='TYPHOID', symptoms=['Headache'])
         self.assertEqual(hr50.calculate_risk_level(), 'CRITICAL')
 
+    def test_authority_can_schedule_appointment_for_verified_case(self):
+        """
+        Verify that once a health worker verifies/approves a community report,
+        a Health Authority can schedule an appointment for that patient,
+        while unauthorized roles (citizens) are forbidden.
+        """
+        from aquacare.models import Appointment
+
+        # 1. Citizen reports issue
+        report = CommunityReport.objects.create(
+            village=self.village_a,
+            citizen=self.citizen,
+            reporter_name=self.citizen.get_full_name(),
+            reporter_phone="9876543210",
+            people_affected=2,
+            symptoms=['High Fever', 'Dehydration'],
+            status='SUBMITTED',
+        )
+
+        # 2. Health worker reviews and verifies/approves the case
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_worker}')
+        review_res = self.client.patch(f'/api/community-reports/{report.id}/review/', {
+            'status': 'VERIFIED',
+            'review_notes': 'Clinical signs confirmed. Water testing indicated acute bacterial contamination.',
+            'create_health_record': True,
+            'disease_type': 'TYPHOID',
+            'severity': 'MODERATE',
+        }, format='json')
+        self.assertEqual(review_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(review_res.data['status'], 'VERIFIED')
+
+        # 3. Citizen cannot appoint an appointment (RBAC check -> 403)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_citizen}')
+        appt_payload = {
+            'community_report': report.id,
+            'village': self.village_a.id,
+            'citizen': self.citizen.id,
+            'patient_name': self.citizen.get_full_name(),
+            'patient_phone': '9876543210',
+            'patient_age': 32,
+            'doctor_name': 'Dr. S.K. Gupta (PHC Medical Officer)',
+            'facility_name': 'Sakaldiha Primary Health Centre',
+            'appointment_date': '2026-11-20',
+            'time_slot': '10:00 AM - 10:30 AM',
+            'appointment_type': 'CLINICAL_OPD',
+            'priority': 'URGENT',
+            'instructions': 'Bring past medical prescriptions and stool sample.',
+        }
+        res_citizen_book = self.client.post('/api/appointments/', appt_payload, format='json')
+        self.assertEqual(res_citizen_book.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 4. Authority appoints an appointment for the approved case (201 Created)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_authority}')
+        res_authority_book = self.client.post('/api/appointments/', appt_payload, format='json')
+        self.assertEqual(res_authority_book.status_code, status.HTTP_201_CREATED)
+        appt_id = res_authority_book.data['id']
+        self.assertEqual(res_authority_book.data['patient_name'], self.citizen.get_full_name())
+        self.assertEqual(res_authority_book.data['doctor_name'], 'Dr. S.K. Gupta (PHC Medical Officer)')
+        self.assertEqual(res_authority_book.data['status'], 'SCHEDULED')
+
+        # 5. Verify appointment list retrieval
+        res_list = self.client.get('/api/appointments/')
+        self.assertEqual(res_list.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(res_list.data) >= 1)
+
+        # 6. Update appointment status to COMPLETED
+        res_update = self.client.patch(f'/api/appointments/{appt_id}/', {
+            'status': 'COMPLETED',
+            'notes': 'Patient attended consultation. Prescribed Ciprofloxacin and ORS.',
+        }, format='json')
+        self.assertEqual(res_update.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_update.data['status'], 'COMPLETED')
+

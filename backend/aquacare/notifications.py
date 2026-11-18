@@ -319,3 +319,140 @@ def dispatch_emergency_email(dispatch, triggered_by=None):
         )
     except Exception as e:
         logger.warning("Failed to dispatch emergency deployment notification email for dispatch #%s: %s", getattr(dispatch, 'id', 'unknown'), e)
+
+
+def dispatch_appointment_email(appointment, appointed_by=None):
+    """
+    Sends an immediate appointment confirmation notice with clinical details
+    to the patient, authority inbox, and central health administration.
+    """
+    try:
+        recipients = set()
+
+        # 1. Citizen / Patient email if registered
+        if appointment.citizen and getattr(appointment.citizen, 'email', None) and '@' in appointment.citizen.email:
+            recipients.add(appointment.citizen.email.strip())
+
+        # 2. Appointing Authority email
+        if appointed_by and getattr(appointed_by, 'email', None) and '@' in appointed_by.email:
+            recipients.add(appointed_by.email.strip())
+
+        # 3. Always guarantee delivery to primary admin email and host settings
+        default_admin = getattr(settings, 'ADMIN_ALERT_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+        if default_admin and '@' in default_admin:
+            recipients.add(default_admin.strip())
+        recipients.add('abhinav8934g@gmail.com')
+
+        recipient_list = sorted(list(recipients))
+
+        village_name = appointment.village.name if appointment.village else 'Varanasi Division'
+        district = getattr(appointment.village, 'district', 'Varanasi') if appointment.village else 'Varanasi'
+        appt_type_label = appointment.get_appointment_type_display() if hasattr(appointment, 'get_appointment_type_display') else appointment.appointment_type
+        priority_label = appointment.get_priority_display() if hasattr(appointment, 'get_priority_display') else appointment.priority
+        date_str = appointment.appointment_date.strftime('%d %b %Y') if appointment.appointment_date else 'Scheduled Date'
+        time_slot = appointment.time_slot or 'Morning Slot (10:00 AM)'
+
+        authority_name = (
+            appointed_by.get_full_name() or appointed_by.username
+            if appointed_by
+            else (appointment.appointed_by.get_full_name() if appointment.appointed_by else 'Health Authority')
+        )
+
+        subject = f"[AquaShield Appointment Confirmed] {appt_type_label} - {appointment.patient_name}"
+
+        # Plain text
+        text_body = "\n".join([
+            "CLINICAL APPOINTMENT CONFIRMATION",
+            "==================================================",
+            f"Patient Name:       {appointment.patient_name} (Age: {appointment.patient_age or 'N/A'})",
+            f"Village:            {village_name} (District: {district})",
+            f"Assigned Doctor:    {appointment.doctor_name}",
+            f"Medical Facility:   {appointment.facility_name}",
+            f"Appointment Date:   {date_str}",
+            f"Time Slot:          {time_slot}",
+            f"Appointment Type:   {appt_type_label}",
+            f"Priority Tier:      {priority_label}",
+            f"Appointed By:       {authority_name} (Health Authority)",
+            "--------------------------------------------------",
+            "Patient Directives:",
+            f"{appointment.instructions or 'Please arrive 10 minutes before the scheduled time slot with prior prescriptions or lab reports.'}",
+            "",
+            f"Notes: {appointment.notes or 'None'}",
+            "",
+            "AquaShield Rural Public Health Service • Primary Health Care Network",
+        ])
+
+        # Rich HTML Slip
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }}
+            .header {{ background: #0284c7; padding: 24px; color: #ffffff; }}
+            .badge {{ display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; background: #ffffff; color: #0284c7; margin-bottom: 8px; }}
+            .title {{ font-size: 22px; font-weight: 800; margin: 0; line-height: 1.3; color: #ffffff; }}
+            .content {{ padding: 24px; }}
+            .appointment-card {{ background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 18px; margin-bottom: 20px; }}
+            .slot-highlight {{ font-size: 18px; font-weight: 800; color: #0369a1; }}
+            .meta-grid {{ display: table; width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+            .meta-row {{ display: table-row; }}
+            .meta-cell {{ display: table-cell; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }}
+            .meta-label {{ color: #64748b; font-weight: 600; width: 35%; }}
+            .meta-val {{ color: #0f172a; font-weight: 700; }}
+            .instructions-box {{ background: #f8fafc; border-left: 4px solid #0284c7; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px; font-size: 14px; line-height: 1.6; color: #334155; }}
+            .footer {{ background: #f8fafc; padding: 16px 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <span class="badge">CONFIRMED CLINICAL APPOINTMENT</span>
+              <h1 class="title">🩺 {appt_type_label}</h1>
+              <div style="font-size: 13px; color: #e0f2fe; margin-top: 6px;">Patient: <strong>{appointment.patient_name}</strong> | Village: <strong>{village_name}</strong></div>
+            </div>
+            <div class="content">
+              <div class="appointment-card">
+                <div style="font-size: 12px; color: #0369a1; font-weight: 700; text-transform: uppercase;">Scheduled Slot</div>
+                <div class="slot-highlight">📅 {date_str} at {time_slot}</div>
+                <div style="font-size: 13px; color: #475569; margin-top: 4px;">Facility: <strong>{appointment.facility_name}</strong></div>
+              </div>
+              <div class="meta-grid">
+                <div class="meta-row"><div class="meta-cell meta-label">Assigned Doctor:</div><div class="meta-cell meta-val">{appointment.doctor_name}</div></div>
+                <div class="meta-row"><div class="meta-cell meta-label">Patient Contact:</div><div class="meta-cell meta-val">{appointment.patient_phone or 'N/A'} (Age: {appointment.patient_age or 'N/A'})</div></div>
+                <div class="meta-row"><div class="meta-cell meta-label">Priority Tier:</div><div class="meta-cell meta-val">{priority_label}</div></div>
+                <div class="meta-row"><div class="meta-cell meta-label">Appointed By:</div><div class="meta-cell meta-val">{authority_name} (Health Authority)</div></div>
+              </div>
+              <div class="instructions-box">
+                <div style="font-weight: 700; margin-bottom: 6px; color: #0f172a;">Patient Directives & Preparation:</div>
+                {appointment.instructions or 'Please arrive 10 minutes prior to your time slot with any previous prescriptions, medical records, or water test slips.'}
+              </div>
+              {f'''<div style="font-size: 13px; color: #64748b; margin-top: 8px;"><strong>Clinical Notes:</strong> {appointment.notes}</div>''' if appointment.notes else ''}
+            </div>
+            <div class="footer">
+              AquaShield Rural Public Health Network • Clinical Care Coordination<br>
+              Authorized by District Health Administration
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        send_transactional_email(
+            to=recipient_list,
+            subject=subject,
+            html_content=html_body,
+            text_content=text_body,
+            fail_silently=True,
+        )
+        logger.info(
+            "Dispatched appointment #%s confirmation email to %d recipients (%s).",
+            getattr(appointment, 'id', 'new'),
+            len(recipient_list),
+            ", ".join(recipient_list),
+        )
+    except Exception as e:
+        logger.warning("Failed to dispatch appointment confirmation email for appointment #%s: %s", getattr(appointment, 'id', 'unknown'), e)
+

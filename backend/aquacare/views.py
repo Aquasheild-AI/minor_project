@@ -28,6 +28,7 @@ from .models import (
     AlertAcknowledgement,
     PasswordResetOTP,
     EmergencyDispatch,
+    Appointment,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ from .serializers import (
     AlertSerializer,
     ProfileUpdateSerializer,
     EmergencyDispatchSerializer,
+    AppointmentSerializer,
 )
 from . import ml_service
 from .permissions import (
@@ -1652,3 +1654,106 @@ def emergency_dispatch_update_status(request, pk):
 
     dispatch.save()
     return Response(EmergencyDispatchSerializer(dispatch).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def appointments_list_create(request):
+    """
+    GET /api/appointments/?village_id=...&status=...&report_id=...
+    POST /api/appointments/ (AUTHORITY only)
+    """
+    if request.method == 'GET':
+        qs = Appointment.objects.select_related('village', 'appointed_by', 'citizen').all()
+
+        # Non-authority users see appointments in their village or their own
+        if request.user.role == 'COMMUNITY':
+            qs = qs.filter(Q(citizen=request.user) | Q(village=request.user.village))
+        elif request.user.role == 'HEALTH_WORKER':
+            assigned = request.user.assigned_villages.all()
+            if assigned.exists():
+                qs = qs.filter(village__in=assigned)
+
+        village_id = request.query_params.get('village_id')
+        status_filter = request.query_params.get('status')
+        report_id = request.query_params.get('report_id')
+
+        if village_id:
+            qs = qs.filter(village_id=village_id)
+        if status_filter:
+            qs = qs.filter(status=status_filter.upper())
+        if report_id:
+            qs = qs.filter(community_report_id=report_id)
+
+        serializer = AppointmentSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        # Strict RBAC: Only Health Authorities can officially book and appoint doctor consultations
+        if request.user.role != 'AUTHORITY':
+            return Response(
+                {'error': 'Permission denied. Only Health Authorities can schedule and appoint clinical consultations.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AppointmentSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        appointment = serializer.save(appointed_by=request.user)
+
+        # If linked to a CommunityReport, update or verify note
+        if appointment.community_report:
+            rep = appointment.community_report
+            if rep.status in ('SUBMITTED', 'UNDER_REVIEW'):
+                rep.status = 'VERIFIED'
+            note_addition = f"\n[Appointment Scheduled]: With {appointment.doctor_name} on {appointment.appointment_date} ({appointment.time_slot}) by {request.user.get_full_name() or request.user.username}."
+            rep.review_notes = (rep.review_notes or '') + note_addition
+            rep.save(update_fields=['status', 'review_notes'])
+
+        # Dispatch immediate email notice to patient and authority/admin
+        try:
+            from .notifications import dispatch_appointment_email
+            dispatch_appointment_email(appointment, appointed_by=request.user)
+        except Exception as e:
+            logger.warning(f"Failed to dispatch appointment notification email: {e}")
+
+        return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated, IsHealthWorkerOrAuthority])
+def appointment_detail_update(request, pk):
+    """
+    PATCH /api/appointments/<pk>/ (Update status: COMPLETED, CANCELLED, RESCHEDULED, notes)
+    DELETE /api/appointments/<pk>/ (Authority only)
+    """
+    appointment = get_object_or_404(Appointment, pk=pk)
+
+    if request.method == 'DELETE':
+        if request.user.role != 'AUTHORITY':
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        appointment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # PATCH
+    status_val = request.data.get('status')
+    if status_val:
+        valid_statuses = dict(Appointment.STATUS_CHOICES)
+        if status_val.upper() in valid_statuses:
+            appointment.status = status_val.upper()
+
+    if 'notes' in request.data:
+        appointment.notes = request.data['notes']
+    if 'instructions' in request.data:
+        appointment.instructions = request.data['instructions']
+    if 'doctor_name' in request.data and request.user.role == 'AUTHORITY':
+        appointment.doctor_name = request.data['doctor_name']
+    if 'appointment_date' in request.data and request.user.role == 'AUTHORITY':
+        appointment.appointment_date = request.data['appointment_date']
+    if 'time_slot' in request.data and request.user.role == 'AUTHORITY':
+        appointment.time_slot = request.data['time_slot']
+
+    appointment.save()
+    return Response(AppointmentSerializer(appointment).data)
+

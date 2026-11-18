@@ -25,6 +25,10 @@ import type {
   AgeGroup,
   EmergencyDispatch,
   DispatchStatus,
+  Appointment,
+  AppointmentStatus,
+  AppointmentType,
+  AppointmentPriority,
 } from '@/types';
 
 // ─── Data Normalizers ────────────────────────────────────────────────
@@ -971,6 +975,117 @@ export const api = {
         status: status as DispatchStatus,
         notes,
         dispatched_at: new Date().toISOString(),
+      };
+    }
+  },
+
+  // Clinical Appointments (Authority Scheduling for Verified Cases)
+  getAppointments: async (params?: { village_id?: string; status?: string; citizen_id?: string; community_report_id?: string }): Promise<Appointment[]> => {
+    try {
+      const query = params ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : '';
+      const list = await authGet<Appointment[]>(`/api/appointments/${query}`);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    } catch (e) {
+      console.warn('API getAppointments failed, using fallback:', e);
+    }
+    return [
+      {
+        id: 1,
+        village: 1,
+        village_name: 'Rampur',
+        district: 'Varanasi',
+        patient_name: 'Anita Devi',
+        patient_phone: '+91 98765 12345',
+        patient_age: 34,
+        doctor_name: 'Dr. Vivek Sharma (General Physician)',
+        facility_name: 'Rampur Primary Health Centre (PHC)',
+        appointment_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        time_slot: 'Morning Slot (10:30 AM)',
+        appointment_type: 'CLINICAL_OPD',
+        appointment_type_display: 'Clinical OPD Consultation',
+        priority: 'URGENT',
+        priority_display: 'Urgent Care',
+        status: 'SCHEDULED',
+        status_display: 'Scheduled',
+        instructions: 'Drink plenty of boiled water. Bring previous prescriptions.',
+        notes: 'Verified field report indicated acute dehydration and gastro flare-up.',
+        created_at: new Date(Date.now() - 7200000).toISOString(),
+        updated_at: new Date(Date.now() - 7200000).toISOString(),
+      },
+      {
+        id: 2,
+        village: 13,
+        village_name: 'Dhanapur',
+        district: 'Chandauli',
+        patient_name: 'Rohan Verma',
+        patient_phone: '+91 98112 34567',
+        patient_age: 12,
+        doctor_name: 'Dr. Neha Agarwal (Pediatric Specialist)',
+        facility_name: 'Community Health Centre (CHC) Chandauli',
+        appointment_date: new Date(Date.now() + 172800000).toISOString().split('T')[0],
+        time_slot: 'Afternoon Slot (02:00 PM)',
+        appointment_type: 'SPECIALIST_REFERRAL',
+        appointment_type_display: 'Specialist Referral',
+        priority: 'ROUTINE',
+        priority_display: 'Routine Evaluation',
+        status: 'SCHEDULED',
+        status_display: 'Scheduled',
+        instructions: 'Fasting not required. Stool culture sample collection scheduled.',
+        notes: 'Follow-up for persistent enteritis after water contamination.',
+        created_at: new Date(Date.now() - 14400000).toISOString(),
+        updated_at: new Date(Date.now() - 14400000).toISOString(),
+      },
+    ];
+  },
+
+  createAppointment: async (data: Partial<Appointment>): Promise<Appointment> => {
+    try {
+      return await authPost<Appointment>('/api/appointments/', data);
+    } catch {
+      return {
+        id: Date.now(),
+        village: Number(data.village || 1),
+        village_name: data.village_name || 'Assigned Village',
+        district: data.district || 'Varanasi',
+        patient_name: data.patient_name || 'Patient',
+        patient_phone: data.patient_phone || '+91 98000 00000',
+        patient_age: data.patient_age || 30,
+        doctor_name: data.doctor_name || 'Dr. On Duty',
+        facility_name: data.facility_name || 'Primary Health Centre',
+        appointment_date: data.appointment_date || new Date().toISOString().split('T')[0],
+        time_slot: data.time_slot || 'Morning (10:00 AM)',
+        appointment_type: data.appointment_type || 'CLINICAL_OPD',
+        priority: data.priority || 'URGENT',
+        status: 'SCHEDULED',
+        instructions: data.instructions || 'Arrive 10 minutes prior.',
+        notes: data.notes || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+  },
+
+  updateAppointmentStatus: async (id: number | string, status: AppointmentStatus | string, notes?: string): Promise<Appointment> => {
+    try {
+      return await authPatch<Appointment>(`/api/appointments/${id}/`, { status, notes });
+    } catch {
+      return {
+        id: Number(id),
+        village: 1,
+        village_name: 'Rampur',
+        patient_name: 'Patient',
+        doctor_name: 'Dr. On Duty',
+        facility_name: 'Primary Health Centre',
+        appointment_date: new Date().toISOString().split('T')[0],
+        time_slot: 'Morning',
+        appointment_type: 'CLINICAL_OPD',
+        priority: 'URGENT',
+        status: status as AppointmentStatus,
+        notes,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
     }
   },

@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Lock,
   Download,
+  Stethoscope,
+  Truck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Table } from '@/components/ui/Table';
@@ -25,6 +27,8 @@ import { StatCard } from '@/components/ui/StatCard';
 import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
 import { DownloadReportModal } from '@/components/reports/DownloadReportModal';
+import { AppointmentsView } from '@/components/appointments/AppointmentsView';
+import { EmergencyDispatchesView } from '@/components/dispatch/EmergencyDispatchesView';
 import { authGet, authPost, authPatch } from '@/services/authFetch';
 import { api } from '@/services/api';
 import { communityApi, type CommunityReport } from '@/services/communityApi';
@@ -82,6 +86,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'HEALTH_WORKER' | 'AUTHORITY'>('ALL');
+  const [activeTab, setActiveTab] = useState<'users' | 'appointments' | 'dispatches'>('users');
 
   // Create Health Worker Modal State
   const [showAdd, setShowAdd] = useState(false);
@@ -361,9 +366,29 @@ export function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="User Administration"
-        subtitle="Manage field personnel, assign surveillance jurisdictions, and provision Health Worker accounts."
-        breadcrumb={['Home', 'Administration']}
+        title={
+          activeTab === 'users'
+            ? 'User Administration'
+            : activeTab === 'appointments'
+            ? 'Clinical Appointments & Outbreak Scheduling'
+            : 'Emergency Response & Ambulance Dispatches'
+        }
+        subtitle={
+          activeTab === 'users'
+            ? 'Manage field personnel, assign surveillance jurisdictions, and provision Health Worker accounts.'
+            : activeTab === 'appointments'
+            ? 'Appoint official doctor consultations and lab triage for cases verified by field health workers.'
+            : 'Coordinate immediate ambulance deployments and emergency medical squad mobilizations.'
+        }
+        breadcrumb={[
+          'Home',
+          'Administration',
+          activeTab === 'users'
+            ? 'Users'
+            : activeTab === 'appointments'
+            ? 'Appointments'
+            : 'Dispatches',
+        ]}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -374,19 +399,63 @@ export function AdminPage() {
             >
               <Download className="h-4 w-4" /> Download PDF Report
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAddError(null);
-                setShowAdd(true);
-              }}
-              className="btn-primary inline-flex items-center gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> Create Health Worker Account
-            </button>
+            {activeTab === 'users' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAddError(null);
+                  setShowAdd(true);
+                }}
+                className="btn-primary inline-flex items-center gap-1.5"
+              >
+                <Plus className="h-4 w-4" /> Create Health Worker Account
+              </button>
+            )}
           </div>
         }
       />
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('users')}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+            activeTab === 'users'
+              ? 'bg-primary-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          <span>Health Workers & Users</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('appointments')}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+            activeTab === 'appointments'
+              ? 'bg-teal-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Stethoscope className="h-4 w-4" />
+          <span>Clinical Appointments</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('dispatches')}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+            activeTab === 'dispatches'
+              ? 'bg-rose-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <Truck className="h-4 w-4" />
+          <span>Emergency Dispatches</span>
+        </button>
+      </div>
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -396,7 +465,9 @@ export function AdminPage() {
         </div>
       )}
 
-      {/* Summary Stat Cards */}
+      {activeTab === 'users' && (
+        <div className="space-y-6">
+          {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total Managed Users" value={stats.total} icon={Users} iconColor="text-primary-600" iconBg="bg-primary-50" />
         <StatCard label="Active Accounts" value={stats.active} icon={UserCheck} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
@@ -578,6 +649,16 @@ export function AdminPage() {
           />
         )}
       </div>
+      </div>
+      )}
+
+      {activeTab === 'appointments' && (
+        <AppointmentsView villages={villagesList} onNotification={showToast} />
+      )}
+
+      {activeTab === 'dispatches' && (
+        <EmergencyDispatchesView villages={villagesList} onNotification={showToast} />
+      )}
 
       {/* ────────────────────────────────────────────────────────── */}
       {/* 1. CREATE HEALTH WORKER MODAL (Strictly Health Worker role) */}

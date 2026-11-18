@@ -10,7 +10,8 @@ from .models import (
     DiseaseRiskPrediction,
     Alert,
     AlertAcknowledgement,
-    EmergencyDispatch
+    EmergencyDispatch,
+    Appointment,
 )
 
 
@@ -360,3 +361,33 @@ class EmergencyDispatchSerializer(serializers.ModelSerializer):
             'dispatched_at', 'resolved_at', 'notes'
         ]
         read_only_fields = ['dispatched_by', 'dispatched_at']
+
+
+class AppointmentSerializer(serializers.ModelSerializer):
+    village_name = serializers.CharField(source='village.name', read_only=True)
+    district = serializers.CharField(source='village.district', read_only=True)
+    appointed_by_name = serializers.SerializerMethodField()
+    appointment_type_display = serializers.CharField(source='get_appointment_type_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'id', 'community_report', 'health_record', 'village', 'village_name', 'district',
+            'citizen', 'patient_name', 'patient_phone', 'patient_age',
+            'doctor_name', 'facility_name', 'appointment_date', 'time_slot',
+            'appointment_type', 'appointment_type_display',
+            'priority', 'priority_display',
+            'status', 'status_display',
+            'appointed_by', 'appointed_by_name',
+            'instructions', 'notes',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'appointed_by', 'created_at', 'updated_at']
+
+    def get_appointed_by_name(self, obj):
+        if obj.appointed_by:
+            return obj.appointed_by.get_full_name() or obj.appointed_by.username
+        return 'Health Authority'
+

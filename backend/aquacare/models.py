@@ -975,3 +975,124 @@ class EmergencyDispatch(models.Model):
 
     def __str__(self):
         return f"[{self.get_priority_display()}] {self.get_dispatch_type_display()} -> {self.village.name} ({self.get_status_display()})"
+
+
+class Appointment(models.Model):
+    """
+    Clinical appointments scheduled by Health Authorities for approved/verified
+    citizen reports or clinical surveillance cases.
+    """
+    APPOINTMENT_TYPE_CHOICES = (
+        ('CLINICAL_OPD', 'Clinical OPD Consultation'),
+        ('DIAGNOSTIC_LAB', 'Diagnostic Lab / Waterborne Culture Testing'),
+        ('OUTBREAK_TRIAGE', 'Outbreak Screening & Triage'),
+        ('POST_TREATMENT_FOLLOWUP', 'Post-Treatment Follow-up Checkup'),
+        ('SPECIALIST_REFERRAL', 'District Hospital Specialist Referral'),
+    )
+
+    PRIORITY_CHOICES = (
+        ('ROUTINE', 'Routine Consultation'),
+        ('URGENT', 'Urgent / Priority Slot'),
+        ('CRITICAL', 'Emergency Clinical Intervention'),
+    )
+
+    STATUS_CHOICES = (
+        ('SCHEDULED', 'Scheduled / Confirmed'),
+        ('COMPLETED', 'Completed / Attended'),
+        ('CANCELLED', 'Cancelled'),
+        ('RESCHEDULED', 'Rescheduled'),
+    )
+
+    community_report = models.ForeignKey(
+        'CommunityReport',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='appointments',
+        help_text="Approved citizen report that prompted this appointment"
+    )
+    health_record = models.ForeignKey(
+        'HealthRecord',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='appointments',
+        help_text="Associated clinical surveillance record"
+    )
+    village = models.ForeignKey(
+        Village,
+        on_delete=models.CASCADE,
+        related_name='appointments',
+        help_text="Village of the patient"
+    )
+    citizen = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scheduled_appointments',
+        help_text="Registered citizen user (if known)"
+    )
+
+    patient_name = models.CharField(max_length=150, help_text="Full patient name")
+    patient_phone = models.CharField(max_length=20, blank=True, null=True, help_text="Contact number for SMS/call")
+    patient_age = models.PositiveIntegerField(default=30, blank=True, null=True)
+
+    doctor_name = models.CharField(
+        max_length=150,
+        default="Dr. S.K. Gupta (PHC Medical Officer)",
+        help_text="Assigned consulting physician or specialist"
+    )
+    facility_name = models.CharField(
+        max_length=200,
+        default="Primary Health Centre (PHC)",
+        help_text="Hospital, PHC, or community clinic facility"
+    )
+
+    appointment_date = models.DateField(help_text="Scheduled consultation date")
+    time_slot = models.CharField(
+        max_length=50,
+        default="10:00 AM - 10:30 AM",
+        help_text="Time window for patient arrival"
+    )
+    appointment_type = models.CharField(
+        max_length=30,
+        choices=APPOINTMENT_TYPE_CHOICES,
+        default='CLINICAL_OPD'
+    )
+    priority = models.CharField(
+        max_length=15,
+        choices=PRIORITY_CHOICES,
+        default='URGENT'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='SCHEDULED'
+    )
+
+    appointed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='appointed_cases',
+        help_text="Health Authority who approved and scheduled the appointment"
+    )
+    instructions = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Pre-appointment directives (e.g. Bring past medical slip, fasting for blood culture)"
+    )
+    notes = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Clinical Appointment'
+        verbose_name_plural = 'Clinical Appointments'
+        ordering = ['appointment_date', 'time_slot']
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.patient_name} with {self.doctor_name} on {self.appointment_date} ({self.time_slot})"
+

@@ -141,11 +141,15 @@ export function CommunityChatbot() {
     setIsLoading(true);
 
     try {
-      const response = await authPost<any>('/api/chatbot/chat/', {
-        message: text.trim(),
-        conversation_id: conversationId,
-        language: i18n.language?.startsWith('hi') ? 'hi' : 'en',
-      });
+      const response = await authPost<any>(
+        '/api/chatbot/chat/',
+        {
+          message: text.trim(),
+          conversation_id: conversationId,
+          language: i18n.language?.startsWith('hi') ? 'hi' : 'en',
+        },
+        { timeoutMs: 45000 }
+      );
 
       if (response.conversation_id) {
         setConversationId(response.conversation_id);

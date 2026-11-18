@@ -25,10 +25,6 @@ import type {
   AgeGroup,
   EmergencyDispatch,
   DispatchStatus,
-  Appointment,
-  AppointmentStatus,
-  AppointmentType,
-  AppointmentPriority,
 } from '@/types';
 
 // ─── Data Normalizers ────────────────────────────────────────────────

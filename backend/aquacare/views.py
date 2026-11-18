@@ -1618,42 +1618,10 @@ def emergency_dispatches_list_create(request):
 
         dispatch = serializer.save(dispatched_by=request.user)
 
-        # Dispatch immediate email notice to local health workers & admin
+        # Dispatch immediate email notice to authorities, health workers & admin
         try:
-            from django.core.mail import send_mail
-            from django.conf import settings
-            assigned_workers = User.objects.filter(
-                role='HEALTH_WORKER',
-                assigned_villages=dispatch.village,
-                email__isnull=False
-            ).exclude(email='')
-            recipient_list = [w.email.strip() for w in assigned_workers if w.email]
-            if getattr(settings, 'EMAIL_HOST_USER', None):
-                recipient_list.append(settings.EMAIL_HOST_USER.strip())
-
-            if recipient_list:
-                subject = f"[EMERGENCY DISPATCH] {dispatch.get_dispatch_type_display()} -> {dispatch.village.name}"
-                body = (
-                    f"CRITICAL HEALTH INTERVENTION DEPLOYED\n"
-                    f"==================================================\n"
-                    f"Target Village: {dispatch.village.name} (District: {dispatch.village.district})\n"
-                    f"Dispatch Type:  {dispatch.get_dispatch_type_display()}\n"
-                    f"Priority:       {dispatch.get_priority_display()}\n"
-                    f"Vehicle / Unit: {dispatch.vehicle_number or 'Ambulance Unit'}\n"
-                    f"Team Lead:      {dispatch.team_lead_name} (Phone: {dispatch.team_lead_phone or 'N/A'})\n"
-                    f"Estimated ETA:  {dispatch.estimated_arrival_minutes} minutes\n"
-                    f"Dispatched By:  {request.user.get_full_name() or request.user.username} (Health Authority)\n"
-                    f"--------------------------------------------------\n"
-                    f"Reason / Directives:\n{dispatch.reason}\n\n"
-                    f"Please prepare field triage and coordinate with the incoming unit immediately."
-                )
-                send_mail(
-                    subject=subject,
-                    message=body,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@aquashield.ai'),
-                    recipient_list=list(set(recipient_list)),
-                    fail_silently=True
-                )
+            from .notifications import dispatch_emergency_email
+            dispatch_emergency_email(dispatch, triggered_by=request.user)
         except Exception as e:
             logger.warning(f"Failed to dispatch emergency deployment notification email: {e}")
 

@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Info,
   Download,
+  Stethoscope,
 } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
@@ -18,7 +19,7 @@ import { api } from '@/services/api';
 import { communityApi, type CommunityAlert } from '@/services/communityApi';
 import { useAuth } from '@/hooks/useAuth';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village, HealthRecord } from '@/types';
+import type { Village, HealthRecord, Appointment } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityHome() {
@@ -47,7 +48,9 @@ export function CommunityHome() {
       }
     }
   };
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const isHi = i18n?.language?.startsWith('hi');
 
   useEffect(() => {
     Promise.all([

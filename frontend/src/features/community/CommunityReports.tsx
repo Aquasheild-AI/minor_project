@@ -4,9 +4,11 @@ import { FileText, Plus, Calendar, Printer } from 'lucide-react';
 import { printSingleCommunityReport, printCommunityReportsList } from '@/utils/reportExport';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState, EmptyState } from '@/components/ui/States';
+import { api } from '@/services/api';
 import { communityApi, type CommunityReport } from '@/services/communityApi';
 import { formatDate } from '@/utils/risk';
 import { useTranslation } from 'react-i18next';
+import type { Appointment } from '@/types';
 
 const statusVariant: Record<string, 'low' | 'medium' | 'info'> = {
   submitted: 'info',
@@ -16,6 +18,7 @@ const statusVariant: Record<string, 'low' | 'medium' | 'info'> = {
 
 export function CommunityReports() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, i18n } = useTranslation();
   const isHi = i18n.language?.startsWith('hi');
@@ -27,8 +30,12 @@ export function CommunityReports() {
   };
 
   useEffect(() => {
-    communityApi.getReports().then((r) => {
+    Promise.all([
+      communityApi.getReports().catch(() => [] as CommunityReport[]),
+      api.getAppointments().catch(() => [] as Appointment[]),
+    ]).then(([r, appts]) => {
       setReports(r);
+      setAppointments(appts);
       setLoading(false);
     });
   }, []);
@@ -71,25 +78,48 @@ export function CommunityReports() {
         </div>
       ) : (
         <div className="space-y-3">
-          {reports.map((r) => (
-            <div key={r.id} className="card p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50">
-                    <FileText className="h-5 w-5 text-primary-600" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{r.villageName}</p>
-                      <Badge variant={statusVariant[r.status]}>{statusLabel[r.status] || r.status}</Badge>
+          {reports.map((r) => {
+            const linkedAppt = appointments.find(
+              (a) =>
+                String(a.community_report) === String(r.id) ||
+                (a.village_name === r.villageName && (r.reporterName && a.patient_name.toLowerCase().includes(r.reporterName.toLowerCase())))
+            );
+
+            return (
+              <div key={r.id} className="card p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50">
+                      <FileText className="h-5 w-5 text-primary-600" />
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {isHi ? 'लक्षण' : 'Symptoms'}: {r.symptoms.join(', ')}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {isHi ? 'प्रभावित लोग' : 'People affected'}: {r.peopleAffected}{r.ageGroup ? ` · ${isHi ? 'आयु' : 'Age'}: ${r.ageGroup}` : ''}
-                    </p>
-                    {r.notes && <p className="mt-1 text-xs text-slate-400">{r.notes}</p>}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{r.villageName}</p>
+                        <Badge variant={statusVariant[r.status]}>{statusLabel[r.status] || r.status}</Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {isHi ? 'लक्षण' : 'Symptoms'}: {r.symptoms.join(', ')}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {isHi ? 'प्रभावित लोग' : 'People affected'}: {r.peopleAffected}{r.ageGroup ? ` · ${isHi ? 'आयु' : 'Age'}: ${r.ageGroup}` : ''}
+                      </p>
+                      {r.notes && <p className="mt-1 text-xs text-slate-400">{r.notes}</p>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-1 text-xs text-slate-400">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(r.date)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => printSingleCommunityReport(r)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50/70 px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-primary-100 transition-colors shadow-2xs"
+                      title={isHi ? 'इस रिपोर्ट का पीडीएफ विवरण डाउनलोड करें' : 'Download official PDF dossier for this incident'}
+                    >
+                      <Printer className="h-3.5 w-3.5 text-primary-700" />
+                      <span>{isHi ? 'पीडीएफ डाउनलोड' : 'Download PDF'}</span>
+                    </button>
                   </div>
                 </div>
                 <div className="flex flex-col sm:items-end gap-2 shrink-0">
@@ -108,8 +138,8 @@ export function CommunityReports() {
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

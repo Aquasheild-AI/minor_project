@@ -67,4 +67,8 @@ urlpatterns = [
 
     # Real-time Notifications Feed
     path('notifications/', views.notifications_list, name='notifications-list'),
+
+    # Clinical Appointments (Authority booking for verified cases)
+    path('appointments/', views.appointments_list_create, name='appointments-list-create'),
+    path('appointments/<int:pk>/', views.appointment_detail_update, name='appointment-detail-update'),
 ]

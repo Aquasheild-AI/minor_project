@@ -290,3 +290,42 @@ export interface EmergencyDispatch {
   resolved_at?: string;
   notes?: string;
 }
+
+export type AppointmentType =
+  | 'CLINICAL_OPD'
+  | 'DIAGNOSTIC_LAB'
+  | 'OUTBREAK_TRIAGE'
+  | 'POST_TREATMENT_FOLLOWUP'
+  | 'SPECIALIST_REFERRAL';
+
+export type AppointmentPriority = 'ROUTINE' | 'URGENT' | 'CRITICAL';
+export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED';
+
+export interface Appointment {
+  id: number;
+  community_report?: number | null;
+  health_record?: number | null;
+  village: number;
+  village_name: string;
+  district?: string;
+  citizen?: number | null;
+  patient_name: string;
+  patient_phone?: string;
+  patient_age?: number;
+  doctor_name: string;
+  facility_name: string;
+  appointment_date: string;
+  time_slot: string;
+  appointment_type: AppointmentType;
+  appointment_type_display?: string;
+  priority: AppointmentPriority;
+  priority_display?: string;
+  status: AppointmentStatus;
+  status_display?: string;
+  appointed_by?: number;
+  appointed_by_name?: string;
+  instructions?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}

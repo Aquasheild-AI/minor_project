@@ -10,6 +10,7 @@ import {
   Map as MapIcon,
   Bell,
   ArrowRight,
+  Stethoscope,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -19,8 +20,9 @@ import { RiskBadge } from '@/components/ui/RiskBadge';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingState } from '@/components/ui/States';
 import { workerApi } from '@/services/workerApi';
+import { api } from '@/services/api';
 import { riskConfig, timeAgo, formatDate } from '@/utils/risk';
-import type { Village, Alert, HealthRecord, WaterQualityRecord, TrendPoint } from '@/types';
+import type { Village, Alert, HealthRecord, WaterQualityRecord, TrendPoint, Appointment } from '@/types';
 
 const waterStatusVariant: Record<string, 'low' | 'medium' | 'critical'> = {
   safe: 'low',
@@ -35,18 +37,20 @@ export function WorkerDashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [records, setRecords] = useState<HealthRecord[]>([]);
   const [waterSamples, setWaterSamples] = useState<WaterQualityRecord[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
 
   useEffect(() => {
     async function loadWorkerDashboard() {
       try {
-        const [v, a, hr, wq, s] = await Promise.all([
+        const [v, a, hr, wq, s, appts] = await Promise.all([
           workerApi.getAssignedVillages(),
           workerApi.getAlerts(),
           workerApi.getHealthRecords(),
           workerApi.getWaterQuality(),
           workerApi.getDashboardStats(),
+          api.getAppointments().catch(() => [] as Appointment[]),
         ]);
 
         setVillages(v);
@@ -54,6 +58,7 @@ export function WorkerDashboard() {
         setRecords(hr);
         setWaterSamples(wq);
         setStats(s);
+        setAppointments(appts || []);
 
         if (v.length > 0) {
           const trends = await workerApi.getTrends(v[0].id, 14);
@@ -154,6 +159,76 @@ export function WorkerDashboard() {
             </div>
           </Link>
         </div>
+      </div>
+
+      {/* Authority Appointed Doctor Consultations (Visible to Health Worker at all times) */}
+      <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50/60 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-white shadow-2xs">
+              <Stethoscope className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Authority Scheduled Clinical Consultations ({appointments.filter((a) => a.status === 'SCHEDULED').length} Active)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Official clinical appointments allocated by District Health Authority for village surveillance cases.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/worker/reports"
+            className="text-xs font-bold text-teal-700 hover:text-teal-800 hover:underline flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>Open Community Triage</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {appointments.filter((a) => a.status === 'SCHEDULED').length === 0 ? (
+          <div className="rounded-lg border border-dashed border-teal-200 p-4 text-center text-xs text-slate-500 bg-white">
+            No active doctor appointments currently pending in your assigned jurisdiction.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {appointments
+              .filter((a) => a.status === 'SCHEDULED')
+              .map((a) => (
+                <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs transition-shadow">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">{a.patient_name}</p>
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 text-slate-400" />
+                        {a.village_name} {a.district ? `(${a.district})` : ''}
+                      </p>
+                    </div>
+                    <span className="rounded bg-teal-100 text-teal-800 px-1.5 py-0.5 text-[10px] font-extrabold uppercase">
+                      {a.priority_display || a.priority}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs space-y-1">
+                    <div className="font-semibold text-teal-800 truncate">
+                      🩺 {a.doctor_name}
+                    </div>
+                    <div className="text-slate-600 text-[11px] truncate">
+                      🏥 {a.facility_name}
+                    </div>
+                    <div className="text-slate-400 text-[11px]">
+                      📅 {a.appointment_date} · {a.time_slot}
+                    </div>
+                    {a.instructions && (
+                      <div className="text-slate-600 bg-slate-50 p-1.5 rounded text-[11px] mt-1 border border-slate-100">
+                        <strong>Directives:</strong> {a.instructions}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Villages Requiring Attention */}

@@ -172,6 +172,46 @@ export function WorkerReportsPage() {
         </div>
       </div>
 
+      {/* Active Authority Scheduled Clinical Appointments */}
+      {appointments.filter((a) => a.status === 'SCHEDULED').length > 0 && (
+        <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50/80 p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-teal-600" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-teal-900">
+                Authority Scheduled Clinical Appointments ({appointments.filter((a) => a.status === 'SCHEDULED').length} Active)
+              </h4>
+            </div>
+            <span className="badge bg-teal-100 text-teal-800 border border-teal-200 font-semibold text-[10px]">
+              Assigned Jurisdictions
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {appointments
+              .filter((a) => a.status === 'SCHEDULED')
+              .map((a) => (
+                <div key={a.id} className="rounded-lg border border-teal-100 bg-white p-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900">{a.patient_name}</span>
+                    <span className="text-[10px] rounded bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5">
+                      {a.priority_display || a.priority}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    📍 {a.village_name} {a.district ? `(${a.district})` : ''}
+                  </div>
+                  <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] space-y-0.5">
+                    <div className="font-semibold text-teal-800 truncate">🩺 {a.doctor_name}</div>
+                    <div className="text-slate-500 truncate">🏥 {a.facility_name}</div>
+                    <div className="text-slate-400">📅 {a.appointment_date} ({a.time_slot})</div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       <div className="card mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="relative">

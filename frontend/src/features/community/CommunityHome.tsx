@@ -56,11 +56,13 @@ export function CommunityHome() {
     Promise.all([
       communityApi.getUserVillage(),
       communityApi.getAlerts(),
+      communityApi.getReports().catch(() => [] as any[]),
       api.getAppointments().catch(() => [] as Appointment[]),
     ])
-      .then(([v, al, appts]) => {
+      .then(([v, al, reports, appts]) => {
         setVillage(v);
         setAlerts(al);
+        setCommunityReports(reports || []);
         setAppointments(appts || []);
         setLoading(false);
       })
@@ -75,9 +77,23 @@ export function CommunityHome() {
   const villageAlert = alerts.find((a) => a.villageId === village.id && a.status === 'active') || alerts.find((a) => a.status === 'active') || alerts[0];
   const localizedRiskLevel = t(`common.riskLevels.${village.riskLevel}`, { defaultValue: cfg.label });
 
-  const activeVillageAppts = appointments.filter(
-    (a) => a.status === 'SCHEDULED' && (!village || String(a.village) === String(village.id) || a.village_name === village.name)
-  );
+  // STRICT REQUIREMENT: Only show appointment to citizen when THEY have reported a case
+  // and the authority has officially scheduled an appointment on that case.
+  const myReportedCaseIds = new Set((communityReports || []).map((r: any) => String(r.id)));
+  const myAppointedCases = appointments.filter((a) => {
+    if (a.status !== 'SCHEDULED') return false;
+    // 1. Linked directly to the citizen's reported case ID
+    if (a.community_report && myReportedCaseIds.has(String(a.community_report))) return true;
+    // 2. Linked directly to citizen user account
+    if (user?.id && a.citizen && String(a.citizen) === String(user.id)) return true;
+    // 3. Matched by patient/reporter name from the citizen's submitted reports
+    return (communityReports || []).some(
+      (r: any) =>
+        r.reporterName &&
+        a.patient_name &&
+        a.patient_name.toLowerCase().trim() === r.reporterName.toLowerCase().trim()
+    );
+  });
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -89,8 +105,8 @@ export function CommunityHome() {
         <p className="mt-1 text-sm text-slate-500">{t('community.homeSubtitle')}</p>
       </div>
 
-      {/* Confirmed Doctor Consultation Banner */}
-      {activeVillageAppts.length > 0 && (
+      {/* Confirmed Doctor Consultation Banner (Only for citizen's appointed cases) */}
+      {myAppointedCases.length > 0 && (
         <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50/90 p-4 shadow-xs">
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-teal-600 p-2 text-white shadow-xs shrink-0 mt-0.5">
@@ -99,17 +115,17 @@ export function CommunityHome() {
             <div className="flex-1 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-sm text-teal-950">
-                  {isHi ? 'चिकित्सक परामर्श अपॉइंटमेंट निर्धारित' : 'Official Doctor Consultation Scheduled'}
+                  {isHi ? 'आपके द्वारा दर्ज मामले पर चिकित्सक परामर्श निर्धारित' : 'Doctor Consultation Scheduled for Your Report'}
                 </span>
                 <span className="rounded bg-teal-200 px-2 py-0.5 font-bold text-teal-900 text-[10px]">
                   Clinical Appointment Active
                 </span>
               </div>
               <p className="text-teal-800 mt-0.5">
-                The District Health Authority has officially appointed a doctor for your area's health reports.
+                The District Health Authority has reviewed your reported case and scheduled an official doctor consultation.
               </p>
               <div className="mt-3 space-y-2">
-                {activeVillageAppts.slice(0, 2).map((a) => (
+                {myAppointedCases.map((a) => (
                   <div key={a.id} className="rounded-lg bg-white p-3 border border-teal-100 text-slate-700 shadow-2xs">
                     <div className="flex items-center justify-between font-bold text-slate-900">
                       <span>Patient: {a.patient_name}</span>

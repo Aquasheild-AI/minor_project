@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Search, CheckCircle2, Clock, AlertTriangle, Eye, Check, MapPin, Calendar, User, Phone } from 'lucide-react';
+import { FileText, Search, CheckCircle2, Clock, AlertTriangle, Eye, Check, MapPin, Calendar, User, Phone, Stethoscope } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Table, Pagination } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
@@ -7,6 +7,7 @@ import { LoadingState, EmptyState } from '@/components/ui/States';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/services/api';
 import { formatDate } from '@/utils/risk';
+import type { Appointment } from '@/types';
 
 interface CommunityReport {
   id: number;
@@ -36,6 +37,7 @@ const statusBadgeVariant: Record<string, 'info' | 'medium' | 'low'> = {
 
 export function WorkerReportsPage() {
   const [reports, setReports] = useState<CommunityReport[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -55,8 +57,12 @@ export function WorkerReportsPage() {
   const loadReports = async () => {
     setLoading(true);
     try {
-      const data = await api.getCommunityReports();
+      const [data, appts] = await Promise.all([
+        api.getCommunityReports(),
+        api.getAppointments().catch(() => [] as Appointment[]),
+      ]);
       setReports(data);
+      setAppointments(appts || []);
     } catch (err) {
       console.error('Failed to load community reports:', err);
     } finally {
@@ -251,23 +257,36 @@ export function WorkerReportsPage() {
                 {
                   key: 'status',
                   header: 'Status',
-                  render: (r: CommunityReport) => (
-                    <div>
-                      <Badge variant={statusBadgeVariant[r.status] || 'info'}>
-                        {r.status_display || r.status}
-                      </Badge>
-                      {r.status === 'VERIFIED' && (
-                        <p className="text-[10px] text-teal-700 font-semibold mt-1">
-                          🩺 Authority Appt Eligible
-                        </p>
-                      )}
-                      {r.health_record_id && (
-                        <p className="text-[10px] text-primary-700 font-semibold mt-0.5">
-                          ✓ Record #{r.health_record_id}
-                        </p>
-                      )}
-                    </div>
-                  ),
+                  render: (r: CommunityReport) => {
+                    const linkedAppt = appointments.find(
+                      (a) =>
+                        a.community_report === r.id ||
+                        (a.village === r.village && a.patient_name === r.reporter_name)
+                    );
+
+                    return (
+                      <div>
+                        <Badge variant={statusBadgeVariant[r.status] || 'info'}>
+                          {r.status_display || r.status}
+                        </Badge>
+                        {linkedAppt ? (
+                          <p className="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded font-bold mt-1 inline-flex items-center gap-1">
+                            <Stethoscope className="h-3 w-3 text-teal-600" />
+                            <span>{linkedAppt.doctor_name.split('(')[0]}</span>
+                          </p>
+                        ) : r.status === 'VERIFIED' ? (
+                          <p className="text-[10px] text-teal-700 font-semibold mt-1">
+                            🩺 Authority Appt Eligible
+                          </p>
+                        ) : null}
+                        {r.health_record_id && (
+                          <p className="text-[10px] text-primary-700 font-semibold mt-0.5">
+                            ✓ Record #{r.health_record_id}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  },
                 },
                 {
                   key: 'actions',
@@ -338,6 +357,45 @@ export function WorkerReportsPage() {
                 </div>
               )}
             </div>
+
+            {/* Scheduled Appointment Slip (if already appointed by authority) */}
+            {(() => {
+              const appt = appointments.find(
+                (a) =>
+                  a.community_report === selectedReport.id ||
+                  (a.village === selectedReport.village && a.patient_name === selectedReport.reporter_name)
+              );
+              if (!appt) return null;
+              return (
+                <div className="rounded-xl border border-teal-200 bg-teal-50/80 p-3.5 text-xs">
+                  <div className="flex items-center justify-between font-bold text-teal-900">
+                    <span className="flex items-center gap-1.5">
+                      <Stethoscope className="h-4 w-4 text-teal-600" />
+                      Authority Appointed Doctor Consultation
+                    </span>
+                    <span className="rounded bg-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-900">
+                      {appt.status_display || appt.status}
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-0.5 text-slate-700">
+                    <div>
+                      <strong>Doctor:</strong> {appt.doctor_name}
+                    </div>
+                    <div>
+                      <strong>Facility:</strong> {appt.facility_name}
+                    </div>
+                    <div>
+                      <strong>Date & Slot:</strong> {appt.appointment_date} ({appt.time_slot})
+                    </div>
+                    {appt.instructions && (
+                      <div className="mt-1.5 rounded bg-white/80 p-1.5 text-teal-900 border border-teal-100">
+                        <strong>Patient Directives:</strong> {appt.instructions}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div>
               <label className="label">Update Review Status</label>

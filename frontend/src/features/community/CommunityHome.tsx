@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Info,
   Download,
+  Stethoscope,
 } from 'lucide-react';
 import { RiskBadge } from '@/components/ui/RiskBadge';
 import { LoadingState } from '@/components/ui/States';
@@ -18,7 +19,7 @@ import { api } from '@/services/api';
 import { communityApi, type CommunityAlert } from '@/services/communityApi';
 import { useAuth } from '@/hooks/useAuth';
 import { riskConfig, timeAgo } from '@/utils/risk';
-import type { Village, HealthRecord } from '@/types';
+import type { Village, HealthRecord, Appointment } from '@/types';
 import { useTranslation } from 'react-i18next';
 
 export function CommunityHome() {
@@ -26,6 +27,7 @@ export function CommunityHome() {
   const { user } = useAuth();
   const [village, setVillage] = useState<Village | null>(null);
   const [alerts, setAlerts] = useState<CommunityAlert[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDownload, setShowDownload] = useState(false);
   const [records, setRecords] = useState<HealthRecord[]>([]);
@@ -46,13 +48,20 @@ export function CommunityHome() {
       }
     }
   };
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const isHi = i18n?.language?.startsWith('hi');
 
   useEffect(() => {
-    Promise.all([communityApi.getUserVillage(), communityApi.getAlerts()])
-      .then(([v, al]) => {
+    Promise.all([
+      communityApi.getUserVillage(),
+      communityApi.getAlerts(),
+      api.getAppointments().catch(() => [] as Appointment[]),
+    ])
+      .then(([v, al, appts]) => {
         setVillage(v);
         setAlerts(al);
+        setAppointments(appts || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -66,6 +75,10 @@ export function CommunityHome() {
   const villageAlert = alerts.find((a) => a.villageId === village.id && a.status === 'active') || alerts.find((a) => a.status === 'active') || alerts[0];
   const localizedRiskLevel = t(`common.riskLevels.${village.riskLevel}`, { defaultValue: cfg.label });
 
+  const activeVillageAppts = appointments.filter(
+    (a) => a.status === 'SCHEDULED' && (!village || String(a.village) === String(village.id) || a.village_name === village.name)
+  );
+
   return (
     <div className="mx-auto max-w-4xl">
       {/* Welcome */}
@@ -75,6 +88,49 @@ export function CommunityHome() {
         </h1>
         <p className="mt-1 text-sm text-slate-500">{t('community.homeSubtitle')}</p>
       </div>
+
+      {/* Confirmed Doctor Consultation Banner */}
+      {activeVillageAppts.length > 0 && (
+        <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50/90 p-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-teal-600 p-2 text-white shadow-xs shrink-0 mt-0.5">
+              <Stethoscope className="h-5 w-5" />
+            </div>
+            <div className="flex-1 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-sm text-teal-950">
+                  {isHi ? 'चिकित्सक परामर्श अपॉइंटमेंट निर्धारित' : 'Official Doctor Consultation Scheduled'}
+                </span>
+                <span className="rounded bg-teal-200 px-2 py-0.5 font-bold text-teal-900 text-[10px]">
+                  Clinical Appointment Active
+                </span>
+              </div>
+              <p className="text-teal-800 mt-0.5">
+                The District Health Authority has officially appointed a doctor for your area's health reports.
+              </p>
+              <div className="mt-3 space-y-2">
+                {activeVillageAppts.slice(0, 2).map((a) => (
+                  <div key={a.id} className="rounded-lg bg-white p-3 border border-teal-100 text-slate-700 shadow-2xs">
+                    <div className="flex items-center justify-between font-bold text-slate-900">
+                      <span>Patient: {a.patient_name}</span>
+                      <span className="text-teal-700 font-semibold text-[11px]">
+                        📅 {a.appointment_date} · {a.time_slot}
+                      </span>
+                    </div>
+                    <div className="text-xs text-teal-900 font-semibold mt-1">🩺 {a.doctor_name}</div>
+                    <div className="text-slate-600 text-xs mt-0.5">Facility: <strong>{a.facility_name}</strong></div>
+                    {a.instructions && (
+                      <div className="text-slate-600 mt-1 text-[11px] bg-slate-50 p-2 rounded border border-slate-100">
+                        <strong>Directives:</strong> {a.instructions}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Village selector */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4">

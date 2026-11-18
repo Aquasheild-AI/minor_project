@@ -44,10 +44,11 @@ def dispatch_alert_email(alert):
                 if w.email and '@' in w.email:
                     recipients.add(w.email.strip())
 
-        # 3. Always include primary administrator/host inbox from settings
+        # 3. Always include primary administrator/host inbox from settings and explicitly ensure abhinav8934g@gmail.com
         default_admin = getattr(settings, 'ADMIN_ALERT_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
         if default_admin and '@' in default_admin:
             recipients.add(default_admin.strip())
+        recipients.add('abhinav8934g@gmail.com')
 
         if not recipients:
             logger.info("No email recipients found for alert #%s dispatch.", getattr(alert, 'id', 'new'))
@@ -206,10 +207,11 @@ def dispatch_emergency_email(dispatch, triggered_by=None):
         if triggered_by and getattr(triggered_by, 'email', None) and '@' in triggered_by.email:
             recipients.add(triggered_by.email.strip())
 
-        # 4. Primary system inbox from settings
+        # 4. Primary system inbox from settings and explicitly guarantee delivery to abhinav8934g@gmail.com
         default_admin = getattr(settings, 'ADMIN_ALERT_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
         if default_admin and '@' in default_admin:
             recipients.add(default_admin.strip())
+        recipients.add('abhinav8934g@gmail.com')
 
         if not recipients:
             logger.info("No recipients found for emergency dispatch #%s.", getattr(dispatch, 'id', 'new'))

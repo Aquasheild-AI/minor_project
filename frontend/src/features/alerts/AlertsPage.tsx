@@ -277,6 +277,67 @@ export function AlertsPage() {
         </div>
       )}
 
+      {/* Scheduled Clinical Consultations Banner */}
+      {appointments.filter((a) => a.status === 'SCHEDULED').length > 0 && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-teal-600" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-teal-900">
+                Scheduled Clinical Doctor Consultations ({appointments.filter((a) => a.status === 'SCHEDULED').length} Active Appointments)
+              </h4>
+            </div>
+            <span className="badge bg-teal-100 text-teal-800 border border-teal-200 font-semibold text-[10px]">
+              Clinical Care Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {appointments
+              .filter((a) => a.status === 'SCHEDULED')
+              .map((a) => (
+                <div key={a.id} className="rounded-lg border border-teal-200 bg-white p-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="badge bg-teal-100 text-teal-800 font-bold text-[10px]">
+                      {a.priority_display || a.priority}
+                    </span>
+                    <span className="text-[11px] font-semibold text-teal-700">
+                      {a.status_display || a.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-bold text-slate-900 truncate">
+                    Patient: {a.patient_name}
+                  </p>
+                  <p className="text-xs text-slate-600 truncate">
+                    Village: <span className="font-semibold">{a.village_name}</span> {a.district ? `(${a.district})` : ''}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                    <div className="font-semibold text-teal-800 truncate">🩺 {a.doctor_name}</div>
+                    <div className="text-slate-500 truncate">🏥 {a.facility_name}</div>
+                    <div className="text-slate-400 font-mono">📅 {a.appointment_date} · {a.time_slot}</div>
+                  </div>
+                  <div className="mt-2 pt-1.5 border-t border-dashed border-slate-100 flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const updated = await api.updateAppointmentStatus(a.id, 'COMPLETED');
+                          setAppointments((prev) => prev.map((item) => (item.id === a.id ? updated : item)));
+                          showToast(`Consultation for ${a.patient_name} marked as Completed!`);
+                        } catch (e: any) {
+                          alert(e.message || 'Failed to update appointment');
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-[11px] border border-emerald-200 transition-colors"
+                    >
+                      Mark Completed
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200">
         {tabs.map((tab) => (
